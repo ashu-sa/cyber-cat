@@ -28,6 +28,7 @@ class WidgetTests(unittest.TestCase):
         self.c.hide_pet(); self.c.command('S'); self.assertEqual(self.c.store.phase,'paused')
         self.c.command('R'); self.c.command('S'); self.assertEqual(self.c.store.phase,'running')
         self.assertEqual((self.c.pet.width(),self.c.pet.height()),(150,100))
+        self.assertFalse(self.c.pet.play.icon().isNull()); self.assertEqual(self.c.pet.play.text(),'')
     def test_save_shows_history_and_close_preserves(self):
         self.c.store.start(); self.c.store.finish()
         with patch.object(QDialog,'exec',return_value=QDialog.DialogCode.Rejected):

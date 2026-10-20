@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from functools import partial
-from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSettings
+from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSize, QSettings
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPalette, QPen, QPixmap, QPolygonF, QShortcut, QKeySequence
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QDialog, QComboBox, QDialogButtonBox, QSlider, QCheckBox, QScrollArea, QCalendarWidget,
@@ -42,8 +42,29 @@ def apply_theme(app):
     app.setPalette(palette); app.setStyleSheet(STYLE)
 
 
+def action_icon(symbol):
+    pix = QPixmap(24,24); pix.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pix); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor('#30c3e8'),2.5,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))
+    if symbol == '▶':
+        painter.setBrush(QColor('#30c3e8')); painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPolygon(QPolygonF([QPointF(7,4),QPointF(20,12),QPointF(7,20)]))
+    elif symbol == 'Ⅱ':
+        painter.setBrush(QColor('#30c3e8')); painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(QRectF(6,4,4,16),1,1);painter.drawRoundedRect(QRectF(15,4,4,16),1,1)
+    elif symbol == '✓':
+        painter.drawLine(4,12,10,18);painter.drawLine(10,18,21,5)
+    elif symbol == '↓':
+        painter.drawLine(12,3,12,16);painter.drawLine(7,11,12,16);painter.drawLine(12,16,17,11);painter.drawLine(5,21,19,21)
+    else:
+        painter.drawLine(5,18,18,5);painter.drawLine(4,20,8,19);painter.drawLine(16,4,20,8)
+    painter.end();return QIcon(pix)
+
+
 def button(text, callback, tooltip=''):
     b = QPushButton(text)
+    if text in ('▶','Ⅱ','✓','↓','✎'):
+        b.setText('');b.setIcon(action_icon(text));b.setIconSize(QSize(14,14));b.setAccessibleName(tooltip or text)
     b.clicked.connect(callback)
     b.setToolTip(tooltip)
     return b
@@ -156,7 +177,7 @@ class Pet(QWidget):
         self.play = button('▶', controller.primary)
         self.finish = button('✓', controller.finish, 'Finish session · Ctrl+F')
         for b in (self.play, self.finish):
-            b.setFixedSize(26, 26)
+            b.setFixedSize(26, 26); b.setIconSize(QSize(10,10))
             b.setStyleSheet('QPushButton { color:#30c3e8; background:#101820; border:1px solid #287185; border-radius:4px; padding:0; font-size:10px; } QPushButton:disabled { color:#56616b; border-color:#36414a; }')
         row.addWidget(self.play); row.addWidget(self.finish)
         layout.addLayout(row)
@@ -168,7 +189,8 @@ class Pet(QWidget):
     def sync(self):
         phase = self.c.store.phase
         self.timer.setText(clock_text(self.c.store.elapsed))
-        self.play.setText('Ⅱ' if phase == 'running' else '↓' if phase == 'finished' else '▶')
+        self.play.setText('')
+        self.play.setIcon(action_icon('Ⅱ' if phase == 'running' else '↓' if phase == 'finished' else '▶'))
         self.play.setToolTip({'running':'Pause · Ctrl+P', 'paused':'Resume · Ctrl+S', 'finished':'Name and save session', 'idle':'Start · Ctrl+S'}[phase])
         self.play.setAccessibleName(self.play.toolTip())
         self.finish.setEnabled(phase in ('running', 'paused'))
