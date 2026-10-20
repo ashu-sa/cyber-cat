@@ -1,0 +1,73 @@
+package com.cybercat.stopwatch
+
+import android.content.Context
+import android.os.SystemClock
+import android.provider.Settings
+import android.util.AtomicFile
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.util.UUID
+
+@android.annotation.SuppressLint("StaticFieldLeak") // Only the process-lifetime application context is retained.
+object Repository {
+    lateinit var context: Context
+    val engine = TimerEngine { SystemClock.elapsedRealtime() }
+    var started = 0L; var ended = 0L
+    var sessions = mutableListOf<JSONObject>()
+    var error: String? = null
+    private var initialized = false
+    private var sessionId = UUID.randomUUID().toString()
+    val prefs get() = context.getSharedPreferences("cybercat", Context.MODE_PRIVATE)
+    private val file get() = AtomicFile(File(context.filesDir, "sessions.json"))
+    private fun boot() = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
+    fun init(c: Context) {
+        if (initialized) return
+        context = c.applicationContext; initialized = true
+        try {
+            if (file.baseFile.exists() || File(context.filesDir, "sessions.json.bak").exists()) {
+                val array = JSONArray(file.openRead().bufferedReader().use { it.readText() })
+                sessions = (0 until array.length()).map { array.getJSONObject(it) }.toMutableList()
+            }
+            engine.phase = prefs.getString("phase", "idle")!!
+            engine.accumulated = prefs.getLong("elapsed", 0)
+            started = prefs.getLong("started", 0); ended = prefs.getLong("ended", 0)
+            sessionId = prefs.getString("sessionId", null) ?: UUID.randomUUID().toString()
+            if (engine.phase == "running") {
+                val sameBoot = boot() >= 0 && prefs.getInt("boot", -2) == boot()
+                val passed = if (sameBoot) SystemClock.elapsedRealtime() - prefs.getLong("checkpointMono", SystemClock.elapsedRealtime())
+                    else System.currentTimeMillis() - prefs.getLong("checkpointWall", System.currentTimeMillis())
+                engine.accumulated += passed.coerceAtLeast(0); engine.anchor = SystemClock.elapsedRealtime()
+            }
+        } catch (e: Exception) { error = "Could not read saved data: ${e.localizedMessage}" }
+    }
+    fun checkpoint() {
+        check(prefs.edit().putString("phase", engine.phase).putLong("elapsed", engine.elapsed())
+            .putLong("started", started).putLong("ended", ended).putString("sessionId", sessionId)
+            .putInt("boot", boot()).putLong("checkpointMono", SystemClock.elapsedRealtime())
+            .putLong("checkpointWall", System.currentTimeMillis()).commit()) { "Unable to preserve timer state" }
+    }
+    fun start() { if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; engine.start(); checkpoint() }
+    fun pause() { engine.pause(); checkpoint() }
+    fun finish() { if (engine.phase == "running" || engine.phase == "paused") ended = System.currentTimeMillis(); engine.finish(); checkpoint() }
+    fun replace(records: List<JSONObject>) {
+        check(error == null) { error ?: "Storage unavailable" }
+        val stream = file.startWrite()
+        try { stream.write(JSONArray(records).toString(2).toByteArray()); file.finishWrite(stream); sessions = records.toMutableList() }
+        catch (e: Exception) { file.failWrite(stream); throw e }
+    }
+    fun save(name: String) {
+        if (engine.phase != "finished") return
+        val item = JSONObject().put("id", sessionId).put("name", name.trim().ifEmpty { "Focus session" })
+            .put("start", started).put("end", ended).put("duration", engine.accumulated)
+        replace(listOf(item) + sessions.filter { it.getString("id") != sessionId })
+        engine.reset(); checkpoint()
+    }
+    fun discard() { engine.reset(); checkpoint() }
+    fun rename(id: String, name: String) {
+        require(name.isNotBlank()) { "Enter a task name" }
+        replace(sessions.map { JSONObject(it.toString()).apply { if (getString("id") == id) put("name", name.trim()) } })
+    }
+    fun delete(id: String): JSONObject { val record = sessions.first { it.getString("id") == id }; replace(sessions.filter { it.getString("id") != id }); return record }
+    fun restore(record: JSONObject) { if (sessions.none { it.getString("id") == record.getString("id") }) replace((sessions + record).sortedByDescending { it.getLong("start") }) }
+}

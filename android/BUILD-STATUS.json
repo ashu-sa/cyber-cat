@@ -1,0 +1,14 @@
+{
+  "apk": "CyberCat-Android-debug.apk",
+  "language": "Kotlin",
+  "minimum_android": "8.0 (API 26)",
+  "target_sdk": 35,
+  "debug_apk_built": true,
+  "unit_tests_passed": 3,
+  "lint_errors": 0,
+  "emulator": "Android 15 / Pixel 8 Pro API 35",
+  "instrumentation_passed": true,
+  "overlay_permission_granted_tested": true,
+  "notification_fallback_permission_denied_tested": true,
+  "physical_phone_tested": false
+}

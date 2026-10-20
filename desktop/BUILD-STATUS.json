@@ -1,0 +1,9 @@
+{
+  "implementation": "Python + Qt Widgets (PySide6 Essentials)",
+  "source_ready": true,
+  "automated_tests_passed": 13,
+  "test_host": "macOS Apple Silicon",
+  "windows_binary_built": false,
+  "linux_binary_built": false,
+  "target_os_runtime_tested": false
+}

@@ -1,0 +1,113 @@
+name: Build and package all platforms
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-24.04
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - run: python -m pip install -r requirements-build.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python render_screenshots.py --platform ${{ matrix.platform }} --output ../docs/screenshots
+      - if: runner.os == 'Windows'
+        shell: cmd
+        run: build-windows.cmd
+      - if: runner.os == 'Linux'
+        run: ./build-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            desktop/dist/CyberCat-Windows.zip
+            desktop/dist/CyberCat-Linux.tar.gz
+            docs/screenshots/${{ matrix.platform }}-*.png
+          if-no-files-found: error
+  android:
+    name: Android APK
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+      - run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+      - run: |
+          mkdir -p ../release
+          cp app/build/outputs/apk/debug/app-debug.apk ../release/CyberCat-Android-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: release/CyberCat-Android-debug.apk
+  macos:
+    name: macOS universal app
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: ./test.sh
+      - run: CYBERCAT_UNIVERSAL=1 ./build.sh
+      - run: |
+          swiftc -parse-as-library Sources/MochiStopwatch/Model.swift Sources/MochiStopwatch/Views.swift Tools/RenderScreenshots.swift -o /tmp/cybercat-screenshots
+          /tmp/cybercat-screenshots ../docs/screenshots
+          mkdir -p ../release
+          ditto -c -k --sequesterRsrc --keepParent '../Cyber Cat.app' ../release/CyberCat-macOS-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            release/CyberCat-macOS-universal.zip
+            docs/screenshots/macos-*.png
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [desktop, android, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.apk' \) -exec cp {} release/ \;
+          sha256sum release/* > release/SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" release/* --title "Cyber Cat $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md

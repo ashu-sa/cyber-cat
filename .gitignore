@@ -1,0 +1,16 @@
+.DS_Store
+**/.build/
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/build/
+**/dist/
+**/.venv/
+**/__pycache__/
+*.pyc
+**/local.properties
+*.app/
+release/
+artifacts/
+*.jks
+*.keystore
