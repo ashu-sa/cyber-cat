@@ -8,3 +8,5 @@ This source uses Qt for Python / PySide6 Essentials and Shiboken, available unde
 - PyInstaller license: https://pyinstaller.org/en/stable/license.html
 
 The build scripts use a directory bundle so Qt shared libraries remain separate. Retain Qt's supplied license resources and this notice when redistributing. Review the licenses of the exact runtime components included in a distributable.
+
+Bundled Noto Sans and Noto Sans Mono fonts are distributed under the SIL Open Font License 1.1. Full notices are included in `cybercat/assets/OFL-NotoSans.txt` and `OFL-NotoSansMono.txt`. Upstream: https://github.com/google/fonts/tree/main/ofl/notosans and https://github.com/google/fonts/tree/main/ofl/notosansmono.

@@ -4,7 +4,7 @@ if not exist .venv\Scripts\python.exe py -3 -m venv .venv
 if errorlevel 1 exit /b 1
 .venv\Scripts\python.exe -m pip install -r requirements-build.txt
 if errorlevel 1 exit /b 1
-.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --windowed --onedir --name CyberCat --collect-submodules cybercat --copy-metadata PySide6_Essentials --copy-metadata shiboken6 run.py
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --windowed --onedir --name CyberCat --collect-submodules cybercat --add-data "cybercat/assets:cybercat/assets" --copy-metadata PySide6_Essentials --copy-metadata shiboken6 run.py
 if errorlevel 1 exit /b 1
 copy README.md dist\CyberCat\README.md >nul
 copy LICENSE dist\CyberCat\LICENSE >nul

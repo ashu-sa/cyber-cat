@@ -46,6 +46,19 @@ jobs:
         run: build-windows.cmd
       - if: runner.os == 'Linux'
         run: ./build-linux.sh
+      - name: Smoke test packaged Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CYBERCAT_DATA_DIRECTORY: ${{ runner.temp }}/cybercat-frozen-smoke
+        run: |
+          $process = Start-Process -FilePath (Resolve-Path 'dist/CyberCat/CyberCat.exe') -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Packaged application failed: $($process.ExitCode)" }
+      - name: Smoke test packaged Linux app
+        if: runner.os == 'Linux'
+        env:
+          CYBERCAT_DATA_DIRECTORY: ${{ runner.temp }}/cybercat-frozen-smoke
+        run: ./dist/CyberCat/CyberCat --smoke-test
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
@@ -122,4 +135,8 @@ jobs:
           mkdir -p release
           find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.apk' \) -exec cp {} release/ \;
           sha256sum release/* > release/SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" release/* --title "Cyber Cat $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release/* --title "Cyber Cat $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+          fi

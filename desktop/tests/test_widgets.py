@@ -5,14 +5,14 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch
 from PySide6.QtWidgets import QApplication, QDialog
-from cybercat.app import Controller, STYLE
+from cybercat.app import Controller, STYLE, apply_theme
 from cybercat.model import Store
 
 class WidgetTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app=QApplication.instance() or QApplication([])
-        cls.app.setQuitOnLastWindowClosed(False); cls.app.setStyleSheet(STYLE)
+        cls.app.setQuitOnLastWindowClosed(False); apply_theme(cls.app)
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.c=Controller(self.app,Store(self.temp.name))

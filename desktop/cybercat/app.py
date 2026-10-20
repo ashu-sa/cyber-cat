@@ -3,6 +3,7 @@ import math
 import os
 import sys
 import time
+from pathlib import Path
 from datetime import date, datetime, timedelta
 from functools import partial
 from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSettings
@@ -30,6 +31,11 @@ QScrollArea { border:0; } QCalendarWidget QAbstractItemView { selection-backgrou
 
 def apply_theme(app):
     app.setStyle('Fusion')
+    assets = Path(__file__).resolve().parent / 'assets'
+    for filename in ('NotoSans.ttf', 'NotoSansMono.ttf'):
+        if QFontDatabase.addApplicationFont(str(assets / filename)) < 0:
+            raise RuntimeError('Missing bundled font: ' + filename)
+    app.setFont(QFont('Noto Sans', 10))
     palette = QPalette()
     for role, color in [('Window','#141820'),('WindowText','#e6edf5'),('Base','#1e2430'),('AlternateBase','#232b36'),('Text','#e6edf5'),('Button','#273140'),('ButtonText','#e6edf5'),('Highlight','#215b6b'),('HighlightedText','#ffffff'),('ToolTipBase','#273140'),('ToolTipText','#e6edf5')]:
         palette.setColor(getattr(QPalette.ColorRole, role), QColor(color))
@@ -141,7 +147,7 @@ class Pet(QWidget):
         self.cat = Cat(controller)
         layout.addWidget(self.cat, alignment=Qt.AlignmentFlag.AlignCenter)
         self.timer = label('00:00:00')
-        timer_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        timer_font = QFont('Noto Sans Mono', 13)
         timer_font.setPointSize(13); timer_font.setWeight(QFont.Weight.DemiBold)
         self.timer.setFont(timer_font)
         self.timer.setStyleSheet('color:#30c3e8; background:#10151d; border-radius:10px; padding:2px 8px;')
