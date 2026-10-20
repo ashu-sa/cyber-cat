@@ -1,0 +1,57 @@
+name: Publish verified release
+on:
+  workflow_dispatch:
+    inputs:
+      desktop_run:
+        description: Successful desktop build run ID
+        required: true
+      macos_run:
+        description: Successful macOS build run ID
+        required: true
+      tag:
+        description: Existing draft release tag (with signed Android APK uploaded)
+        default: v1.0.0
+        required: true
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect verified artifacts and screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DESKTOP_RUN: ${{ inputs.desktop_run }}
+          MACOS_RUN: ${{ inputs.macos_run }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$DESKTOP_RUN" =~ ^[0-9]+$ && "$MACOS_RUN" =~ ^[0-9]+$ && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DESKTOP_RUN/jobs" --jq '.jobs[] | select(.name | startswith("Desktop (")) | .conclusion' | tee /tmp/desktop-status
+          test "$(grep -c '^success$' /tmp/desktop-status)" -eq 2
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MACOS_RUN/jobs" --jq '.jobs[] | select(.name == "macOS universal app") | .conclusion' | grep -qx success
+          gh run download "$DESKTOP_RUN" --name release-windows --dir artifacts/windows
+          gh run download "$DESKTOP_RUN" --name release-linux --dir artifacts/linux
+          gh run download "$MACOS_RUN" --name release-macos --dir artifacts/macos
+          mkdir -p release docs/screenshots
+          find artifacts -type f -name '*.png' -exec cp {} docs/screenshots/ \;
+          find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} release/ \;
+          gh release download "$RELEASE_TAG" --pattern 'CyberCat-Android-debug.apk' --dir release
+          test -s release/CyberCat-Android-debug.apk
+          test -s release/CyberCat-Windows.zip
+          test -s release/CyberCat-Linux.tar.gz
+          test -s release/CyberCat-macOS-universal.zip
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/screenshots
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add verified Windows, Linux and macOS release screenshots'
+            git push origin HEAD:main
+          fi
+          sha256sum release/*.apk release/*.zip release/*.tar.gz > release/SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" release/* --clobber
+          gh release edit "$RELEASE_TAG" --target "$(git rev-parse HEAD)" --draft=false --latest --notes-file RELEASE_NOTES.md

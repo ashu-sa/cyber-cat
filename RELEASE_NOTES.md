@@ -8,7 +8,7 @@ A tiny animated cyber-cat stopwatch for Android, macOS, Windows, and Ubuntu/GNOM
 
 ## Downloads
 
-- **Android:** install `CyberCat-Android-debug.apk` (Android 8+). This is a debug-signed sideload build.
+- **Android:** install `CyberCat-Android-debug.apk` (Android 8+). This is a debug-signed sideload build, retaining the same signing identity as the APK originally shared for personal testing.
 - **macOS:** extract `CyberCat-macOS-universal.zip` (macOS 14+, Apple Silicon and Intel). The app is locally signed, not Developer ID notarized.
 - **Windows:** extract `CyberCat-Windows.zip` and run `CyberCat/CyberCat.exe`. Keep the entire folder together.
 - **Ubuntu/Linux:** extract `CyberCat-Linux.tar.gz` and run `CyberCat/CyberCat`. Ubuntu 24.04+ x86-64 is the build target. GNOME global shortcuts require one-click setup in pet controls.

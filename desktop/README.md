@@ -55,7 +55,7 @@ On Ubuntu, run **./build-linux.sh** → `dist/CyberCat-Linux.tar.gz`.
 
 These scripts create a PyInstaller application folder bundling Python and Qt. End users of the built folder do not need Python. Keep the whole extracted folder together. Builds are **unsigned** portable app folders, not MSI/DEB installers. Build each package on its target OS; a macOS build is not a Windows or Linux executable.
 
-The repository workflow `.github/workflows/build.yml` builds packages on Windows and Ubuntu runners. Run “Build and package all platforms” manually, or push a `v*` tag to publish a release. Download prebuilt packages from the repository’s Releases page.
+The repository workflow `.github/workflows/build.yml` builds packages on Windows and Ubuntu runners. Run “Build and package all platforms” manually to create build artifacts. Verified artifacts are published separately to Releases. Download prebuilt packages from the repository’s Releases page.
 
 ## Data and macOS migration
 

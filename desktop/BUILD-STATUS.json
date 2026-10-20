@@ -1,9 +1,17 @@
 {
-  "implementation": "Python + Qt Widgets (PySide6 Essentials)",
-  "source_ready": true,
-  "automated_tests_passed": 13,
-  "test_host": "macOS Apple Silicon",
-  "windows_binary_built": false,
-  "linux_binary_built": false,
-  "target_os_runtime_tested": false
+  "implementation": "Python + native Qt Widgets (PySide6 Essentials)",
+  "automated_tests_passed_per_platform": 13,
+  "test_hosts": [
+    "macOS Apple Silicon",
+    "GitHub Windows runner",
+    "GitHub Ubuntu 24.04 runner"
+  ],
+  "windows_binary_built": true,
+  "linux_binary_built": true,
+  "frozen_package_launch_tested": [
+    "Windows",
+    "Linux"
+  ],
+  "interactive_desktop_tested": false,
+  "workflow_run": "https://github.com/ashu-sa/cyber-cat/actions/runs/39411625435"
 }

@@ -8,10 +8,10 @@ A tiny animated cyber-cat that keeps track of your focus time. Native SwiftUI on
 
 | Platform | Package | Requirements |
 |---|---|---|
-| Android | `CyberCat-Android-debug.apk` | Android 8+; allow notifications. Floating permission is optional. |
-| macOS | `CyberCat-macOS-universal.zip` | macOS 14+, Intel or Apple Silicon |
-| Windows | `CyberCat-Windows.zip` | 64-bit Windows; extract the entire folder and run `CyberCat.exe` |
-| Ubuntu / Linux | `CyberCat-Linux.tar.gz` | Ubuntu 24.04+ x86-64 / compatible Qt runtime libraries |
+| Android | [CyberCat-Android-debug.apk](https://github.com/ashu-sa/cyber-cat/releases/latest/download/CyberCat-Android-debug.apk) | Android 8+; allow notifications. Floating permission is optional. |
+| macOS | [CyberCat-macOS-universal.zip](https://github.com/ashu-sa/cyber-cat/releases/latest/download/CyberCat-macOS-universal.zip) | macOS 14+, Intel or Apple Silicon |
+| Windows | [CyberCat-Windows.zip](https://github.com/ashu-sa/cyber-cat/releases/latest/download/CyberCat-Windows.zip) | 64-bit Windows; extract the entire folder and run `CyberCat.exe` |
+| Ubuntu / Linux | [CyberCat-Linux.tar.gz](https://github.com/ashu-sa/cyber-cat/releases/latest/download/CyberCat-Linux.tar.gz) | Ubuntu 24.04+ x86-64 / compatible Qt runtime libraries |
 
 Windows and Linux packages bundle their runtime. The APK is debug-signed; desktop builds are unsigned or locally signed, without store signing/notarization.
 
@@ -38,9 +38,17 @@ The images show the actual platform views rendered with isolated example session
 
 ![macOS focus journal](docs/screenshots/macos-journal.png)
 
-### Windows and Ubuntu/Linux
+### Windows
 
-Platform screenshots are generated on Windows and Ubuntu runners by the build workflow.
+<img src="docs/screenshots/windows-pet.png" alt="Windows floating cyber-cat stopwatch" width="180" />
+
+![Windows calendar journal](docs/screenshots/windows-journal.png)
+
+### Ubuntu / Linux
+
+<img src="docs/screenshots/linux-pet.png" alt="Linux floating cyber-cat stopwatch" width="180" />
+
+![Linux calendar journal](docs/screenshots/linux-journal.png)
 
 ## Controls
 
@@ -66,7 +74,7 @@ On Ubuntu/GNOME, open pet controls → **Enable GNOME Ctrl shortcuts** once. Thi
 
 [Android guide](android/README.md) · [Desktop guide](desktop/README.md) · [macOS guide](macos/README.md)
 
-The workflow builds each package on its target OS, runs automated checks, and uploads the artifacts. Pushing a `v*` tag publishes the packages to GitHub Releases. Manual workflow runs build artifacts without publishing a release.
+The workflow builds each package on its target OS, runs automated checks, and uploads the artifacts. Manual workflow runs create build artifacts; verified packages are published to GitHub Releases with SHA-256 checksums. The Android release uses the same local debug-signing identity as the original APK, rather than replacing it with a fresh CI debug key.
 
 ## Data and testing
 
