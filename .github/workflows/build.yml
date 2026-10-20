@@ -1,12 +1,19 @@
 name: Build and package all platforms
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Platform to build
+        type: choice
+        default: all
+        options: [all, android, desktop, macos]
   push:
     tags: ['v*']
 permissions:
   contents: read
 jobs:
   desktop:
+    if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'desktop'
     name: Desktop (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -48,6 +55,7 @@ jobs:
             docs/screenshots/${{ matrix.platform }}-*.png
           if-no-files-found: error
   android:
+    if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'android'
     name: Android APK
     runs-on: ubuntu-24.04
     defaults:
@@ -60,6 +68,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
       - run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
@@ -71,6 +82,7 @@ jobs:
           name: release-android
           path: release/CyberCat-Android-debug.apk
   macos:
+    if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'macos'
     name: macOS universal app
     runs-on: macos-15
     defaults:
