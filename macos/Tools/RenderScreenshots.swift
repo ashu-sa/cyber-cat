@@ -19,11 +19,19 @@ import AppKit
         }
         _ = model.replaceHistory(sessions)
         func render<V: View>(_ view: V, name: String, width: CGFloat, height: CGFloat) throws {
-            let renderer = ImageRenderer(content: view.frame(width: width, height: height))
-            renderer.scale = 2
-            guard let cg = renderer.cgImage else { throw NSError(domain: "Render", code: 1) }
-            let data = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])!
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height), styleMask: [.borderless], backing: .buffered, defer: false)
+            let host = NSHostingView(rootView: view.frame(width: width, height: height))
+            window.contentView = host
+            host.frame = NSRect(x: 0, y: 0, width: width, height: height)
+            host.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            host.layoutSubtreeIfNeeded()
+            guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw NSError(domain: "Render", code: 1) }
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            let data = bitmap.representation(using: .png, properties: [:])!
             try data.write(to: out.appendingPathComponent(name))
+            window.orderOut(nil)
         }
         try render(HistoryView(model: model), name: "macos-journal.png", width: 980, height: 800)
         try render(PetView(model: model, showOptions: { _ in }, primary: {}, finish: {}), name: "macos-pet.png", width: 150, height: 100)
