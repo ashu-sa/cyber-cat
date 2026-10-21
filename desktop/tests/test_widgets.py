@@ -5,6 +5,9 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch
 from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtCore import Qt,QEvent,QPointF
+from PySide6.QtGui import QMouseEvent,QImage,QPainter
+from cybercat.tree import paint_tree
 from cybercat.app import Controller, STYLE, apply_theme
 from cybercat.model import Store
 
@@ -37,6 +40,29 @@ class WidgetTests(unittest.TestCase):
         with patch.object(QDialog,'exec',return_value=QDialog.DialogCode.Accepted):
             self.assertTrue(self.c.finish())
         self.assertTrue(self.c.history.isVisible()); self.assertEqual(len(self.c.store.sessions),1)
+    def test_drag_timer_and_buttons_does_not_click(self):
+        self.c.pet.move(100,100)
+        for target in (self.c.pet.timer,self.c.pet.play,self.c.pet.finish):
+            origin=self.c.pet.pos()
+            def send(kind,point,held):
+                event=QMouseEvent(kind,QPointF(5,5),QPointF(point),Qt.MouseButton.LeftButton if kind!=QEvent.Type.MouseMove else Qt.MouseButton.NoButton,held,Qt.KeyboardModifier.NoModifier)
+                QApplication.sendEvent(target,event)
+            send(QEvent.Type.MouseButtonPress,origin,Qt.MouseButton.LeftButton)
+            send(QEvent.Type.MouseMove,origin+type(origin)(40,30),Qt.MouseButton.LeftButton)
+            send(QEvent.Type.MouseButtonRelease,origin+type(origin)(40,30),Qt.MouseButton.NoButton)
+            self.assertEqual(self.c.pet.pos(),origin+type(origin)(40,30))
+            self.assertEqual(self.c.store.phase,'idle')
+        self.c.pet.play.click(); self.assertEqual(self.c.store.phase,'running')
+    def test_paused_tree_dry_without_water(self):
+        def render(phase):
+            image=QImage(330,174,QImage.Format.Format_ARGB32);image.fill(Qt.GlobalColor.transparent)
+            painter=QPainter(image);painter.scale(3,3);paint_tree(painter,2701,phase);painter.end();return image
+        running=render('running'); paused=render('paused')
+        self.assertNotEqual(running,paused)
+        # The water falls to the right of the canopy; this strip must be empty on pause.
+        self.assertTrue(any(running.pixelColor(x,y).alpha()>0 for x in range(246,270) for y in range(10,90)))
+        self.assertTrue(all(paused.pixelColor(x,y).alpha()==0 for x in range(246,270) for y in range(10,90)))
+        self.assertEqual(render('running'),running)
     def test_calendar_and_popup_construct(self):
         self.c.show_history(); self.c.options(); self.app.processEvents()
         self.assertTrue(self.c.history.isVisible()); self.assertTrue(self.c.popup.isVisible())

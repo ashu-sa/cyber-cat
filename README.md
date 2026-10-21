@@ -20,8 +20,8 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 - **Accurate focus timing:** start, pause, resume, finish and recover an unfinished session. Uses monotonic elapsed time, not an incrementing counter; breaks are excluded.
 - **Background controls:** Android foreground service with a system chronometer and Pause/Resume/Finish actions. No overlay permission required.
-- **A growing companion:** native Canvas tree, slow water droplets, gentle sway, reduced-motion support, and next-tree progress. Motion freezes when paused.
-- **Optional floating tree:** drag above other apps, adjust opacity, hide/show, and use compact icon controls. Finishing stops time even when Android blocks opening the naming screen.
+- **A growing companion:** native Canvas tree, slow water droplets, gentle sway, reduced-motion support, and next-tree progress. Pausing gives the plant a dry, dormant appearance and stops water; resuming revives green foliage and watering.
+- **Optional floating tree:** drag from the tree, timer, controls or empty space above other apps, adjust opacity, hide/show, and use compact icon controls. Finishing stops time even when Android blocks opening the naming screen.
 - **Save without friction:** Job Apply, Upskill, Interview Prep, Work or a custom name. Close the popup and your typed name remains available. Save opens the journal.
 - **Useful history:** month calendar, Day/Week/Month summaries, daily trees, garden days, device totals, rename, delete confirmation and undo.
 - **Local data ownership:** atomic private JSON history and document-picker JSON export. Existing history is preserved on upgrade.

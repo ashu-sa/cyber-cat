@@ -106,6 +106,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: swift --version
       - run: ./test.sh
+      - run: |
+          swiftc -parse-as-library Sources/MochiStopwatch/Model.swift Sources/MochiStopwatch/Cloud.swift Sources/MochiStopwatch/AccountView.swift Sources/MochiStopwatch/Views.swift Tools/InteractionTests.swift -o /tmp/focanopy-interactions
+          /tmp/focanopy-interactions
       - run: CYBERCAT_UNIVERSAL=1 ./build.sh
       - run: |
           swiftc -parse-as-library Sources/MochiStopwatch/Model.swift Sources/MochiStopwatch/Cloud.swift Sources/MochiStopwatch/AccountView.swift Sources/MochiStopwatch/Views.swift Tools/RenderScreenshots.swift -o /tmp/cybercat-screenshots

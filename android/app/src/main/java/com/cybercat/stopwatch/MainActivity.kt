@@ -160,7 +160,7 @@ class MainActivity: Activity() {
         }
         cat=TreeView(this); root.addView(cat,LinearLayout.LayoutParams(-1,dp(150))); cat?.refresh()
         timer=text(clockText(Repository.engine.elapsed()),42f,cyan).apply { gravity=Gravity.CENTER; typeface=Typeface.create("monospace",Typeface.NORMAL) }; root.addView(timer)
-        root.addView(text(when(phase) { "running" -> "A little water. A little growth."; "paused" -> "Take a breath. Your progress is safe."; "finished" -> "Lovely work. Save your focus."; else -> "Your next tree starts here." },14f,Color.rgb(182,199,185)).apply { gravity=Gravity.CENTER })
+        root.addView(text(when(phase) { "running" -> "A little water. A little growth."; "paused" -> "Watering paused. Your tree is resting."; "finished" -> "Lovely work. Save your focus."; else -> "Your next tree starts here." },14f,Color.rgb(182,199,185)).apply { gravity=Gravity.CENTER })
         line { row ->
             row.gravity=Gravity.CENTER
             row.addView(button(if(phase=="running") "Ⅱ" else if(phase=="finished") "↓" else "▶",if(phase=="running") "Pause" else if(phase=="finished") "Save session" else "Start or resume") {
@@ -287,7 +287,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.3.0",12f,cyan))
+        root.addView(text("Focanopy · 1.3.1",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }

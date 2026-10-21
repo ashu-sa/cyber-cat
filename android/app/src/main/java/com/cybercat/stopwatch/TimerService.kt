@@ -89,16 +89,23 @@ class TimerService: Service() {
         val p = WindowManager.LayoutParams(dp(144),dp(126),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT)
         p.gravity=Gravity.TOP or Gravity.START; p.x=Repository.prefs.getInt("petX",20); p.y=Repository.prefs.getInt("petY",150)
         fun clamp() { val bounds = if (Build.VERSION.SDK_INT>=30) windows.currentWindowMetrics.bounds else android.graphics.Rect(0,0,resources.displayMetrics.widthPixels,resources.displayMetrics.heightPixels); p.x=p.x.coerceIn(0,(bounds.width()-p.width).coerceAtLeast(0)); p.y=p.y.coerceIn(0,(bounds.height()-p.height-dp(32)).coerceAtLeast(0)) }
-        if (Build.VERSION.SDK_INT >= 30) clamp()
+        clamp()
         var x=0f; var y=0f; var px=0; var py=0; var moved=false
-        cat!!.setOnClickListener { openApp("OPEN") }
-        cat!!.setOnTouchListener { view, e ->
-            when(e.action) {
-                MotionEvent.ACTION_DOWN -> { x=e.rawX; y=e.rawY; px=p.x; py=p.y; moved=false }
-                MotionEvent.ACTION_MOVE -> { if (kotlin.math.abs(e.rawX-x)+kotlin.math.abs(e.rawY-y)>8) moved=true; p.x=px+(e.rawX-x).toInt(); p.y=py+(e.rawY-y).toInt(); if(Build.VERSION.SDK_INT>=30) clamp(); try { windows.updateViewLayout(root,p) } catch (_:Exception) {} }
-                MotionEvent.ACTION_UP -> { Repository.prefs.edit().putInt("petX",p.x).putInt("petY",p.y).apply(); if(!moved) view.performClick() }
+        val slop=ViewConfiguration.get(this).scaledTouchSlop
+        cat!!.setOnClickListener { openApp("OPEN") }; timeLabel!!.setOnClickListener { openApp("OPEN") }
+        val drag=View.OnTouchListener { view,e ->
+            when(e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { x=e.rawX; y=e.rawY; px=p.x; py=p.y; moved=false; view.isPressed=true }
+                MotionEvent.ACTION_MOVE -> {
+                    if(kotlin.math.hypot((e.rawX-x).toDouble(),(e.rawY-y).toDouble())>slop) moved=true
+                    if(moved) { view.isPressed=false; p.x=px+(e.rawX-x).toInt(); p.y=py+(e.rawY-y).toInt(); clamp(); try { windows.updateViewLayout(root,p) } catch (_:Exception) {} }
+                }
+                MotionEvent.ACTION_UP -> { view.isPressed=false; if(moved) Repository.prefs.edit().putInt("petX",p.x).putInt("petY",p.y).apply() else view.performClick() }
+                MotionEvent.ACTION_CANCEL -> { view.isPressed=false; if(moved) Repository.prefs.edit().putInt("petX",p.x).putInt("petY",p.y).apply() }
             }; true
         }
+        fun attach(view:View) { view.setOnTouchListener(drag); if(view is android.view.ViewGroup) for(i in 0 until view.childCount) attach(view.getChildAt(i)) }
+        attach(root)
         pet=root; params=p
         try { windows.addView(root,p) } catch(e:Exception) { pet=null; Toast.makeText(this,"Floating tree unavailable; use notification controls.",Toast.LENGTH_LONG).show() }
     }

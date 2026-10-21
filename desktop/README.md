@@ -87,4 +87,6 @@ Open Account / Sync from the pet controls, tray or journal. Username + four-digi
 
 ## Focus forest
 
-A young plant grows at 30 minutes, with one completed tree for each full focus hour. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing freezes water and sway; disable animation for a still companion.
+A young plant grows at 30 minutes, with one completed tree for each full focus hour. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing stops water and turns the current plant dry and dormant; resuming restores green foliage and watering. Disable animation for a still companion.
+
+Floating controls support dragging from the tree, timer, button surfaces and empty space. Movement beyond the drag threshold suppresses the click action; a regular click/tap still controls the stopwatch. Pausing never removes earned trees or saved focus time.

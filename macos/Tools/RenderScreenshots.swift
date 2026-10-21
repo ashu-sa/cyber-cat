@@ -35,6 +35,8 @@ import AppKit
         }
         try render(HistoryView(model: model), name: "macos-journal.png", width: 980, height: 800)
         try render(PetView(model: model, showOptions: { _ in }, primary: {}, finish: {}), name: "macos-pet.png", width: 150, height: 100)
+        try render(GrowingTree(phase:.paused,elapsed:{2701}).scaleEffect(2.5),name:"macos-tree-paused.png",width:330,height:174)
+        try render(GrowingTree(phase:.running,elapsed:{2701}).scaleEffect(2.5),name:"macos-tree-running.png",width:330,height:174)
         print("Rendered macOS native screenshots")
     }
 }

@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from functools import partial
-from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSize, QSettings
+from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSize, QSettings, QEvent
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPalette, QPen, QPixmap, QPolygonF, QShortcut, QKeySequence
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QDialog, QComboBox, QDialogButtonBox, QSlider, QCheckBox, QScrollArea, QCalendarWidget,
@@ -17,17 +17,17 @@ from .tree import paint_tree
 from .shortcuts import Shortcuts, gnome_available, install_gnome, remove_gnome
 
 STYLE = '''
-QWidget { background:#141820; color:#e6edf5; font-size:13px; }
-QDialog, QFrame#card { background:#1e2430; border-radius:12px; }
-QPushButton { background:#273140; border:1px solid #354454; border-radius:7px; padding:8px 12px; }
-QPushButton:hover { background:#344758; border-color:#30c3e8; }
+QWidget { background:#111b17; color:#e6edf5; font-size:13px; }
+QDialog, QFrame#card { background:#1e2c24; border-radius:12px; }
+QPushButton { background:#273c2d; border:1px solid #3a4e3e; border-radius:7px; padding:8px 12px; }
+QPushButton:hover { background:#354e3b; border-color:#addaad; }
 QPushButton:disabled { color:#63707d; }
-QPushButton#primary { color:#30c3e8; }
-QComboBox { background:#151b24; border:1px solid #48586c; border-radius:6px; padding:9px; min-width:270px; }
-QLabel#subtitle { color:#96a4b5; font-size:11px; }
+QPushButton#primary { color:#addaad; }
+QComboBox { background:#132219; border:1px solid #506652; border-radius:6px; padding:9px; min-width:270px; }
+QLabel#subtitle { color:#a1b5a5; font-size:11px; }
 QLabel#title { font-size:25px; font-weight:700; }
-QLabel#total { color:#30c3e8; font-size:25px; font-weight:600; }
-QScrollArea { border:0; } QCalendarWidget QAbstractItemView { selection-background-color:#215b6b; }
+QLabel#total { color:#addaad; font-size:25px; font-weight:600; }
+QScrollArea { border:0; } QCalendarWidget QAbstractItemView { selection-background-color:#395b3d; }
 '''
 
 
@@ -39,7 +39,7 @@ def apply_theme(app):
             raise RuntimeError('Missing bundled font: ' + filename)
     app.setFont(QFont('Noto Sans', 10))
     palette = QPalette()
-    for role, color in [('Window','#141820'),('WindowText','#e6edf5'),('Base','#1e2430'),('AlternateBase','#232b36'),('Text','#e6edf5'),('Button','#273140'),('ButtonText','#e6edf5'),('Highlight','#215b6b'),('HighlightedText','#ffffff'),('ToolTipBase','#273140'),('ToolTipText','#e6edf5')]:
+    for role, color in [('Window','#111b17'),('WindowText','#e6edf5'),('Base','#1e2c24'),('AlternateBase','#25392b'),('Text','#e6edf5'),('Button','#273c2d'),('ButtonText','#e6edf5'),('Highlight','#395b3d'),('HighlightedText','#ffffff'),('ToolTipBase','#273c2d'),('ToolTipText','#e6edf5')]:
         palette.setColor(getattr(QPalette.ColorRole, role), QColor(color))
     app.setPalette(palette); app.setStyleSheet(STYLE)
 
@@ -47,12 +47,12 @@ def apply_theme(app):
 def action_icon(symbol):
     pix = QPixmap(24,24); pix.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pix); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(QPen(QColor('#30c3e8'),2.5,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))
+    painter.setPen(QPen(QColor('#addaad'),2.5,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))
     if symbol == '▶':
-        painter.setBrush(QColor('#30c3e8')); painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor('#addaad')); painter.setPen(Qt.PenStyle.NoPen)
         painter.drawPolygon(QPolygonF([QPointF(7,4),QPointF(20,12),QPointF(7,20)]))
     elif symbol == 'Ⅱ':
-        painter.setBrush(QColor('#30c3e8')); painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor('#addaad')); painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(QRectF(6,4,4,16),1,1);painter.drawRoundedRect(QRectF(15,4,4,16),1,1)
     elif symbol == '✓':
         painter.drawLine(4,12,10,18);painter.drawLine(10,18,21,5)
@@ -143,20 +143,42 @@ class Pet(QWidget):
         timer_font = QFont('Noto Sans Mono', 13)
         timer_font.setPointSize(13); timer_font.setWeight(QFont.Weight.DemiBold)
         self.timer.setFont(timer_font)
-        self.timer.setStyleSheet('color:#30c3e8; background:#10151d; border-radius:10px; padding:2px 8px;')
+        self.timer.setStyleSheet('color:#addaad; background:#111b17; border-radius:10px; padding:2px 8px;')
         layout.addWidget(self.timer, alignment=Qt.AlignmentFlag.AlignCenter)
         row = QHBoxLayout(); row.setSpacing(5)
         self.play = button('▶', controller.primary)
         self.finish = button('✓', controller.finish, 'Finish session · Ctrl+F')
         for b in (self.play, self.finish):
             b.setFixedSize(26, 26); b.setIconSize(QSize(10,10))
-            b.setStyleSheet('QPushButton { color:#30c3e8; background:#101820; border:1px solid #287185; border-radius:4px; padding:0; font-size:10px; } QPushButton:disabled { color:#56616b; border-color:#36414a; }')
+            b.setStyleSheet('QPushButton { color:#addaad; background:#111b17; border:1px solid #567e58; border-radius:4px; padding:0; font-size:10px; } QPushButton:disabled { color:#56616b; border-color:#36414a; }')
         row.addWidget(self.play); row.addWidget(self.finish)
         layout.addLayout(row)
         row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drag_start = None
+        self.dragged = False
+        for target in (self, self.timer, self.play, self.finish):
+            target.installEventFilter(self)
+            target.setMouseTracking(True)
         for key in 'RSPF':
             shortcut = QShortcut(QKeySequence('Ctrl+' + key), self)
             shortcut.activated.connect(partial(controller.command, key))
+
+    def eventFilter(self, target, event):
+        kind=event.type()
+        if kind==QEvent.Type.MouseButtonPress and event.button()==Qt.MouseButton.LeftButton:
+            self.drag_start=event.globalPosition().toPoint(); self.drag_origin=self.pos(); self.dragged=False
+        elif kind==QEvent.Type.MouseMove and self.drag_start is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            delta=event.globalPosition().toPoint()-self.drag_start
+            if delta.manhattanLength()>QApplication.startDragDistance(): self.dragged=True
+            if self.dragged:
+                if isinstance(target,QPushButton): target.setDown(False)
+                self.move(self.drag_origin+delta); return True
+        elif kind==QEvent.Type.MouseButtonRelease and self.drag_start is not None:
+            moved=self.dragged; self.drag_start=None
+            if moved:
+                if isinstance(target,QPushButton): target.setDown(False)
+                self.c.remember_position(); return True
+        return super().eventFilter(target,event)
 
     def sync(self):
         phase = self.c.store.phase
@@ -189,18 +211,18 @@ class FocusCalendar(QCalendarWidget):
         selected = day == self.selectedDate()
         today = day == QDate.currentDate()
         r = QRectF(rect).adjusted(3, 3, -3, -3)
-        painter.fillRect(rect, QColor('#141820'))
-        bg = QColor('#1e2834')
+        painter.fillRect(rect, QColor('#111b17'))
+        bg = QColor('#1e2c24')
         if amount:
             intensity = min(amount / 14400, 1)
-            bg = QColor(25, int(55 + intensity * 55), int(70 + intensity * 65))
+            bg = QColor(int(30+intensity*20), int(55+intensity*35), int(35+intensity*20))
         painter.setBrush(bg)
-        painter.setPen(QPen(QColor('#30c3e8') if selected else QColor('#29313e'), 2 if selected else 1))
+        painter.setPen(QPen(QColor('#addaad') if selected else QColor('#2b4030'), 2 if selected else 1))
         painter.drawRoundedRect(r, 7, 7)
         painter.setPen(QColor('#e5edf5') if day.month() == self.monthShown() else QColor('#657080'))
         painter.setFont(QFont(QApplication.font().family(), 10, QFont.Weight.Bold if today else QFont.Weight.Normal))
         painter.drawText(QPointF(r.left()+8, r.top()+18), str(day.day()))
-        painter.setPen(QColor('#30c3e8') if amount else QColor('#56616c'))
+        painter.setPen(QColor('#addaad') if amount else QColor('#56616c'))
         painter.setFont(QFont(QApplication.font().family(), 9))
         painter.drawText(QPointF(r.left()+8, r.bottom()-8), duration_text(amount) if amount else '—')
         if amount:

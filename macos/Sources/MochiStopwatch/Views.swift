@@ -2,8 +2,8 @@ import SwiftUI
 import AppKit
 
 extension Color {
-    static let cyber = Color(red: 0.12, green: 0.78, blue: 0.95)
-    static let teal = Color(red: 0.20, green: 0.90, blue: 0.72)
+    static let cyber = Color(red: 0.68, green: 0.86, blue: 0.68)
+    static let teal = Color(red: 0.40, green: 0.71, blue: 0.55)
 }
 struct GrowingTree: View {
     var phase: Stopwatch.Phase
@@ -15,7 +15,8 @@ struct GrowingTree: View {
             let seconds=max(0,elapsed())
             let n=grownTrees(seconds)
             let remainder=seconds.truncatingRemainder(dividingBy:3600)
-            let motion=animated && !reduceMotion
+            let dry=phase == .paused
+            let motion=animated && !reduceMotion && !dry
             let t=motion ? seconds : 0
             Canvas { context,size in
                 var ctx=context
@@ -40,11 +41,13 @@ struct GrowingTree: View {
                         var leaf=Path(); leaf.move(to:CGPoint(x:55,y:y+3))
                         leaf.addCurve(to:CGPoint(x:55+side*(12+8*g),y:y-5),control1:CGPoint(x:55+side*3,y:y-7),control2:CGPoint(x:55+side*(9+7*g),y:y-8))
                         leaf.addCurve(to:CGPoint(x:55,y:y+3),control1:CGPoint(x:55+side*(10+6*g),y:y+4),control2:CGPoint(x:55+side*3,y:y+8))
-                        c.fill(leaf,with:.color(side<0 ? Color(red:0.55,green:0.83,blue:0.64) : Color(red:0.27,green:0.59,blue:0.47)))
+                        var foliage=c
+                        if dry { foliage.translateBy(x:55,y:y+3); foliage.rotate(by:.degrees(side*18)); foliage.translateBy(x:-55,y:-(y+3)) }
+                        foliage.fill(leaf,with:.color(dry ? Color(red:0.66,green:0.57,blue:0.39) : side<0 ? Color(red:0.55,green:0.83,blue:0.64) : Color(red:0.27,green:0.59,blue:0.47)))
                     }
                     if canopy>0 {
                         c.translateBy(x:55,y:top+2); c.scaleBy(x:canopy,y:canopy); c.translateBy(x:-55,y:-(top+2))
-                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:[Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)]),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
+                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:dry ? [Color(red:0.84,green:0.75,blue:0.55),Color(red:0.70,green:0.61,blue:0.43),Color(red:0.48,green:0.45,blue:0.35)] : [Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)]),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
                         for r in [CGRect(x:30,y:top-14,width:30,height:29),CGRect(x:52,y:top-14,width:29,height:29),CGRect(x:39,y:top-21,width:32,height:31)] { c.fill(Path(ellipseIn:r),with:fill) }
                         c.fill(Path(ellipseIn:CGRect(x:43,y:top-16,width:14,height:10)),with:.color(Color(red:0.8,green:0.95,blue:0.7).opacity(0.35)))
                     }
@@ -53,13 +56,13 @@ struct GrowingTree: View {
                 if n>0 { tree(1,1-blend) }
                 tree(remainder/3600,blend)
                 ellipse(CGRect(x:30,y:50,width:51,height:7),Color(red:0.29,green:0.24,blue:0.20))
-                ellipse(CGRect(x:31,y:49,width:49,height:4),Color(red:0.42,green:0.61,blue:0.44))
-                if motion && (phase == .running || phase == .paused) {
+                ellipse(CGRect(x:31,y:49,width:49,height:4),(dry ? Color(red:0.55,green:0.47,blue:0.35) : Color(red:0.42,green:0.61,blue:0.44)))
+                if motion && phase == .running {
                     let u=t.truncatingRemainder(dividingBy:3.6)/3.6, fall=min(1,u/0.78), y=3+44*fall*fall
-                    var water=ctx; water.opacity=phase == .paused ? 0.4 : 1
+                    let water=ctx
                     if u<0.78 {
                         var p=Path(); p.move(to:CGPoint(x:84,y:y-5)); p.addCurve(to:CGPoint(x:81,y:y+5),control1:CGPoint(x:82,y:y-2),control2:CGPoint(x:78,y:y+3)); p.addCurve(to:CGPoint(x:84,y:y-5),control1:CGPoint(x:87,y:y+9),control2:CGPoint(x:90,y:y+2))
-                        water.fill(p,with:.color(Color(red:0.51,green:0.84,blue:0.93)))
+                        water.fill(p,with:.color(Color(red:0.65,green:0.85,blue:0.80)))
                         water.fill(Path(ellipseIn:CGRect(x:82,y:y+1,width:1.5,height:2.5)),with:.color(.white.opacity(0.8)))
                     } else {
                         let r=(u-0.78)/0.22
@@ -69,7 +72,7 @@ struct GrowingTree: View {
                 if n>0 { ctx.draw(Text("\(n)×").font(.system(size:8,weight:.semibold)).foregroundStyle(Color(red:0.66,green:0.85,blue:0.71)),at:CGPoint(x:13,y:45)) }
             }
         }.frame(width:110,height:58)
-        .accessibilityLabel(treeText(elapsed()) + (isGarden(elapsed()) ? ", garden grown" : ", growing your grove"))
+        .accessibilityLabel(treeText(elapsed()) + (phase == .paused ? ", dry tree, watering paused" : isGarden(elapsed()) ? ", garden grown" : ", growing your grove"))
     }
 }
 struct PetControlStyle: ButtonStyle {
@@ -79,7 +82,7 @@ struct PetControlStyle: ButtonStyle {
             .font(.system(size: 9, weight: .semibold, design: .rounded))
             .frame(width: 26, height: 26)
             .foregroundStyle(accent)
-            .background(Color(red: 0.08, green: 0.10, blue: 0.13), in: RoundedRectangle(cornerRadius: 4))
+            .background(Color(red: 0.07, green: 0.11, blue: 0.09), in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(accent.opacity(configuration.isPressed ? 1 : 0.45), lineWidth: 1))
             .brightness(configuration.isPressed ? 0.15 : 0)
     }
@@ -100,23 +103,18 @@ struct PetView: View {
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundStyle(model.phase == .paused ? Color.white.opacity(0.75) : Color.cyber)
                 .padding(.horizontal, 8).padding(.vertical, 2)
-                .background(Color.black.opacity(0.9), in: Capsule())
+                .background(Color(red:0.07,green:0.11,blue:0.09).opacity(0.95), in: Capsule())
+                .overlay(PetInteraction(showOptions: showOptions))
                 .accessibilityLabel("Elapsed time " + model.menuTime)
             HStack(spacing: 5) {
-                Button(action: primary) {
-                    Label(primaryTitle, systemImage: primaryIcon)
-                }
-                .buttonStyle(PetControlStyle(accent: .cyber))
-                .help(model.phase == .running ? "Pause this session" : model.phase == .paused ? "Resume this session" : model.phase == .finished ? "Name and save this session" : "Start a new session")
+                FloatingAction(symbol:primaryIcon,title:primaryTitle,enabled:true,accent:.cyber,action:primary)
+                    .frame(width:26,height:26)
                 if model.phase != .finished {
-                    Button(action: finish) { Label("Finish", systemImage: "checkmark") }
-                        .buttonStyle(PetControlStyle(accent: model.phase == .idle ? .gray : .teal))
-                        .disabled(model.phase == .idle)
-                        .opacity(model.phase == .idle ? 0.55 : 1)
-                        .help("Finish and name your session")
+                    FloatingAction(symbol:"checkmark",title:"Finish and name session",enabled:model.phase != .idle,accent:.teal,action:finish)
+                        .frame(width:26,height:26)
                 }
             }.labelStyle(.iconOnly).fixedSize()
-        }.frame(width: 150, height: 100).opacity(min(1, max(0.3, petOpacity)))
+        }.frame(width: 150, height: 100).background(PetInteraction(showOptions: showOptions)).opacity(min(1, max(0.3, petOpacity)))
     }
     var primaryTitle: String {
         switch model.phase { case .idle: return "Play"; case .running: return "Pause"; case .paused: return "Resume"; case .finished: return "Save Session" }
@@ -131,29 +129,68 @@ struct PetInteraction: NSViewRepresentable {
     func updateNSView(_ view: PetHitView,context: Context) { view.showOptions = showOptions }
 }
 final class PetHitView: NSView {
+    private let drag=FloatingDragTracker()
     var showOptions: ((NSView) -> Void)?
     override init(frame: NSRect) {
         super.init(frame: frame)
-        toolTip = "Drag tree to move · click tree for history, hide, and close"
+        toolTip = "Drag to move · click for history, hide, and close"
         setAccessibilityElement(true); setAccessibilityRole(.button); setAccessibilityLabel("Growing tree controls. Drag to move.")
     }
     required init?(coder: NSCoder) { fatalError() }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with event: NSEvent) {
-        guard let window else { return }
-        let start = NSEvent.mouseLocation; let origin = window.frame.origin
-        var dragged = false
-        while let next = window.nextEvent(matching: [.leftMouseDragged,.leftMouseUp]) {
-            let now = NSEvent.mouseLocation
-            if hypot(now.x-start.x,now.y-start.y) > 3 { dragged = true }
-            if dragged { window.setFrameOrigin(NSPoint(x:origin.x+now.x-start.x,y:origin.y+now.y-start.y)) }
-            if next.type == .leftMouseUp { break }
-        }
-        if !dragged { openMenu() }
-    }
+    override func mouseDown(with event:NSEvent) { drag.begin(event,window:window) }
+    override func mouseDragged(with event:NSEvent) { drag.move(event,window:window) }
+    override func mouseUp(with event:NSEvent) { if drag.end(event,window:window) { openMenu() } }
     override func rightMouseDown(with event: NSEvent) { openMenu() }
     override func accessibilityPerformPress() -> Bool { openMenu(); return true }
     func openMenu() { showOptions?(self) }
+}
+// A single drag threshold serves artwork, timer, empty space and native controls.
+@MainActor final class FloatingDragTracker {
+    private var start:NSPoint?
+    private var origin=NSPoint.zero
+    private(set) var moved=false
+    func begin(_ event:NSEvent,window:NSWindow?) {
+        guard let window else { start=nil;return }
+        start=window.convertPoint(toScreen:event.locationInWindow);origin=window.frame.origin;moved=false
+    }
+    func move(_ event:NSEvent,window:NSWindow?) {
+        guard let window,let start else { return }
+        let now=window.convertPoint(toScreen:event.locationInWindow)
+        if hypot(now.x-start.x,now.y-start.y)>4 { moved=true }
+        if moved { window.setFrameOrigin(NSPoint(x:origin.x+now.x-start.x,y:origin.y+now.y-start.y)) }
+    }
+    // Returns true only for a click. Every drag, including a release outside, suppresses the action.
+    func end(_ event:NSEvent,window:NSWindow?)->Bool {
+        guard start != nil else { return false }
+        move(event,window:window);let clicked = !moved;start=nil;return clicked
+    }
+}
+struct FloatingAction:NSViewRepresentable {
+    var symbol:String; var title:String; var enabled:Bool; var accent:Color; var action:()->Void
+    func makeNSView(context:Context)->FloatingActionButton { FloatingActionButton() }
+    func updateNSView(_ view:FloatingActionButton,context:Context) {
+        view.image=NSImage(systemSymbolName:symbol,accessibilityDescription:title)?.withSymbolConfiguration(.init(pointSize:10,weight:.semibold))
+        view.isEnabled=enabled; view.alphaValue=enabled ? 1 : 0.45; view.contentTintColor=NSColor(accent)
+        view.setAccessibilityLabel(title); view.toolTip=title+" · Drag to move"; view.clickAction=action
+        view.layer?.borderColor=NSColor(accent.opacity(0.5)).cgColor
+    }
+}
+final class FloatingActionButton:NSButton {
+    private let drag=FloatingDragTracker()
+    var clickAction:(()->Void)?
+    override init(frame:NSRect) {
+        super.init(frame:frame); isBordered=false; title=""; imagePosition = .imageOnly; focusRingType = .none
+        wantsLayer=true; layer?.cornerRadius=4; layer?.borderWidth=1
+        layer?.backgroundColor=NSColor(red:0.07,green:0.11,blue:0.09,alpha:1).cgColor
+        target=self; action=#selector(pressed)
+    }
+    required init?(coder:NSCoder) { fatalError() }
+    override func acceptsFirstMouse(for event:NSEvent?)->Bool { true }
+    override func mouseDown(with event:NSEvent) { drag.begin(event,window:window);isHighlighted=isEnabled }
+    override func mouseDragged(with event:NSEvent) { drag.move(event,window:window);if drag.moved { isHighlighted=false } }
+    override func mouseUp(with event:NSEvent) { let click=drag.end(event,window:window);isHighlighted=false;if click && isEnabled { performClick(nil) } }
+    @objc private func pressed() { clickAction?() }
 }
 struct HistoryView: View {
     @State private var accountOpen = false
@@ -172,8 +209,8 @@ struct HistoryView: View {
     private var total: TimeInterval { records.reduce(0) { $0 + $1.duration } }
     private var days: [Date] { Array(Set(records.map { Calendar.current.startOfDay(for: $0.start) })).sorted(by: >) }
     private var range: DateInterval { period.interval(containing: selectedDate) }
-    private let surface = Color(red: 0.075, green: 0.09, blue: 0.12)
-    private let card = Color(red: 0.11, green: 0.13, blue: 0.17)
+    private let surface = Color(red: 0.067, green: 0.106, blue: 0.09)
+    private let card = Color(red: 0.12, green: 0.17, blue: 0.14)
     private var monthRecords: [Session] { HistoryPeriod.month.sessions(in: model.sessions, containing: selectedDate) }
     private var dailyTotals: [Date: TimeInterval] {
         Dictionary(grouping: model.sessions, by: { Calendar.current.startOfDay(for: $0.start) }).mapValues { $0.reduce(0) { $0 + $1.duration } }
@@ -194,7 +231,7 @@ struct HistoryView: View {
             }
             HStack(spacing: 12) {
                 metric("Today", date: Date(), scope: .day, icon: "sun.max", tint: .cyber)
-                metric("Yesterday", date: Calendar.current.date(byAdding: .day, value: -1, to: Date())!, scope: .day, icon: "moon", tint: Color(red: 0.65, green: 0.58, blue: 1))
+                metric("Yesterday", date: Calendar.current.date(byAdding: .day, value: -1, to: Date())!, scope: .day, icon: "moon", tint: Color(red: 0.64, green: 0.73, blue: 0.54))
                 metric("This week", date: Date(), scope: .week, icon: "chart.bar", tint: .teal)
                 metric("This month", date: Date(), scope: .month, icon: "calendar", tint: Color(red: 0.98, green: 0.74, blue: 0.42))
             }
@@ -267,7 +304,7 @@ struct HistoryView: View {
             Text("Select a date to see its sessions. Totals exclude pauses; sessions belong to their start date.")
                 .font(.system(size: 10)).foregroundStyle(.secondary)
         }.padding(26)
-        }.frame(minWidth: 860, minHeight: 680).background(surface).preferredColorScheme(.dark)
+        }.frame(minWidth: 860, minHeight: 680).background(surface).tint(.cyber).preferredColorScheme(.dark)
         .sheet(item: $editing) { session in
             VStack(alignment: .leading, spacing: 16) {
                 Text("Rename session").font(.headline)

@@ -1,12 +1,8 @@
-# Focanopy v1.3.0 — Android-first focus forest
+# Focanopy v1.3.1 — Move freely, grow green
 
-- New product name: Focanopy (focus + canopy), across Android, macOS, Windows and Ubuntu. Existing package IDs, credentials and history remain compatible.
-- Android is now the main MVP: cohesive forest palette, daily focus/tree cards, live next-tree progress, accessible icon controls and persistent bottom navigation.
-- Typed task names survive closing/reopening the save popup and activity recreation. Saving still opens calendar history.
-- Floating Finish stops the session before asking Android to open the save screen, protecting against blocked background launches.
-- Calendar retains selected period across activity recreation; visible Day/Week/Month selection and garden highlights.
-- Export saved sessions as JSON through Android’s document picker. Notification permission state is visible in Settings.
-- Animation stops with a hidden app window; background timing and notification chronometer remain active.
-- README rewritten around the Android MVP, engineering architecture, fresh native screenshots and a résumé-ready project description.
+- Drag the floating panel from the tree, timer, empty space or button surfaces on macOS, Windows, Ubuntu and Android. A drag never triggers the button action; a normal click/tap still does.
+- Forest-green accents replace the remaining blue desktop timer, controls and journal styling.
+- Pausing makes the current plant dry and dormant with drooping leaves and no water. Resume restores healthy green foliage and watering without losing growth or focus time.
+- Native interaction regression checks cover timer/button drags, click suppression and paused/resumed artwork.
 
-Android 8+, macOS 14+, Windows x64 and Ubuntu 24.04+ packages. Android APK retains the original debug signing key; desktop apps remain unsigned/ad-hoc signed. No Google Play release or physical OEM-device validation is claimed.
+Accounts, saved history, tree rewards and existing signing identities remain compatible. Android remains a debug-signed testing build; desktop packages remain unsigned/ad-hoc signed.
