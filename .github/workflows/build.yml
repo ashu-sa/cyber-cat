@@ -51,19 +51,19 @@ jobs:
         env:
           CYBERCAT_DATA_DIRECTORY: ${{ runner.temp }}/cybercat-frozen-smoke
         run: |
-          $process = Start-Process -FilePath (Resolve-Path 'dist/CyberCat/CyberCat.exe') -ArgumentList '--smoke-test' -Wait -PassThru
+          $process = Start-Process -FilePath (Resolve-Path 'dist/Focanopy/Focanopy.exe') -ArgumentList '--smoke-test' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Packaged application failed: $($process.ExitCode)" }
       - name: Smoke test packaged Linux app
         if: runner.os == 'Linux'
         env:
           CYBERCAT_DATA_DIRECTORY: ${{ runner.temp }}/cybercat-frozen-smoke
-        run: ./dist/CyberCat/CyberCat --smoke-test
+        run: ./dist/Focanopy/Focanopy --smoke-test
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
           path: |
-            desktop/dist/CyberCat-Windows.zip
-            desktop/dist/CyberCat-Linux.tar.gz
+            desktop/dist/Focanopy-Windows.zip
+            desktop/dist/Focanopy-Linux.tar.gz
             docs/screenshots/${{ matrix.platform }}-*.png
           if-no-files-found: error
   android:
@@ -89,11 +89,11 @@ jobs:
       - run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
       - run: |
           mkdir -p ../release
-          cp app/build/outputs/apk/debug/app-debug.apk ../release/CyberCat-Android-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../release/Focanopy-Android-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: release-android
-          path: release/CyberCat-Android-debug.apk
+          path: release/Focanopy-Android-debug.apk
   macos:
     timeout-minutes: 25
     if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'macos'
@@ -111,10 +111,10 @@ jobs:
           swiftc -parse-as-library Sources/MochiStopwatch/Model.swift Sources/MochiStopwatch/Cloud.swift Sources/MochiStopwatch/AccountView.swift Sources/MochiStopwatch/Views.swift Tools/RenderScreenshots.swift -o /tmp/cybercat-screenshots
           /tmp/cybercat-screenshots ../docs/screenshots
           mkdir -p ../release
-          ditto -c -k --sequesterRsrc --keepParent '../Cyber Cat.app' ../release/CyberCat-macOS-universal.zip
+          ditto -c -k --sequesterRsrc --keepParent '../Focanopy.app' ../release/Focanopy-macOS-universal.zip
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos
           path: |
-            release/CyberCat-macOS-universal.zip
+            release/Focanopy-macOS-universal.zip
             docs/screenshots/macos-*.png

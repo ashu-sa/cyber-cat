@@ -5,7 +5,7 @@ BUILD_ARGS=(-c release)
 if [[ "${CYBERCAT_UNIVERSAL:-0}" == "1" ]]; then BUILD_ARGS+=(--arch arm64 --arch x86_64); fi
 swift build "${BUILD_ARGS[@]}"
 BIN_DIR=$(swift build "${BUILD_ARGS[@]}" --show-bin-path)
-APP="../Cyber Cat.app"
+APP="../Focanopy.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/MochiStopwatch" "$APP/Contents/MacOS/MochiStopwatch"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -14,9 +14,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>MochiStopwatch</string>
 <key>CFBundleIdentifier</key><string>local.mochi.stopwatch</string>
-<key>CFBundleName</key><string>Cyber Cat</string>
+<key>CFBundleName</key><string>Focanopy</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.2.0</string>
+<key>CFBundleShortVersionString</key><string>1.3.0</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

@@ -1,1 +1,1 @@
-"""Cyber Cat native desktop companion."""
+"""Focanopy native desktop companion."""

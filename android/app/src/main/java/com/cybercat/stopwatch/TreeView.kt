@@ -17,6 +17,7 @@ class TreeView(c:Context):View(c) {
     override fun onAttachedToWindow() { super.onAttachedToWindow(); removeCallbacks(tick); if(moving()) post(tick) }
     override fun onDetachedFromWindow() { removeCallbacks(tick); super.onDetachedFromWindow() }
     override fun onVisibilityChanged(changedView:View,visibility:Int) { super.onVisibilityChanged(changedView,visibility); removeCallbacks(tick); if(visibility==VISIBLE && moving()) post(tick) }
+    override fun onWindowVisibilityChanged(visibility:Int) { super.onWindowVisibilityChanged(visibility); removeCallbacks(tick); if(visibility==VISIBLE && isShown && moving()) post(tick) }
     fun refresh() {
         phase=Repository.engine.phase; animate=Repository.prefs.getBoolean("animate",true)
         motionEnabled=android.provider.Settings.Global.getFloat(context.contentResolver,android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)>0

@@ -40,11 +40,11 @@ jobs:
           mkdir -p release docs/screenshots
           find artifacts -type f -name '*.png' -exec cp {} docs/screenshots/ \;
           find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} release/ \;
-          gh release download "$RELEASE_TAG" --pattern 'CyberCat-Android-debug.apk' --dir release
-          test -s release/CyberCat-Android-debug.apk
-          test -s release/CyberCat-Windows.zip
-          test -s release/CyberCat-Linux.tar.gz
-          test -s release/CyberCat-macOS-universal.zip
+          gh release download "$RELEASE_TAG" --pattern 'Focanopy-Android-debug.apk' --dir release
+          test -s release/Focanopy-Android-debug.apk
+          test -s release/Focanopy-Windows.zip
+          test -s release/Focanopy-Linux.tar.gz
+          test -s release/Focanopy-macOS-universal.zip
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/screenshots

@@ -39,7 +39,7 @@ def install_gnome():
         # GSettings commands do not run in a shell; /usr/bin/env supplies module location.
         command = '/usr/bin/env ' + shlex.quote('PYTHONPATH=' + root) + ' ' + shlex.quote(sys.executable) + ' -m cybercat'
     for key, path in zip(KEYS.values(), ours):
-        gsettings('set', SCHEMA + path, 'name', 'Cyber Cat Ctrl+' + key)
+        gsettings('set', SCHEMA + path, 'name', 'Focanopy Ctrl+' + key)
         gsettings('set', SCHEMA + path, 'command', command + ' --command ' + key)
         gsettings('set', SCHEMA + path, 'binding', '<Control>r' if key == 'R' else '')
     gsettings('set', 'org.gnome.settings-daemon.plugins.media-keys', 'custom-keybindings', repr(paths + [p for p in ours if p not in paths]))

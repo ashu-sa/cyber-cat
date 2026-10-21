@@ -33,11 +33,11 @@ def main():
     QLocalServer.removeServer(name)
     server = QLocalServer(); server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
     if not server.listen(name):
-        QMessageBox.critical(None, 'Cyber Cat', server.errorString()); return 1
+        QMessageBox.critical(None, 'Focanopy', server.errorString()); return 1
     try:
         store = Store()
     except Exception as error:
-        QMessageBox.critical(None, 'Cyber Cat storage', 'Could not load your data. It has not been overwritten.\n' + str(error))
+        QMessageBox.critical(None, 'Focanopy storage', 'Could not load your data. It has not been overwritten.\n' + str(error))
         return 1
     controller = Controller(app, store)
     connections = []

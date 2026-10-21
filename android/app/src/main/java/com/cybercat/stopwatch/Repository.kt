@@ -78,12 +78,12 @@ object Repository {
             .put("start", started).put("end", ended).put("duration", engine.accumulated)
             .put("platform", "android").put("device_id", deviceId).put("device_name", "Phone")
         replace(listOf(item) + sessions.filter { it.getString("id") != sessionId })
-        engine.reset(); checkpoint()
+        engine.reset(); prefs.edit().remove("draftName").apply(); checkpoint()
     }
     fun loadGuest() {
         sessions=if(file.baseFile.exists()) { val a=JSONArray(file.openRead().bufferedReader().use { it.readText() }); (0 until a.length()).map { a.getJSONObject(it) }.toMutableList() } else mutableListOf()
     }
-    fun discard() { engine.reset(); checkpoint() }
+    fun discard() { engine.reset(); prefs.edit().remove("draftName").apply(); checkpoint() }
     fun deviceLabel(record: JSONObject): String = record.optString("device_name").ifBlank {
         when(record.optString("platform")) { "macos" -> "Mac"; "android" -> "Phone"; "windows" -> "Windows"; "linux" -> "Linux"; else -> "This device" }
     }

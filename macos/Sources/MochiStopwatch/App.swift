@@ -53,7 +53,7 @@ final class FloatingPanel: NSPanel {
     func showAccount() {
         if accountWindow == nil {
             let w=NSWindow(contentRect:NSRect(x:0,y:0,width:460,height:440),styleMask:[.titled,.closable],backing:.buffered,defer:false)
-            w.title="Cyber Cat · Account"; w.isReleasedWhenClosed=false; w.contentView=NSHostingView(rootView:AccountView(model:model,onClose:{ [weak self] in self?.accountWindow?.orderOut(nil) })); w.center(); accountWindow=w
+            w.title="Focanopy · Account"; w.isReleasedWhenClosed=false; w.contentView=NSHostingView(rootView:AccountView(model:model,onClose:{ [weak self] in self?.accountWindow?.orderOut(nil) })); w.center(); accountWindow=w
         }
         NSApp.activate(ignoringOtherApps:true); accountWindow?.makeKeyAndOrderFront(nil)
     }
@@ -216,7 +216,7 @@ final class FloatingPanel: NSPanel {
     @objc func showHistory() {
         if historyWindow == nil {
             let window = NSWindow(contentRect:NSRect(x:0,y:0,width:980,height:800),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
-            window.title = "Cyber Cat · Sessions"; window.contentView = NSHostingView(rootView:HistoryView(model:model))
+            window.title = "Focanopy · Sessions"; window.contentView = NSHostingView(rootView:HistoryView(model:model))
             window.isReleasedWhenClosed = false; window.center(); historyWindow = window
         }
         NSApp.activate(ignoringOtherApps:true); historyWindow?.makeKeyAndOrderFront(nil)
@@ -269,14 +269,14 @@ final class FloatingPanel: NSPanel {
 struct MenuLabel: View {
     @ObservedObject var model: Stopwatch
     var body: some View {
-        Text(model.phase == .idle ? "⌁" : "⏱ " + model.menuTime).monospacedDigit().accessibilityLabel(model.phase == .idle ? "Cyber Cat stopwatch idle" : "Cyber Cat stopwatch " + model.menuTime)
+        Text(model.phase == .idle ? "⌁" : "⏱ " + model.menuTime).monospacedDigit().accessibilityLabel(model.phase == .idle ? "Focanopy stopwatch idle" : "Focanopy stopwatch " + model.menuTime)
     }
 }
 struct MenuContents: View {
     @ObservedObject var model: Stopwatch
     var delegate: AppDelegate
     var body: some View {
-        Text("Cyber Cat · \(model.menuTime)")
+        Text("Focanopy · \(model.menuTime)")
         switch model.phase {
         case .idle: Button("Start Stopwatch",action:delegate.start)
         case .running: Button("Pause",action:delegate.pause); Button("Finish Session…",action:delegate.finish)

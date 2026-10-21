@@ -134,7 +134,7 @@ class Pet(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setStyleSheet('background:transparent;')
         self.setFixedSize(150, 100)
-        self.setWindowTitle('Cyber Cat')
+        self.setWindowTitle('Focanopy')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(2)
         self.cat = GrowingTree(controller)
@@ -213,7 +213,7 @@ class History(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.c = controller; self.deleted = None
-        self.setWindowTitle('Cyber Cat · Focus journal')
+        self.setWindowTitle('Focanopy · Focus journal')
         self.resize(940, 710)
         root = QVBoxLayout(self); root.setContentsMargins(25, 25, 25, 25); root.setSpacing(18)
         head = QHBoxLayout(); head.addWidget(label('Focus journal', 'title')); head.addStretch()
@@ -337,15 +337,15 @@ class Controller:
     def error(self, message):
         # Non-modal notification avoids reentrant dialogs during shortcut registration.
         if hasattr(self, 'tray'):
-            self.tray.showMessage('Cyber Cat', message, QSystemTrayIcon.MessageIcon.Warning)
-        print('Cyber Cat:', message, file=sys.stderr)
+            self.tray.showMessage('Focanopy', message, QSystemTrayIcon.MessageIcon.Warning)
+        print('Focanopy:', message, file=sys.stderr)
 
     def scope(self):
         self.shortcuts.scope(self.pet.isVisible(), self.modal)
 
     def refresh(self):
         self.pet.sync()
-        self.tray.setToolTip('Cyber Cat · ' + clock_text(self.store.elapsed) + ' · ' + self.store.phase)
+        self.tray.setToolTip('Focanopy · ' + clock_text(self.store.elapsed) + ' · ' + self.store.phase)
         # Windows/Linux trays have icon + tooltip, not macOS-style variable-width text labels.
 
     def restore_position(self):
@@ -470,7 +470,7 @@ class Controller:
 
     def tray_menu(self):
         self.menu.clear()
-        self.menu.addAction('Cyber Cat · ' + clock_text(self.store.elapsed)).setEnabled(False)
+        self.menu.addAction('Focanopy · ' + clock_text(self.store.elapsed)).setEnabled(False)
         for text, action in [('Start / Resume',self.start),('Pause',lambda:self.safe(self.store.pause)),('Finish Session',self.finish),('Show Pet',self.show_pet),('Hide Pet',self.hide_pet),('Session History',self.show_history),('Account / Sync',self.accounts.show),('Quit App…',self.quit)]:
             self.menu.addAction(text, action)
 
@@ -478,7 +478,7 @@ class Controller:
         if self.modal: return
         if self.store.phase != 'idle':
             self.modal = True; self.scope()
-            box = QMessageBox(self.pet); box.setWindowTitle('Quit Cyber Cat?'); box.setText('Save or discard your active session before quitting.')
+            box = QMessageBox(self.pet); box.setWindowTitle('Quit Focanopy?'); box.setText('Save or discard your active session before quitting.')
             save = box.addButton('Save & Quit', QMessageBox.ButtonRole.AcceptRole)
             discard = box.addButton('Discard & Quit', QMessageBox.ButtonRole.DestructiveRole)
             cancel = box.addButton('Cancel', QMessageBox.ButtonRole.RejectRole); box.setDefaultButton(cancel)

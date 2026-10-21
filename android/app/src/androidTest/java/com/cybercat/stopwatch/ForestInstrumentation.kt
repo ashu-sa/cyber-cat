@@ -17,7 +17,7 @@ import org.json.JSONObject
 class ForestInstrumentation:Instrumentation() {
     override fun onCreate(arguments:Bundle?) { super.onCreate(arguments); start() }
     private fun find(view:View,name:String):View? {
-        if(view is TextView && view.text.toString()==name) return view
+        if(view.contentDescription==name || (view is TextView && view.text.toString()==name)) return view
         if(view is ViewGroup) for(i in 0 until view.childCount) find(view.getChildAt(i),name)?.let { return it }
         return null
     }
@@ -43,12 +43,17 @@ class ForestInstrumentation:Instrumentation() {
                     targetContext.openFileOutput("android-tree-$minutes.png",0).use { image.compress(Bitmap.CompressFormat.PNG,100,it) };image.recycle()
                 }
             }
+            runOnMainSync { Repository.start(); Repository.engine.accumulated=1800000; Repository.checkpoint() }
             val activity=startActivitySync(Intent(targetContext,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
-            waitForIdleSync()
+            android.os.SystemClock.sleep(1500);waitForIdleSync()
             fun screenshot(name:String) { uiAutomation.takeScreenshot()!!.let { image -> targetContext.openFileOutput(name,0).use { image.compress(Bitmap.CompressFormat.PNG,100,it) };image.recycle() } }
             screenshot("android-timer.png")
-            runOnMainSync { find(activity.window.decorView,"Journal")!!.performClick() }
+            runOnMainSync { Repository.discard(); targetContext.startService(Intent(targetContext,TimerService::class.java).setAction("SYNC")); find(activity.window.decorView,"Journal")!!.performClick() }
             waitForIdleSync();screenshot("android-journal.png")
+            runOnMainSync { find(activity.window.decorView,"Settings")!!.performClick() }
+            waitForIdleSync();screenshot("android-settings.png")
+            runOnMainSync { find(activity.window.decorView,"Account / Sync")!!.performClick() }
+            waitForIdleSync();screenshot("android-account.png")
             runOnMainSync { activity.finish() }
             result.putString("stream","PASS: isolated native tree milestones, combined history growth, calendar and timer rendering\n");finish(0,result)
         } catch(e:Throwable) { result.putString("stream","FAIL: ${e.stackTraceToString()}\n");finish(1,result) }

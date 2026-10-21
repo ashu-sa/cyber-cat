@@ -47,7 +47,7 @@ class TimerService: Service() {
         val phase = Repository.engine.phase
         val open = PendingIntent.getActivity(this, 10, Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val finish = PendingIntent.getActivity(this,11, Intent(this,MainActivity::class.java).setAction("FINISH").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val builder = Notification.Builder(this,"timer").setSmallIcon(com.cybercat.stopwatch.R.drawable.ic_cat).setContentTitle("Cyber Cat · " + when(phase) { "running" -> "Locked in"; "paused" -> "Paused"; "finished" -> "Ready to save"; else -> "Floating companion" })
+        val builder = Notification.Builder(this,"timer").setSmallIcon(com.cybercat.stopwatch.R.drawable.ic_cat).setContentTitle("Focanopy · " + when(phase) { "running" -> "Locked in"; "paused" -> "Paused"; "finished" -> "Ready to save"; else -> "Floating companion" })
             .setContentIntent(open).setOnlyAlertOnce(true).setOngoing(true).setShowWhen(false).setCategory(if(Build.VERSION.SDK_INT>=31) Notification.CATEGORY_STOPWATCH else Notification.CATEGORY_SERVICE)
         if (phase == "running") builder.setWhen(System.currentTimeMillis()-Repository.engine.elapsed()).setShowWhen(true).setUsesChronometer(true)
         else builder.setContentText(clockText(Repository.engine.elapsed()) + if (phase == "finished") " · Tap to name and save" else " · Tap for controls")
@@ -70,12 +70,12 @@ class TimerService: Service() {
     private fun createOverlay() {
         val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; gravity=Gravity.CENTER; setPadding(0,0,0,0) }
         cat = TreeView(this); root.addView(cat,LinearLayout.LayoutParams(dp(120),dp(58)))
-        timeLabel = TextView(this).apply { setTextColor(Color.CYAN); textSize=13f; typeface=android.graphics.Typeface.MONOSPACE; setBackgroundColor(Color.rgb(17,25,34)); gravity=Gravity.CENTER }
+        timeLabel = TextView(this).apply { setTextColor(Color.rgb(173,218,173)); textSize=13f; typeface=android.graphics.Typeface.MONOSPACE; setBackgroundColor(Color.rgb(17,27,23)); gravity=Gravity.CENTER }
         root.addView(timeLabel,LinearLayout.LayoutParams(dp(120),dp(25)))
         val row = LinearLayout(this).apply { gravity=Gravity.CENTER }
         fun control(symbol: String, description: String, action: () -> Unit): Button = Button(this).apply {
-            text=symbol; textSize=12f; contentDescription=description; setTextColor(Color.CYAN)
-            background=android.graphics.drawable.GradientDrawable().apply { setColor(Color.rgb(17,25,34)); cornerRadius=dp(5).toFloat(); setStroke(dp(1),Color.rgb(40,113,133)) }; minWidth=0; minimumWidth=0; minHeight=0; minimumHeight=0; setPadding(0,0,0,0); setOnClickListener { action() }
+            text=symbol; textSize=12f; contentDescription=description; setTextColor(Color.rgb(173,218,173))
+            background=android.graphics.drawable.GradientDrawable().apply { setColor(Color.rgb(17,27,23)); cornerRadius=dp(5).toFloat(); setStroke(dp(1),Color.rgb(86,126,88)) }; minWidth=0; minimumWidth=0; minHeight=0; minimumHeight=0; setPadding(0,0,0,0); setOnClickListener { action() }
         }
         play = control("▶","Start or resume") {
             if (Repository.engine.phase == "finished") openApp("SAVE") else {
@@ -84,7 +84,7 @@ class TimerService: Service() {
         }
         row.addView(play,LinearLayout.LayoutParams(dp(40),dp(38)))
         row.addView(control("✓","Finish session") { if (Repository.engine.phase != "idle") openApp("FINISH") },LinearLayout.LayoutParams(dp(40),dp(38)))
-        row.addView(control("×","Hide pet; stopwatch continues") { Repository.prefs.edit().putBoolean("showPet",false).apply(); removeOverlay(); if (Repository.engine.phase == "idle") { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() } },LinearLayout.LayoutParams(dp(36),dp(38)))
+        row.addView(control("×","Hide tree; stopwatch continues") { Repository.prefs.edit().putBoolean("showPet",false).apply(); removeOverlay(); if (Repository.engine.phase == "idle") { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() } },LinearLayout.LayoutParams(dp(36),dp(38)))
         root.addView(row)
         val p = WindowManager.LayoutParams(dp(144),dp(126),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT)
         p.gravity=Gravity.TOP or Gravity.START; p.x=Repository.prefs.getInt("petX",20); p.y=Repository.prefs.getInt("petY",150)
@@ -100,9 +100,9 @@ class TimerService: Service() {
             }; true
         }
         pet=root; params=p
-        try { windows.addView(root,p) } catch(e:Exception) { pet=null; Toast.makeText(this,"Floating pet unavailable; use notification controls.",Toast.LENGTH_LONG).show() }
+        try { windows.addView(root,p) } catch(e:Exception) { pet=null; Toast.makeText(this,"Floating tree unavailable; use notification controls.",Toast.LENGTH_LONG).show() }
     }
-    private fun openApp(action:String) { try { startActivity(Intent(this,MainActivity::class.java).setAction(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } catch (_:Exception) { if(action=="FINISH") Repository.finish(); notifyState() } }
+    private fun openApp(action:String) { if(action=="FINISH") { Repository.finish(); notifyState(); syncOverlay() }; try { startActivity(Intent(this,MainActivity::class.java).setAction(if(action=="FINISH") "SAVE" else action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } catch (_:Exception) { if(action=="FINISH") Repository.finish(); notifyState() } }
     private fun removeOverlay() { pet?.let { try { windows.removeView(it) } catch (_:Exception) {} }; pet=null; cat=null; timeLabel=null; play=null }
     override fun onDestroy() { try { Repository.checkpoint() } catch (_:Exception) {}; handler.removeCallbacksAndMessages(null); removeOverlay(); super.onDestroy() }
     override fun onBind(intent:Intent?) = null

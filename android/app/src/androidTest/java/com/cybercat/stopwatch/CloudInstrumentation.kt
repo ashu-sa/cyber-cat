@@ -14,7 +14,7 @@ class CloudInstrumentation:Instrumentation() {
     private lateinit var arguments:Bundle
     override fun onCreate(arguments:Bundle?) { this.arguments=arguments!!; super.onCreate(arguments); start() }
     private fun find(view:View, name:String):View? {
-        if(view is TextView && view.text.toString()==name) return view
+        if(view.contentDescription==name || (view is TextView && view.text.toString()==name)) return view
         if(view is ViewGroup) for(i in 0 until view.childCount) find(view.getChildAt(i),name)?.let { return it }
         return null
     }

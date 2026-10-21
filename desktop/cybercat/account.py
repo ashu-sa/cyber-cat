@@ -43,7 +43,7 @@ class Accounts(QObject):
 
     def show(self):
         c=self.c; cloud=c.store.cloud
-        dialog=QDialog(c.pet); dialog.setWindowTitle('Cyber Cat · Account'); dialog.setMinimumWidth(390)
+        dialog=QDialog(c.pet); dialog.setWindowTitle('Focanopy · Account'); dialog.setMinimumWidth(390)
         layout=QVBoxLayout(dialog); layout.setSpacing(12)
         heading=QLabel('Your focus, everywhere'); layout.addWidget(heading)
         status=QLabel(cloud.status); status.setWordWrap(True); layout.addWidget(status)

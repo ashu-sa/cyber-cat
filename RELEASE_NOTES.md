@@ -1,9 +1,12 @@
-# Cyber Cat v1.2.0 — Your focus forest
+# Focanopy v1.3.0 — Android-first focus forest
 
-- Replaces the cat with a native animated tree on Android, macOS, Windows and Ubuntu.
-- Slow falling water, gentle leaf movement and smooth growth: a young plant at 30 minutes, one completed tree per focused hour. Pause freezes the animation; reduced motion is supported.
-- Short sessions and synced devices contribute to the same daily grove. Eight hours of saved focus in a day unlocks a Garden badge.
-- Calendar days show duration and trees; day/week/month summaries include tree totals and garden days. Editing or deleting history recalculates rewards.
-- Existing local history, accounts and secure login remain compatible; no migration or new account required.
+- New product name: Focanopy (focus + canopy), across Android, macOS, Windows and Ubuntu. Existing package IDs, credentials and history remain compatible.
+- Android is now the main MVP: cohesive forest palette, daily focus/tree cards, live next-tree progress, accessible icon controls and persistent bottom navigation.
+- Typed task names survive closing/reopening the save popup and activity recreation. Saving still opens calendar history.
+- Floating Finish stops the session before asking Android to open the save screen, protecting against blocked background launches.
+- Calendar retains selected period across activity recreation; visible Day/Week/Month selection and garden highlights.
+- Export saved sessions as JSON through Android’s document picker. Notification permission state is visible in Settings.
+- Animation stops with a hidden app window; background timing and notification chronometer remain active.
+- README rewritten around the Android MVP, engineering architecture, fresh native screenshots and a résumé-ready project description.
 
-Android requires Android 8+, macOS requires macOS 14+. Packages remain unsigned/ad-hoc signed as documented. Android ships the existing debug signing identity for update compatibility.
+Android 8+, macOS 14+, Windows x64 and Ubuntu 24.04+ packages. Android APK retains the original debug signing key; desktop apps remain unsigned/ad-hoc signed. No Google Play release or physical OEM-device validation is claimed.

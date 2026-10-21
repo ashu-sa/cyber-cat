@@ -1,10 +1,10 @@
-# Cyber Cat Stopwatch
+# Focanopy Stopwatch
 
-A tiny native SwiftUI macOS 14+ stopwatch companion. The existing Mochi app has been redesigned as a charcoal robotic cat with electric blue, teal, and purple details. The release is named `Cyber Cat.app`; its original identifier is retained so existing local history is preserved.
+A tiny native SwiftUI macOS 14+ stopwatch companion. The existing Mochi app has been redesigned as a charcoal robotic cat with electric blue, teal, and purple details. The release is named `Focanopy.app`; its original identifier is retained so existing local history is preserved.
 
 ## Run and control
 
-Open `Cyber Cat.app` in the parent folder. Only a transparent **150 × 100 point** pet appears; macOS scales points to physical pixels on Retina displays. No history window or dashboard opens at launch.
+Open `Focanopy.app` in the parent folder. Only a transparent **150 × 100 point** pet appears; macOS scales points to physical pixels on Retina displays. No history window or dashboard opens at launch.
 
 Use the visible Play button to start; it becomes Pause while running and Resume when paused. Finish opens task naming and is disabled until a session starts. An unsaved finished session shows a Save Session button. Click or right-click the cat for Cancel Session, Hide Pet, Close Pet, and History. Drag the cat to move it. Its last position is stored and restored within an available display’s visible bounds.
 

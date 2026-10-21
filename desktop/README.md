@@ -1,6 +1,6 @@
-# Cyber Cat — Windows and Ubuntu desktop version
+# Focanopy — Windows and Ubuntu desktop version
 
-A real desktop app made with Python + **Qt Widgets (PySide6 Essentials)**. No Electron, browser, web view, or network service. This is a portable implementation of the SwiftUI macOS companion; the existing SwiftUI app is unchanged.
+A real desktop app made with Python + **Qt Widgets (PySide6 Essentials)**. No Electron, browser or web view; account sync is optional. This is a portable implementation of the SwiftUI macOS companion; the existing SwiftUI app is unchanged.
 
 ## What is implemented
 
@@ -33,7 +33,7 @@ On a clean minimal Linux installation additional display-driver/XCB libraries ma
 
 ### GNOME global Ctrl shortcuts
 
-Right-click the pet and choose **Enable GNOME Ctrl shortcuts** once. This configures only Cyber Cat’s own GNOME custom keyboard shortcut entries; existing entries are retained. It works through GNOME’s shortcut system on **both Wayland and X11**, without trying to intercept keyboard events through Wayland.
+Right-click the pet and choose **Enable GNOME Ctrl shortcuts** once. This configures only Focanopy’s own GNOME custom keyboard shortcut entries; existing entries are retained. It works through GNOME’s shortcut system on **both Wayland and X11**, without trying to intercept keyboard events through Wayland.
 
 - Ctrl+R: show/hide; also launches the app when stopped.
 - Ctrl+S/P/F: start/resume, pause, finish; their bindings are enabled only while the pet is visible and not in a stopwatch modal dialog.
@@ -49,9 +49,9 @@ Wayland compositors decide whether apps may position windows or stay above other
 
 ## Build distributable app folders
 
-On Windows, run **build-windows.cmd** → `dist/CyberCat-Windows.zip`.
+On Windows, run **build-windows.cmd** → `dist/Focanopy-Windows.zip`.
 
-On Ubuntu, run **./build-linux.sh** → `dist/CyberCat-Linux.tar.gz`.
+On Ubuntu, run **./build-linux.sh** → `dist/Focanopy-Linux.tar.gz`.
 
 These scripts create a PyInstaller application folder bundling Python and Qt. End users of the built folder do not need Python. Keep the whole extracted folder together. Builds are **unsigned** portable app folders, not MSI/DEB installers. Build each package on its target OS; a macOS build is not a Windows or Linux executable.
 
