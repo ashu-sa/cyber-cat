@@ -8,7 +8,8 @@ const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Orig
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), {status, headers});
 async function api(path: string, body: unknown, key = admin) {
  const response = await fetch(url+path,{method:'POST',headers:{'Content-Type':'application/json',apikey:key,Authorization:'Bearer '+key},body:JSON.stringify(body)});
- return {ok:response.ok,status:response.status,data:await response.json()};
+ const raw=await response.text();
+ return {ok:response.ok,status:response.status,data:raw ? JSON.parse(raw) : null};
 }
 async function digest(value: string) {
  const key = await crypto.subtle.importKey('raw',new TextEncoder().encode(pepper),{name:'HMAC',hash:'SHA-256'},false,['sign']);
