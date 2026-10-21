@@ -32,7 +32,8 @@ The images show the actual platform views rendered with isolated example session
 
 ### Android
 
-<img src="docs/screenshots/android-journal.png" alt="Android calendar journal with session totals" width="280" />
+<img src="docs/screenshots/android-journal.png" alt="Android calendar journal with Mac and Phone totals" width="280" />
+<img src="docs/screenshots/android-account.png" alt="Simple username and four-digit PIN account screen" width="280" />
 
 ### macOS
 

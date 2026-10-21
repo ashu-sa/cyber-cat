@@ -1,15 +1,16 @@
 import SwiftUI
 struct AccountView: View {
+    var onClose: (() -> Void)?
     @ObservedObject var model: Stopwatch
     @ObservedObject var cloud: CloudAccount
     @State private var username=""
     @State private var pin=""
     @State private var upload=false
     @Environment(\.dismiss) private var dismiss
-    init(model:Stopwatch) { self.model=model; self.cloud=model.cloud }
+    init(model:Stopwatch,onClose:(() -> Void)? = nil) { self.model=model; self.cloud=model.cloud; self.onClose=onClose }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
-            HStack { Text("Your focus, everywhere").font(.title2.bold()); Spacer(); Button("Close") { dismiss() } }
+            HStack { Text("Your focus, everywhere").font(.title2.bold()); Spacer(); Button("Close") { if let onClose { onClose() } else { dismiss() } } }
             Text(cloud.status).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             if cloud.owner != nil {
                 Text("Signed in as \(cloud.username)")
