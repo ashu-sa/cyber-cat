@@ -28,12 +28,13 @@ struct Session: Codable, Identifiable {
     private var anchor: ContinuousClock.Instant?
     private var started: Date?
     private var ended: Date?
+    private var sessionId: UUID?
     private let clock = ContinuousClock()
     let cloud: CloudAccount
     private let directory: URL
     private var historyURL: URL { directory.appendingPathComponent("sessions.json") }
     private var draftURL: URL { directory.appendingPathComponent("active-session.json") }
-    struct Draft: Codable { var phase: Phase; var elapsed: Double; var start: Date; var end: Date?; var checkpoint: Date }
+    struct Draft: Codable { var phase: Phase; var elapsed: Double; var start: Date; var end: Date?; var checkpoint: Date; var sessionId: UUID? = nil }
     init(directory: URL? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MochiStopwatch")
         self.cloud = CloudAccount(directory: self.directory, enabled: directory == nil)
@@ -42,7 +43,7 @@ struct Session: Codable, Identifiable {
             if FileManager.default.fileExists(atPath: historyURL.path) { sessions = try JSONDecoder().decode([Session].self, from: Data(contentsOf: historyURL)) }
             if FileManager.default.fileExists(atPath: draftURL.path) {
                 let d = try JSONDecoder().decode(Draft.self, from: Data(contentsOf: draftURL))
-                started = d.start; ended = d.end; accumulated = d.elapsed
+                started = d.start; ended = d.end; accumulated = d.elapsed; sessionId = d.sessionId ?? UUID()
                 if d.phase == .running { accumulated += max(0, Date().timeIntervalSince(d.checkpoint)); anchor = clock.now }
                 phase = d.phase
                 refreshMenu()
@@ -62,21 +63,21 @@ struct Session: Codable, Identifiable {
     }
     func start() {
         guard !cloud.authenticating else { return }
-        if phase == .idle { accumulated = 0; started = Date(); ended = nil }
+        if phase == .idle { accumulated = 0; started = Date(); ended = nil; sessionId = UUID() }
         guard phase == .idle || phase == .paused else { return }
         anchor = clock.now; phase = .running; saved = false; refreshMenu(); checkpoint()
     }
     func pause() { guard phase == .running else { return }; accumulated = elapsed; anchor = nil; phase = .paused; refreshMenu(); checkpoint() }
     func finish() { guard phase == .running || phase == .paused else { return }; accumulated = elapsed; anchor = nil; ended = Date(); phase = .finished; refreshMenu(); checkpoint() }
-    func checkpoint() {
-        guard let started, phase != .idle else { return }
-        do { try JSONEncoder().encode(Draft(phase: phase, elapsed: elapsed, start: started, end: ended, checkpoint: Date())).write(to: draftURL, options: .atomic) }
-        catch { self.error = "Couldn’t preserve the active timer: \(error.localizedDescription)" }
+    @discardableResult func checkpoint() -> Bool {
+        guard let started, phase != .idle else { return true }
+        do { try JSONEncoder().encode(Draft(phase: phase, elapsed: elapsed, start: started, end: ended, checkpoint: Date(), sessionId: sessionId)).write(to: draftURL, options: .atomic); return true }
+        catch { self.error = "Couldn’t preserve the active timer: \(error.localizedDescription)"; return false }
     }
     @discardableResult func discard() -> Bool {
         do {
             if FileManager.default.fileExists(atPath: draftURL.path) { try FileManager.default.removeItem(at: draftURL) }
-            anchor = nil; accumulated = 0; started = nil; ended = nil; phase = .idle; refreshMenu()
+            anchor = nil; accumulated = 0; started = nil; ended = nil; sessionId = nil; phase = .idle; refreshMenu()
             return true
         } catch { self.error = "Couldn’t discard session: \(error.localizedDescription)"; return false }
     }
@@ -106,12 +107,14 @@ struct Session: Codable, Identifiable {
         let defaults = UserDefaults.standard
         let deviceId = defaults.string(forKey: "cybercat.deviceId") ?? UUID().uuidString
         defaults.set(deviceId, forKey: "cybercat.deviceId")
-        let entry = Session(name: clean.isEmpty ? "A little focus time" : clean, start: started, end: ended, duration: accumulated,
+        if sessionId == nil { sessionId=UUID() }
+        guard checkpoint() else { return } // Persist the UUID before committing history.
+        let entry = Session(id: sessionId!, name: clean.isEmpty ? "A little focus time" : clean, start: started, end: ended, duration: accumulated,
                             platform: "macos", deviceId: deviceId, deviceName: "Mac")
-        let updated = [entry] + sessions
+        let updated = [entry] + sessions.filter { $0.id != entry.id }
         guard replaceHistory(updated) else { return }
         try? FileManager.default.removeItem(at: draftURL)
-        phase = .idle; accumulated = 0; self.started = nil; self.ended = nil; saved = true; refreshMenu()
+        phase = .idle; accumulated = 0; self.started = nil; self.ended = nil; sessionId = nil; saved = true; refreshMenu()
     }
 }
 func timeText(_ value: TimeInterval) -> String {

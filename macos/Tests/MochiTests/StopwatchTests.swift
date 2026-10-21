@@ -10,6 +10,7 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         try tests.testRecoverPausedAndFinished()
         try await tests.testRunningRecoveryAndDiscard()
         try tests.testHistoryEditingAndPeriods()
+        try tests.testSaveRecoveryDoesNotDuplicate()
         tests.testMonthCalendar()
         tests.testFormatting()
         print("PASS: timing, recovery, rename persistence, delete/restore, calendar periods and totals, formatting")
@@ -92,6 +93,18 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         precondition(model.restoreSession(records[1]))
         XCTAssertEqual(Stopwatch(directory: dir).sessions.count, 4)
         precondition(!model.restoreSession(records[1]))
+    }
+    @MainActor func testSaveRecoveryDoesNotDuplicate() throws {
+        let dir=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:dir) }
+        let model=Stopwatch(directory:dir); model.start(); model.finish()
+        let draft=try JSONDecoder().decode(Stopwatch.Draft.self,from:Data(contentsOf:dir.appendingPathComponent("active-session.json")))
+        let committed=Session(id:draft.sessionId!,name:"Before interruption",start:draft.start,end:draft.end!,duration:draft.elapsed)
+        precondition(model.replaceHistory([committed])) // Simulate a crash before draft cleanup.
+        let recovered=Stopwatch(directory:dir); recovered.save("Recovered")
+        XCTAssertEqual(recovered.sessions.count,1)
+        XCTAssertEqual(recovered.sessions[0].id,committed.id)
+        XCTAssertEqual(recovered.sessions[0].name,"Recovered")
     }
     func testMonthCalendar() {
         var calendar = Calendar(identifier: .gregorian)
