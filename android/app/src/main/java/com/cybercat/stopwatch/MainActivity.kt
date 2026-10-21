@@ -126,7 +126,7 @@ class MainActivity: Activity() {
             title.addView(text("Focanopy",27f).apply { typeface=Typeface.DEFAULT_BOLD; setPadding(0,0,0,0) })
             title.addView(text("MAKE ROOM TO GROW",10f,cyan).apply { letterSpacing=.16f })
             row.addView(title,LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(button("◎","Account / Sync") { accountDialog() },LinearLayout.LayoutParams(dp(48),dp(48)))
+            row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_account); contentDescription="Account / Sync"; background=card(); setPadding(dp(12),dp(12),dp(12),dp(12)); setOnClickListener { safe { accountDialog() } } },LinearLayout.LayoutParams(dp(48),dp(48)))
         }
         val scroll=ScrollView(this).apply { isFillViewport=true; clipToPadding=false }; scroller=scroll
         root=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(0,dp(16),0,dp(18)) }
@@ -219,14 +219,14 @@ class MainActivity: Activity() {
         val grid=GridLayout(this).apply { columnCount=7 }
         for(day in listOf("M","T","W","T","F","S","S")) grid.addView(text(day,12f,Color.LTGRAY).apply { gravity=Gravity.CENTER },GridLayout.LayoutParams().apply { width=0; height=dp(30); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f) })
         val start=month.atDay(1).minusDays((month.atDay(1).dayOfWeek.value-1).toLong())
-        for(index in 0..41) {
+        for(index in 0 until Forest.calendarCells(month.atDay(1).dayOfWeek.value-1,month.lengthOfMonth())) {
             val day=start.plusDays(index.toLong()); val sum=total(recordsFor(day))
             val cell=TextView(this).apply {
                 text="${day.dayOfMonth}\n${if(sum>0) focusText(sum) else "—"}\n${Forest.cell(sum)}"; textSize=10f; gravity=Gravity.CENTER; includeFontPadding=false
                 setTextColor(if(YearMonth.from(day)!=month) Color.GRAY else if(Forest.garden(sum)) Color.rgb(238,212,151) else Color.WHITE)
                 background=card(if(day==selected) Color.rgb(57,91,61) else if(sum>0) Color.rgb(35,60,43) else surface)
                 contentDescription=day.toString()+", "+focusText(sum)+" tracked, "+Forest.text(sum)+(if(Forest.garden(sum))", garden" else "")
-                setOnClickListener { selected=day; scope="Day"; render() }
+                setOnClickListener { selected=day; month=YearMonth.from(day); scope="Day"; render() }
             }
             grid.addView(cell,GridLayout.LayoutParams().apply { width=0; height=dp(68); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f); setMargins(dp(2),dp(2),dp(2),dp(2)) })
         }; root.addView(grid)

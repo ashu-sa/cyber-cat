@@ -2,6 +2,13 @@ package com.cybercat.stopwatch
 import org.junit.Assert.*
 import org.junit.Test
 class ForestTest {
+ @Test fun calendarFitsEveryMonth() {
+  for(year in listOf(2024,2026)) for(month in 1..12) {
+   val value=java.time.YearMonth.of(year,month);val offset=value.atDay(1).dayOfWeek.value-1;val cells=Forest.calendarCells(offset,value.lengthOfMonth())
+   assertTrue(cells in 28..42);assertEquals(0,cells%7);assertTrue(cells>=offset+value.lengthOfMonth());assertTrue(cells-offset-value.lengthOfMonth()<7)
+  }
+  assertEquals(28,Forest.calendarCells(0,28));assertEquals(42,Forest.calendarCells(6,31))
+ }
  @Test fun nextTreeProgress() {
   assertEquals("60 min to your next tree",Forest.nextTreeText(0)); assertEquals("30 min to your next tree",Forest.nextTreeText(1800000)); assertEquals("1 min to your next tree",Forest.nextTreeText(3599999)); assertEquals("60 min to your next tree",Forest.nextTreeText(Forest.HOUR))
  }
