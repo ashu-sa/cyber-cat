@@ -16,7 +16,7 @@ Finish opens a native naming dialog. Save writes the name, start/end dates, and 
 
 A `ContinuousClock` measures elapsed time, including system sleep, rather than incrementing a counter. Paused time is excluded. The pet and menu bar use the same formatted value, refreshed once per second; state transitions refresh it immediately. Wake notifications refresh the display. Animation runs briefly on state transitions, never continuously.
 
-History remains at `~/Library/Application Support/MochiStopwatch/sessions.json`. Active sessions are checkpointed atomically on transitions, before sleep, and every 15 seconds while running. Recovery after an interrupted process uses wall-clock time since the checkpoint; changing the system clock while the app is closed can affect that recovered interval. Pet coordinates are saved in the app’s local preferences under `local.mochi.stopwatch`. No cloud, analytics, web views, or network dependencies are used.
+History remains at `~/Library/Application Support/MochiStopwatch/sessions.json`. Active sessions are checkpointed atomically on transitions, before sleep, and every 15 seconds while running. Recovery after an interrupted process uses wall-clock time since the checkpoint; changing the system clock while the app is closed can affect that recovered interval. Pet coordinates are saved in the app’s local preferences under `local.mochi.stopwatch`. Optional account sessions sync to Supabase; credentials stay in Keychain. No analytics or web views are used.
 
 The borderless transparent NSPanel uses floating level, all-Spaces, and full-screen auxiliary behavior. macOS controls ordering relative to system surfaces and other full-screen apps.
 
@@ -85,3 +85,7 @@ The native save dialog now has an editable dropdown with Job Apply, Upskill, Int
 The release build passed. Isolated native UI verification checked all four preset options, category selection, custom typing, successful saving, and Close preserving an unsaved finished session. Test records were kept separate from normal local history.
 
 After a successful normal session save, calendar history now opens automatically with that session’s start date selected. This also works if history was previously browsing another month. Closing the naming popup or encountering a save error does not open history. Save & Quit still exits without opening history. Verified in the running app using isolated test data.
+
+## Shared account (v1.1)
+
+Open Account / Sync in the menu bar or journal. Username + four-digit PIN; sessions stay signed in through Keychain. The PIN is never saved. See [sync details](../backend/README.md).

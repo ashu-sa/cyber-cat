@@ -22,7 +22,9 @@ Windows and Linux packages bundle their runtime. The APK is debug-signed; deskto
 - Save with **Job Apply, Upskill, Interview Prep, Work**, or a custom task name.
 - A month calendar showing daily totals such as **2h yesterday / 1h today**, with Day/Week/Month details.
 - Rename and delete sessions, Undo the latest deletion, and open history automatically after saving.
-- Local history and preferences. No account, cloud sync, analytics, or network permission in the Android app.
+- Optional shared account: username + four-digit PIN, with saved sign-in across launches.
+- Synced session history across all four platforms, source labels such as Phone/Mac, and per-device totals. Offline changes retry when connected.
+- Secure OS credential storage, optional upload of existing local sessions, and explicit review for conflicting edits.
 
 ## Screenshots
 
@@ -74,11 +76,13 @@ On Ubuntu/GNOME, open pet controls → **Enable GNOME Ctrl shortcuts** once. Thi
 
 [Android guide](android/README.md) · [Desktop guide](desktop/README.md) · [macOS guide](macos/README.md)
 
+Open **Account / Sync** (Android: **Settings**) to sign in or create an account. Use the same username and four-digit PIN everywhere. Login stays saved; the form does not appear on each launch. Existing history uploads only if you choose it. There is no email recovery, so keep your credentials safe. See [backend and sync details](backend/README.md).
+
 The workflow builds each package on its target OS, runs automated checks, and uploads the artifacts. Manual workflow runs create build artifacts; verified packages are published to GitHub Releases with SHA-256 checksums. The Android release uses the same local debug-signing identity as the original APK, rather than replacing it with a fresh CI debug key.
 
 ## Data and testing
 
-History stays on your device. The desktop version can import the original macOS JSON history without modifying the source file. See the platform guides for storage locations, recovery behavior, and permissions.
+Local-only history stays on your device. When signed in, account sessions also sync to the Cyber Cat Supabase project under owner-only access policies. The desktop version can import the original macOS JSON history without modifying the source file. See the platform guides for storage locations, recovery behavior, and permissions.
 
 Android notification/overlay behavior has been tested on an Android 15 emulator; physical OEM phones may behave differently. Windows/Linux CI verifies native widgets and packaged application construction, not a fully interactive user desktop. Linux global shortcut registration is covered by scoped/mocked checks; physical sleep/wake behavior is not claimed as tested.
 

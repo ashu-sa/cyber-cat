@@ -80,3 +80,7 @@ Model and offscreen native-widget tests pass on this Mac: timing, pause/resume, 
 Windows and Linux packages are built on their target GitHub runners and available on the repository’s Releases page. Native-widget tests and packaged smoke tests run headlessly. Interactive Windows/Ubuntu-GNOME sessions, real global shortcut integration, and physical sleep/wake have not been tested.
 
 Qt API references: [QCalendarWidget](https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QCalendarWidget.html), [QSystemTrayIcon](https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QSystemTrayIcon.html), [Windows RegisterHotKey](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey).
+
+## Shared account (v1.1)
+
+Open Account / Sync from the pet controls, tray or journal. Username + four-digit PIN; saved securely with Windows Credential Manager or Ubuntu Secret Service. A functioning OS vault is required to sign in. Local-only mode still works without one. See [sync details](../backend/README.md).

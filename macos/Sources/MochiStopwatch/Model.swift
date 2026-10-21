@@ -7,6 +7,12 @@ struct Session: Codable, Identifiable {
     var start: Date
     var end: Date
     var duration: TimeInterval
+    var platform: String? = nil
+    var deviceId: String? = nil
+    var deviceName: String? = nil
+    var deviceLabel: String {
+        deviceName ?? ["macos": "Mac", "android": "Phone", "windows": "Windows", "linux": "Linux"][platform ?? ""] ?? "This device"
+    }
 }
 
 @MainActor final class Stopwatch: ObservableObject {
@@ -23,12 +29,14 @@ struct Session: Codable, Identifiable {
     private var started: Date?
     private var ended: Date?
     private let clock = ContinuousClock()
+    let cloud: CloudAccount
     private let directory: URL
     private var historyURL: URL { directory.appendingPathComponent("sessions.json") }
     private var draftURL: URL { directory.appendingPathComponent("active-session.json") }
     struct Draft: Codable { var phase: Phase; var elapsed: Double; var start: Date; var end: Date?; var checkpoint: Date }
     init(directory: URL? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MochiStopwatch")
+        self.cloud = CloudAccount(directory: self.directory, enabled: directory == nil)
         do {
             try FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
             if FileManager.default.fileExists(atPath: historyURL.path) { sessions = try JSONDecoder().decode([Session].self, from: Data(contentsOf: historyURL)) }
@@ -40,6 +48,12 @@ struct Session: Codable, Identifiable {
                 refreshMenu()
             }
         } catch { self.error = "Couldn’t read saved data: \(error.localizedDescription)" }
+        if cloud.owner != nil { sessions=cloud.visible }
+        cloud.onChange = { [weak self] in
+            guard let self else { return }
+            if self.cloud.owner != nil { self.sessions=self.cloud.visible }
+            else { self.sessions=(try? JSONDecoder().decode([Session].self,from:Data(contentsOf:self.historyURL))) ?? [] }
+        }
     }
     var elapsed: TimeInterval {
         guard let anchor else { return accumulated }
@@ -47,6 +61,7 @@ struct Session: Codable, Identifiable {
         return accumulated + Double(c.seconds) + Double(c.attoseconds) / 1e18
     }
     func start() {
+        guard !cloud.authenticating else { return }
         if phase == .idle { accumulated = 0; started = Date(); ended = nil }
         guard phase == .idle || phase == .paused else { return }
         anchor = clock.now; phase = .running; saved = false; refreshMenu(); checkpoint()
@@ -67,8 +82,8 @@ struct Session: Codable, Identifiable {
     }
     @discardableResult func replaceHistory(_ updated: [Session]) -> Bool {
         do {
-            try JSONEncoder().encode(updated).write(to: historyURL, options: .atomic)
-            sessions = updated
+            if cloud.owner != nil { try cloud.replace(updated); sessions=cloud.visible; Task { await cloud.sync() } }
+            else { try JSONEncoder().encode(updated).write(to: historyURL, options: .atomic); sessions = updated }
             return true
         } catch { self.error = "Couldn’t update history: \(error.localizedDescription)"; return false }
     }
@@ -88,13 +103,15 @@ struct Session: Codable, Identifiable {
     func save(_ name: String) {
         guard phase == .finished, let started, let ended else { return }
         let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let entry = Session(name: clean.isEmpty ? "A little focus time" : clean, start: started, end: ended, duration: accumulated)
+        let defaults = UserDefaults.standard
+        let deviceId = defaults.string(forKey: "cybercat.deviceId") ?? UUID().uuidString
+        defaults.set(deviceId, forKey: "cybercat.deviceId")
+        let entry = Session(name: clean.isEmpty ? "A little focus time" : clean, start: started, end: ended, duration: accumulated,
+                            platform: "macos", deviceId: deviceId, deviceName: "Mac")
         let updated = [entry] + sessions
-        do {
-            try JSONEncoder().encode(updated).write(to: historyURL, options: .atomic)
-            try? FileManager.default.removeItem(at: draftURL)
-            sessions = updated; phase = .idle; accumulated = 0; self.started = nil; self.ended = nil; saved = true; refreshMenu()
-        } catch { self.error = "Your session hasn’t been saved. Please try again. \(error.localizedDescription)" }
+        guard replaceHistory(updated) else { return }
+        try? FileManager.default.removeItem(at: draftURL)
+        phase = .idle; accumulated = 0; self.started = nil; self.ended = nil; saved = true; refreshMenu()
     }
 }
 func timeText(_ value: TimeInterval) -> String {

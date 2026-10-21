@@ -35,6 +35,9 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         XCTAssertEqual(loaded.sessions.first?.name, "Write a poem")
         XCTAssertEqual(loaded.sessions.first!.duration, duration, accuracy: 0.001)
         XCTAssertEqual(loaded.phase, .idle)
+        XCTAssertEqual(loaded.sessions.first?.deviceLabel, "Mac")
+        XCTAssertEqual(loaded.sessions.first?.platform, "macos")
+        precondition(loaded.sessions.first?.deviceId != nil)
     }
     @MainActor func testRecoverPausedAndFinished() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -109,6 +112,8 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         XCTAssertEqual(focusDuration(29), "29s")
     }
     func testFormatting() {
+        let legacy = try! JSONDecoder().decode(Session.self, from: Data("{\"id\":\"55CE8492-6E44-4142-9242-AC3C0D75A6A4\",\"name\":\"Old\",\"start\":0,\"end\":60,\"duration\":60}".utf8))
+        XCTAssertEqual(legacy.deviceLabel, "This device")
         XCTAssertEqual(timeText(3661), "01:01:01")
         XCTAssertEqual(timeText(360000), "100:00:00")
     }

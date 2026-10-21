@@ -28,6 +28,7 @@ class MainActivity: Activity() {
     private var month = YearMonth.now()
     private var scope = "Day"
     private var naming = false
+    private var syncTicks=0
     private var phase = ""
     private var requestOverlay = false
     private var deleted: JSONObject? = null
@@ -35,6 +36,7 @@ class MainActivity: Activity() {
     private val tick=object:Runnable { override fun run() {
         timer?.text=clockText(Repository.engine.elapsed())
         if(phase!=Repository.engine.phase) render()
+        syncTicks++; if(syncTicks%30==0 && Cloud.owner!=null) Cloud.run({ Cloud.sync() })
         handler.postDelayed(this,1000)
     } }
     override fun onCreate(state:Bundle?) { super.onCreate(state); Repository.init(this); window.statusBarColor=bg; window.navigationBarColor=bg; render(); handle(intent); if(Repository.engine.phase!="idle" || Repository.prefs.getBoolean("showPet",false)) safe { service("SYNC") } }
@@ -45,13 +47,54 @@ class MainActivity: Activity() {
         intent?.action=null
     }
     override fun onResume() {
-        super.onResume(); handler.removeCallbacks(tick); handler.post(tick)
+        super.onResume(); Cloud.changed={ if(!isFinishing && !isDestroyed) render() }; if(Cloud.owner!=null) Cloud.run({ Cloud.sync() }); handler.removeCallbacks(tick); handler.post(tick)
         if(requestOverlay && Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); requestOverlay=false }
     }
-    override fun onPause() { handler.removeCallbacks(tick); super.onPause() }
+    override fun onPause() { Cloud.changed=null; handler.removeCallbacks(tick); super.onPause() }
     private fun dp(value:Int)=(value*resources.displayMetrics.density).toInt()
     private fun safe(action:()->Unit) { try { action() } catch(e:Exception) { AlertDialog.Builder(this).setTitle("Couldn’t complete action").setMessage(e.localizedMessage).setPositiveButton("OK",null).show() } }
     private fun service(action:String) { startForegroundService(Intent(this,TimerService::class.java).setAction(action)) }
+    private fun accountDialog() {
+        val dialog=Dialog(this)
+        val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(22),dp(20),dp(22),dp(20)); setBackgroundColor(bg) }
+        dialog.setContentView(content); dialog.window?.setLayout(-1,-2)
+        content.addView(text("Your focus, everywhere",22f,cyan))
+        val status=text(Cloud.status,13f,Color.LTGRAY); content.addView(status)
+        fun run(action:()->Unit,done:(String?)->Unit={}) {
+            if(Cloud.busy.get()) { status.text="Sync in progress…"; return }
+            status.text="Connecting…"
+            Cloud.run(action) { error ->
+                if(!isFinishing && !isDestroyed) { status.text=Cloud.status; done(error) }
+            }
+        }
+        if(Cloud.owner!=null) {
+            content.addView(text("Signed in as ${Cloud.username}"))
+            content.addView(button("Sync now") { run({ Cloud.sync() }) })
+            if(Cloud.hasConflicts()) for(keep in listOf(true,false)) content.addView(button(if(keep)"Keep my changes" else "Use cloud changes") { run({ Cloud.resolve(keep); Cloud.sync() }) })
+            content.addView(button("Sign out") {
+                if(Repository.engine.phase!="idle" || Cloud.busy.get()) status.text="Finish your timer and wait for sync before switching accounts."
+                else { Cloud.signOut(); Repository.loadGuest(); render(); dialog.dismiss() }
+            })
+        } else {
+            val username=EditText(this).apply { hint="Username"; setSingleLine(); inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS; setTextColor(Color.WHITE) }; content.addView(username)
+            val pin=EditText(this).apply { hint="4-digit PIN"; inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD; filters=arrayOf(android.text.InputFilter.LengthFilter(4)); setTextColor(Color.WHITE) }; content.addView(pin)
+            val upload=CheckBox(this).apply { text="Add this device’s existing sessions to my account"; setTextColor(Color.WHITE) }; content.addView(upload)
+            content.addView(text("Use the same username and PIN on every device. Keep them safe; this account has no email recovery.",12f,Color.LTGRAY))
+            for(signup in listOf(false,true)) content.addView(button(if(signup)"Create account" else "Sign in") {
+                val name=username.text.toString().trim().lowercase(java.util.Locale.ROOT); val code=pin.text.toString()
+                if(Repository.engine.phase!="idle") { status.text="Finish your current timer before signing in." }
+                else if(!Regex("^[a-z0-9_]{3,24}$").matches(name) || !Regex("^[0-9]{4}$").matches(code)) status.text="Use 3–24 letters, numbers or underscores and a 4-digit PIN."
+                else {
+                    val existing=if(upload.isChecked) Repository.sessions.toList() else emptyList()
+                    run({ Cloud.authenticate(name,code,signup,existing) }) { error ->
+                        pin.setText("")
+                        if(error==null) { dialog.dismiss(); render(); Cloud.run({ Cloud.sync() }) }
+                    }
+                }
+            })
+        }
+        content.addView(button("Close") { dialog.dismiss() }); dialog.show(); dialog.window?.setLayout(-1,-2)
+    }
     private fun notifications() { if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),5) }
     private fun text(value:String,size:Float=15f,color:Int=Color.WHITE)=TextView(this).apply { text=value; textSize=size; setTextColor(color); setPadding(0,dp(5),0,dp(5)) }
     private fun card(color:Int=surface)=GradientDrawable().apply { setColor(color); cornerRadius=dp(16).toFloat() }
@@ -134,11 +177,13 @@ class MainActivity: Activity() {
         val records=Repository.sessions.filter { val d=dayOf(it.getLong("start")); when(scope) { "Week"-> !d.isBefore(weekStart)&&d.isBefore(weekStart.plusDays(7)); "Month"->YearMonth.from(d)==YearMonth.from(selected); else->d==selected } }
         root.addView(text("${selected.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · $scope",19f))
         root.addView(text("${focusText(total(records))} · ${records.size} sessions",24f,cyan))
+        root.addView(text(records.groupBy { Repository.deviceLabel(it) }.toSortedMap().map { (name,items) -> "$name ${focusText(total(items))}" }.joinToString(" · "),13f,Color.LTGRAY))
         deleted?.let { item -> root.addView(button("Undo last deletion") { Repository.restore(item); deleted=null; render() }) }
         if(records.isEmpty()) root.addView(text("No sessions for this period yet.",14f,Color.LTGRAY))
         for(record in records.sortedByDescending { it.getLong("start") }) {
             val box=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(14),dp(10),dp(14),dp(10)); background=card() }
             box.addView(text(record.getString("name"),17f))
+            box.addView(text(Repository.deviceLabel(record),12f,Color.LTGRAY))
             box.addView(text("${Instant.ofEpochMilli(record.getLong("start")).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d · HH:mm"))}   ${focusText(record.getLong("duration"))}",13f,cyan))
             line(box) { row ->
                 row.addView(button("✎","Rename session") { val input=EditText(this).apply { setText(record.getString("name")); setSingleLine() }; AlertDialog.Builder(this).setTitle("Rename session").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Save") { _,_-> safe { Repository.rename(record.getString("id"),input.text.toString()); render() } }.show() })
@@ -149,6 +194,8 @@ class MainActivity: Activity() {
         root.addView(text("Totals exclude pauses. Sessions belong to their local start date.",11f,Color.LTGRAY))
     }
     private fun settings() {
+        root.addView(button("Account / Sync") { accountDialog() })
+        root.addView(text(if(Cloud.owner!=null) "${Cloud.username} · ${Cloud.status}" else "Local only · sign in to sync devices",13f,Color.LTGRAY))
         root.addView(text("Your desktop companion",24f))
         root.addView(text("Notification controls work without floating-window permission. To use the cat above other apps, allow “Display over other apps”.",14f,Color.LTGRAY))
         root.addView(button(if(Settings.canDrawOverlays(this)) "Show floating cat" else "Enable floating cat…") {

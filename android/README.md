@@ -33,7 +33,7 @@ A month calendar shows daily active totals (`2h`, `1h 15m`, `45m`). Select a dat
 
 ## Timing and lifecycle
 
-Live elapsed time comes from `SystemClock.elapsedRealtime()` (including deep sleep), not a tick counter. The notification uses Android’s own chronometer rather than rebuilding every second. The service checkpoints on transitions and every 15 seconds. History uses `AtomicFile` replacement in app-private storage. Preferences and session checkpoints are local to the app. There is no network permission.
+Live elapsed time comes from `SystemClock.elapsedRealtime()` (including deep sleep), not a tick counter. The notification uses Android’s own chronometer rather than rebuilding every second. The service checkpoints on transitions and every 15 seconds. History uses `AtomicFile` replacement in app-private storage. Preferences and session checkpoints are local to the app. Optional account sync uses INTERNET permission; credentials are encrypted with Android Keystore.
 
 Swiping the app out of Recents does not intentionally stop the foreground service. Android’s Force stop, the system foreground-app Stop control, reboot, or a manufacturer battery manager can stop it. Reopening Cyber Cat restores its checkpoint; recovery on the same boot uses monotonic elapsed time, and recovery after reboot uses wall-clock time (manual clock changes can affect that recovery). The service does not auto-launch from boot. An idle service stops unless the optional pet is shown.
 
@@ -74,3 +74,7 @@ adb shell am instrument -w com.cybercat.stopwatch.test/com.cybercat.stopwatch.Sm
 - [Foreground-service types](https://developer.android.com/develop/background-work/services/fgs/service-types)
 - [Draw-over-other-apps permission](https://developer.android.com/reference/android/provider/Settings#ACTION_MANAGE_OVERLAY_PERMISSION)
 - [Monotonic clock including deep sleep](https://developer.android.com/reference/android/os/SystemClock#elapsedRealtime())
+
+## Shared account (v1.1)
+
+Settings → Account / Sync supports username + four-digit PIN. Credentials persist using Android Keystore encryption; the PIN is not stored. INTERNET permission is used for optional sync. Existing sessions upload only on opt-in. See [backend guide](../backend/README.md).

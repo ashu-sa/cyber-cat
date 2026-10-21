@@ -40,6 +40,7 @@ object Repository {
                 engine.accumulated += passed.coerceAtLeast(0); engine.anchor = SystemClock.elapsedRealtime()
             }
         } catch (e: Exception) { error = "Could not read saved data: ${e.localizedMessage}" }
+        Cloud.init(context); if(Cloud.owner!=null) sessions=Cloud.visible()
     }
     fun checkpoint() {
         check(prefs.edit().putString("phase", engine.phase).putLong("elapsed", engine.elapsed())
@@ -47,23 +48,34 @@ object Repository {
             .putInt("boot", boot()).putLong("checkpointMono", SystemClock.elapsedRealtime())
             .putLong("checkpointWall", System.currentTimeMillis()).commit()) { "Unable to preserve timer state" }
     }
-    fun start() { if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; engine.start(); checkpoint() }
+    fun start() { if(Cloud.busy.get() && Cloud.owner==null) return; if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; engine.start(); checkpoint() }
     fun pause() { engine.pause(); checkpoint() }
     fun finish() { if (engine.phase == "running" || engine.phase == "paused") ended = System.currentTimeMillis(); engine.finish(); checkpoint() }
     fun replace(records: List<JSONObject>) {
         check(error == null) { error ?: "Storage unavailable" }
+        if(Cloud.owner!=null) { Cloud.replace(records); sessions=Cloud.visible(); Cloud.run({ Cloud.sync() }); return }
         val stream = file.startWrite()
         try { stream.write(JSONArray(records).toString(2).toByteArray()); file.finishWrite(stream); sessions = records.toMutableList() }
         catch (e: Exception) { file.failWrite(stream); throw e }
     }
     fun save(name: String) {
         if (engine.phase != "finished") return
+        val deviceId = prefs.getString("deviceId", null) ?: UUID.randomUUID().toString().also {
+            check(prefs.edit().putString("deviceId", it).commit()) { "Unable to save device identity" }
+        }
         val item = JSONObject().put("id", sessionId).put("name", name.trim().ifEmpty { "Focus session" })
             .put("start", started).put("end", ended).put("duration", engine.accumulated)
+            .put("platform", "android").put("device_id", deviceId).put("device_name", "Phone")
         replace(listOf(item) + sessions.filter { it.getString("id") != sessionId })
         engine.reset(); checkpoint()
     }
+    fun loadGuest() {
+        sessions=if(file.baseFile.exists()) { val a=JSONArray(file.openRead().bufferedReader().use { it.readText() }); (0 until a.length()).map { a.getJSONObject(it) }.toMutableList() } else mutableListOf()
+    }
     fun discard() { engine.reset(); checkpoint() }
+    fun deviceLabel(record: JSONObject): String = record.optString("device_name").ifBlank {
+        when(record.optString("platform")) { "macos" -> "Mac"; "android" -> "Phone"; "windows" -> "Windows"; "linux" -> "Linux"; else -> "This device" }
+    }
     fun rename(id: String, name: String) {
         require(name.isNotBlank()) { "Enter a task name" }
         replace(sessions.map { JSONObject(it.toString()).apply { if (getString("id") == id) put("name", name.trim()) } })

@@ -58,6 +58,11 @@ def duration_text(value):
     return f'{minutes}m' if minutes else (f'{seconds}s' if seconds else '0m')
 
 
+def device_label(record):
+    return record.get('device_name') or {'macos': 'Mac', 'android': 'Phone',
+        'windows': 'Windows', 'linux': 'Linux'}.get(record.get('platform'), 'This device')
+
+
 class Store:
     def __init__(self, directory=None, clock=continuous_time, wall=time.time):
         self.directory = Path(directory) if directory else data_directory()
@@ -65,6 +70,11 @@ class Store:
         self.clock, self.wall = clock, wall
         self.sessions = self.read('sessions.json', [])
         self.settings = self.read('settings.json', {})
+        if 'device_id' not in self.settings:
+            self.setting('device_id', str(uuid.uuid4()))
+        from .cloud import Cloud
+        self.cloud = Cloud(self.directory, **({'vault': lambda value=None: None} if directory is not None or os.environ.get('CYBERCAT_DATA_DIRECTORY') else {}))
+        if self.cloud.owner: self.sessions = self.cloud.visible()
         self.phase, self.accumulated, self.anchor = 'idle', 0.0, None
         self.started, self.ended, self.session_id = None, None, None
         draft = self.read('active.json', None)
@@ -90,6 +100,7 @@ class Store:
                 end=self.ended, elapsed=self.elapsed, checkpoint=self.wall(), session_id=self.session_id))
 
     def start(self):
+        if getattr(self.cloud, 'switching', False): return
         if self.phase not in ('idle', 'paused'):
             return
         if self.phase == 'idle':
@@ -110,14 +121,21 @@ class Store:
             self.checkpoint()
 
     def replace_sessions(self, records):
-        atomic_json(self.directory / 'sessions.json', records)
-        self.sessions = records
+        if self.cloud.owner:
+            self.cloud.replace(records, self.settings['device_id'])
+            self.sessions = self.cloud.visible()
+        else:
+            atomic_json(self.directory / 'sessions.json', records)
+            self.sessions = records
 
     def save(self, name):
         if self.phase != 'finished':
             return None
         record = dict(id=str(uuid.uuid4()), name=name.strip() or 'Focus session', start=self.started,
-                      end=self.ended, duration=self.accumulated)
+                      end=self.ended, duration=self.accumulated,
+                      device_id=self.settings['device_id'],
+                      platform={'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux'),
+                      device_name={'win32': 'Windows', 'darwin': 'Mac'}.get(sys.platform, 'Linux'))
         # Keep a stable record ID if saving succeeded but draft cleanup must be retried.
         self.session_id = self.session_id or record['id']
         record['id'] = self.session_id
@@ -153,7 +171,8 @@ class Store:
     def import_swift(self, filename):
         records = json.loads(Path(filename).read_text(encoding='utf-8'))
         converted = [dict(id=r['id'], name=r['name'], start=r['start'] + 978307200,
-                          end=r['end'] + 978307200, duration=r['duration']) for r in records]
+                          end=r['end'] + 978307200, duration=r['duration'], platform=r.get('platform') or 'macos',
+                          device_name=r.get('deviceName') or 'Mac', device_id=r.get('deviceId')) for r in records]
         known = {r['id'] for r in self.sessions}
         self.replace_sessions(sorted(self.sessions + [r for r in converted if r['id'] not in known], key=lambda r: r['start'], reverse=True))
 

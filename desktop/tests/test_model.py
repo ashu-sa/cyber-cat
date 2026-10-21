@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from cybercat.model import Store, atomic_json, clock_text, duration_text
+from cybercat.model import Store, atomic_json, clock_text, duration_text, device_label
 
 class ModelTests(unittest.TestCase):
     def setUp(self):
@@ -41,6 +41,20 @@ class ModelTests(unittest.TestCase):
         atomic_json(file,[dict(id='test',name='Swift',start=0,end=60,duration=60)])
         self.store.import_swift(file); self.store.import_swift(file)
         self.assertEqual(len(self.store.sessions),1); self.assertEqual(self.store.sessions[0]['start'],978307200)
+    def test_device_identity_and_import_source(self):
+        s=self.store; s.start(); s.finish(); first=s.save("Work")
+        reloaded=Store(self.path)
+        self.assertEqual(first["device_id"], reloaded.settings["device_id"])
+        self.assertEqual(device_label({"platform":"android"}), "Phone")
+        self.assertEqual(device_label({"platform":"macos"}), "Mac")
+        self.assertEqual(device_label({}), "This device")
+        s.rename(first["id"], "Renamed")
+        self.assertEqual(s.sessions[0]["device_id"], first["device_id"])
+        source=self.path/"swift.json"
+        atomic_json(source,[dict(id="imported",name="Swift",start=0,end=60,duration=60)])
+        s.import_swift(source)
+        self.assertEqual(device_label(next(r for r in s.sessions if r["id"]=="imported")), "Mac")
+
     def test_format(self):
         self.assertEqual(clock_text(360001),'100:00:01')
         self.assertEqual(duration_text(7200),'2h')

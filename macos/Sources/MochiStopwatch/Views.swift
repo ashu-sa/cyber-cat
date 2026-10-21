@@ -130,6 +130,7 @@ final class PetHitView: NSView {
     func openMenu() { showOptions?(self) }
 }
 struct HistoryView: View {
+    @State private var accountOpen = false
     @ObservedObject var model: Stopwatch
     @State private var period: HistoryPeriod = .day
     @State private var selectedDate = Date()
@@ -162,6 +163,7 @@ struct HistoryView: View {
                     Text("Your time, at a glance.").font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button("Account / Sync") { accountOpen=true }.sheet(isPresented:$accountOpen) { AccountView(model:model) }
                 Button("Today") { selectedDate = Date(); period = .day }.buttonStyle(.bordered)
             }
             HStack(spacing: 12) {
@@ -208,6 +210,7 @@ struct HistoryView: View {
                             Text("\(records.count) session\(records.count == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    Text(Dictionary(grouping: records, by: { $0.deviceLabel }).sorted { $0.key < $1.key }.map { $0.key + " " + focusDuration($0.value.reduce(0) { $0 + $1.duration }) }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
                     Divider()
                     if let deleted {
                         HStack {
@@ -310,7 +313,7 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 9) {
             Text(session.name).font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
             HStack(spacing: 5) {
-                Text(session.start.formatted(date: .omitted, time: .shortened)).font(.system(size: 10)).foregroundStyle(.secondary)
+                Text(session.deviceLabel + " · " + session.start.formatted(date: .omitted, time: .shortened)).font(.system(size: 10)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Text(focusDuration(session.duration)).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(Color.teal)
                 Button { newName = session.name; editing = session } label: { Image(systemName: "pencil").frame(width: 24, height: 24) }.buttonStyle(.plain).help("Rename session").accessibilityLabel("Rename " + session.name)

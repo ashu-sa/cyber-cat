@@ -11,7 +11,7 @@ from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainte
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QDialog, QComboBox, QDialogButtonBox, QSlider, QCheckBox, QScrollArea, QCalendarWidget,
     QSystemTrayIcon, QMenu, QMessageBox, QInputDialog, QFileDialog, QFrame)
-from .model import Store, clock_text, duration_text
+from .model import Store, clock_text, duration_text, device_label
 from .shortcuts import Shortcuts, gnome_available, install_gnome, remove_gnome
 
 STYLE = '''
@@ -241,7 +241,7 @@ class History(QWidget):
         self.resize(940, 710)
         root = QVBoxLayout(self); root.setContentsMargins(25, 25, 25, 25); root.setSpacing(18)
         head = QHBoxLayout(); head.addWidget(label('Focus journal', 'title')); head.addStretch()
-        head.addWidget(button('Today', self.today)); head.addWidget(button('Import macOS history…', self.import_history))
+        head.addWidget(button('Account / Sync', controller.accounts.show)); head.addWidget(button('Today', self.today)); head.addWidget(button('Import macOS history…', self.import_history))
         root.addLayout(head)
         self.summary = label('', 'total'); root.addWidget(self.summary)
         body = QHBoxLayout()
@@ -254,6 +254,7 @@ class History(QWidget):
         detail.addWidget(self.scope)
         self.title = label('', 'title'); detail.addWidget(self.title)
         self.total = label('', 'total'); detail.addWidget(self.total)
+        self.devices = label('', 'subtitle'); self.devices.setWordWrap(True); detail.addWidget(self.devices)
         self.undo = button('Undo last deletion', self.restore); self.undo.hide(); detail.addWidget(self.undo)
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         self.list = QWidget(); self.rows = QVBoxLayout(self.list); self.rows.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -279,6 +280,9 @@ class History(QWidget):
         records = sorted(filter(included, self.c.store.sessions), key=lambda r:r['start'], reverse=True)
         self.title.setText(selected.strftime('%b %d') if scope == 'Day' else scope + ' of ' + selected.strftime('%b %d'))
         self.total.setText(duration_text(sum(r['duration'] for r in records)) + f' · {len(records)} sessions')
+        devices = {}
+        for r in records: devices[device_label(r)] = devices.get(device_label(r), 0) + r['duration']
+        self.devices.setText('  ·  '.join(name + ' ' + duration_text(value) for name, value in sorted(devices.items())))
         while self.rows.count():
             item = self.rows.takeAt(0)
             if item.widget(): item.widget().hide(); item.widget().deleteLater()
@@ -288,7 +292,7 @@ class History(QWidget):
             card = QFrame(); card.setObjectName('card'); layout = QVBoxLayout(card)
             name = label(record['name']); name.setWordWrap(True); layout.addWidget(name)
             row = QHBoxLayout()
-            row.addWidget(label(datetime.fromtimestamp(record['start']).strftime('%b %d · %H:%M') + '  ' + duration_text(record['duration']), 'subtitle'))
+            row.addWidget(label(device_label(record) + ' · ' + datetime.fromtimestamp(record['start']).strftime('%b %d · %H:%M') + '  ' + duration_text(record['duration']), 'subtitle'))
             row.addStretch()
             row.addWidget(button('✎', partial(self.rename, record), 'Rename session'))
             row.addWidget(button('×', partial(self.delete, record), 'Delete session'))
@@ -331,6 +335,8 @@ class Controller:
         self.tray.show()
         self.restore_position(); self.show_pet()
         self.tick = QTimer(); self.tick.timeout.connect(self.refresh); self.tick.start(1000)
+        from .account import Accounts
+        self.accounts = Accounts(self)
         self.persist = QTimer(); self.persist.timeout.connect(lambda:self.safe(self.store.checkpoint)); self.persist.start(15000)
         if not QSystemTrayIcon.isSystemTrayAvailable():
             self.pet.setToolTip('System tray unavailable. Click the cat for all controls, including Quit.')
@@ -447,7 +453,7 @@ class Controller:
         container = QWidget()
         layout = QVBoxLayout(container); layout.setContentsMargins(16,16,16,16); layout.setSpacing(8)
         header = QHBoxLayout(); header.addWidget(label('Pet controls', 'title')); header.addWidget(button('×', self.popup.close)); layout.addLayout(header)
-        for text, action in [('Start / Resume · Ctrl+S', self.start), ('Pause · Ctrl+P', lambda:self.safe(self.store.pause)), ('Finish · Ctrl+F', self.finish), ('Cancel session…', self.cancel), ('Hide / Close pet · Ctrl+R', self.hide_pet), ('Session history', self.show_history)]:
+        for text, action in [('Start / Resume · Ctrl+S', self.start), ('Pause · Ctrl+P', lambda:self.safe(self.store.pause)), ('Finish · Ctrl+F', self.finish), ('Cancel session…', self.cancel), ('Hide / Close pet · Ctrl+R', self.hide_pet), ('Session history', self.show_history), ('Account / Sync', self.accounts.show)]:
             def invoke(fn=action): self.popup.close(); QTimer.singleShot(0, fn)
             layout.addWidget(button(text, invoke))
         opacity_text = label('Pet opacity'); layout.addWidget(opacity_text)
@@ -483,7 +489,7 @@ class Controller:
     def tray_menu(self):
         self.menu.clear()
         self.menu.addAction('Cyber Cat · ' + clock_text(self.store.elapsed)).setEnabled(False)
-        for text, action in [('Start / Resume',self.start),('Pause',lambda:self.safe(self.store.pause)),('Finish Session',self.finish),('Show Pet',self.show_pet),('Hide Pet',self.hide_pet),('Session History',self.show_history),('Quit App…',self.quit)]:
+        for text, action in [('Start / Resume',self.start),('Pause',lambda:self.safe(self.store.pause)),('Finish Session',self.finish),('Show Pet',self.show_pet),('Hide Pet',self.hide_pet),('Session History',self.show_history),('Account / Sync',self.accounts.show),('Quit App…',self.quit)]:
             self.menu.addAction(text, action)
 
     def quit(self):

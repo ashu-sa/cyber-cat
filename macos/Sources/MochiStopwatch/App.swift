@@ -11,6 +11,7 @@ final class FloatingPanel: NSPanel {
     let model = Stopwatch(directory: ProcessInfo.processInfo.environment["MOCHI_TEST_DATA_DIRECTORY"].map { URL(fileURLWithPath: $0) })
     var panel: NSPanel!
     var historyWindow: NSWindow?
+    var accountWindow: NSWindow?
     let controlsPopover = NSPopover()
     var hotKey: EventHotKeyRef?
     var hotKeyHandler: EventHandlerRef?
@@ -36,9 +37,11 @@ final class FloatingPanel: NSPanel {
         },finish:{ [weak self] in self?.finish() }))
         restorePosition(); panel.delegate = self
         registerShortcut(); showPet()
+        Task { await model.cloud.sync() }
         displayTimer = Timer.scheduledTimer(withTimeInterval:1,repeats:true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }; self.model.refreshMenu(); self.ticks += 1
+                if self.ticks % 30 == 0 { Task { await self.model.cloud.sync() } }
                 if self.ticks % 15 == 0 && self.model.phase == .running { self.model.checkpoint() }
             }
         }
@@ -46,6 +49,13 @@ final class FloatingPanel: NSPanel {
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(woke),name:NSWorkspace.didWakeNotification,object:nil)
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(sleeping),name:NSWorkspace.willSleepNotification,object:nil)
         NotificationCenter.default.addObserver(self,selector:#selector(screensChanged),name:NSApplication.didChangeScreenParametersNotification,object:nil)
+    }
+    func showAccount() {
+        if accountWindow == nil {
+            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:460,height:440),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            w.title="Cyber Cat · Account"; w.isReleasedWhenClosed=false; w.contentView=NSHostingView(rootView:AccountView(model:model)); w.center(); accountWindow=w
+        }
+        NSApp.activate(ignoringOtherApps:true); accountWindow?.makeKeyAndOrderFront(nil)
     }
     func registerShortcut() {
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
@@ -251,6 +261,7 @@ final class FloatingPanel: NSPanel {
                 Button("Close Pet ×",action:delegate.closePet)
                 Divider()
                 Button("View Session History",action:delegate.showHistory)
+                Button("Account / Sync",action:delegate.showAccount)
             }
         }
     }
@@ -278,6 +289,7 @@ struct MenuContents: View {
         Button("Show Pet",action:delegate.showPet); Button("Hide Pet",action:delegate.hidePet)
         Button("Close Pet ×",action:delegate.closePet)
         Button("View Session History",action:delegate.showHistory)
+                Button("Account / Sync",action:delegate.showAccount)
         if let error = model.error { Divider(); Text(error); Button("Dismiss Error") { model.error = nil } }
         Divider(); Button("Quit App",action:delegate.quit).keyboardShortcut("q")
     }

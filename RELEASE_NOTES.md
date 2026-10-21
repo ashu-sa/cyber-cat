@@ -1,18 +1,9 @@
-A tiny animated cyber-cat stopwatch for Android, macOS, Windows, and Ubuntu/GNOME.
+# Cyber Cat v1.1.0
 
-- Start, pause/resume, and finish sessions; save a preset category or any custom task name.
-- Calendar journal with daily totals, Day/Week/Month summaries, renaming, deletion, and Undo.
-- Floating cat, adjustable opacity, and animation controls.
-- Android foreground chronometer notification and optional floating overlay.
-- Desktop show/hide and stopwatch keyboard shortcuts.
+- Shared account across Android, macOS, Windows and Ubuntu: username + four-digit PIN, with securely remembered login.
+- Combined calendar/history, Phone/Mac/Windows/Linux source labels and per-device totals.
+- Account-scoped offline cache/outbox, replay protection, revision conflicts with explicit review, and synced deletions/undo.
+- Optional import of existing local sessions; local-only mode remains available.
+- Live Supabase backend with owner-only history policies and rate-limited PIN sign-in.
 
-## Downloads
-
-- **Android:** install `CyberCat-Android-debug.apk` (Android 8+). This is a debug-signed sideload build, retaining the same signing identity as the APK originally shared for personal testing.
-- **macOS:** extract `CyberCat-macOS-universal.zip` (macOS 14+, Apple Silicon and Intel). The app is locally signed, not Developer ID notarized.
-- **Windows:** extract `CyberCat-Windows.zip` and run `CyberCat/CyberCat.exe`. Keep the entire folder together.
-- **Ubuntu/Linux:** extract `CyberCat-Linux.tar.gz` and run `CyberCat/CyberCat`. Ubuntu 24.04+ x86-64 is the build target. GNOME global shortcuts require one-click setup in pet controls.
-
-Windows and Linux folders include the Python/Qt runtime; no separate Python installation is needed. These builds are unsigned. Android foreground services and Wayland window positioning follow platform restrictions. Checksums are in `SHA256SUMS.txt`.
-
-Desktop and Android builds were compiled and tested in CI. Android foreground notification, saved history, granted overlay, and denied-overlay fallback were also tested on an Android 15 emulator. Physical Android phones and interactive Windows/GNOME desktop sessions have not been tested.
+Open Account / Sync (Android: Settings). Use the same username and PIN on each device. No email recovery; keep your credentials safe. Windows/Ubuntu sign-in needs the OS credential vault. Android uses INTERNET permission for sync. Existing signing/notarization limitations still apply.

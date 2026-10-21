@@ -108,7 +108,7 @@ jobs:
       - run: ./test.sh
       - run: CYBERCAT_UNIVERSAL=1 ./build.sh
       - run: |
-          swiftc -parse-as-library Sources/MochiStopwatch/Model.swift Sources/MochiStopwatch/Views.swift Tools/RenderScreenshots.swift -o /tmp/cybercat-screenshots
+          swiftc -parse-as-library Sources/MochiStopwatch/Model.swift Sources/MochiStopwatch/Cloud.swift Sources/MochiStopwatch/AccountView.swift Sources/MochiStopwatch/Views.swift Tools/RenderScreenshots.swift -o /tmp/cybercat-screenshots
           /tmp/cybercat-screenshots ../docs/screenshots
           mkdir -p ../release
           ditto -c -k --sequesterRsrc --keepParent '../Cyber Cat.app' ../release/CyberCat-macOS-universal.zip
