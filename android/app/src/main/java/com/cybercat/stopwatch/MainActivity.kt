@@ -22,7 +22,8 @@ class MainActivity: Activity() {
     private val surface = Color.rgb(30,36,48)
     private lateinit var root: LinearLayout
     private var timer: TextView? = null
-    private var cat: CatView? = null
+    private var groveStatus: TextView? = null
+    private var cat: TreeView? = null
     private var tab = "Timer"
     private var selected = LocalDate.now()
     private var month = YearMonth.now()
@@ -35,11 +36,13 @@ class MainActivity: Activity() {
     private val handler=Handler(Looper.getMainLooper())
     private val tick=object:Runnable { override fun run() {
         timer?.text=clockText(Repository.engine.elapsed())
+        cat?.invalidate()
+        groveStatus?.text=Forest.text(Repository.growthElapsed())+(if(Forest.garden(Repository.growthElapsed())) " · Garden grown" else " · One tree per focused hour")
         if(phase!=Repository.engine.phase) render()
         syncTicks++; if(syncTicks%30==0 && Cloud.owner!=null) Cloud.run({ Cloud.sync() })
         handler.postDelayed(this,1000)
     } }
-    override fun onCreate(state:Bundle?) { super.onCreate(state); Repository.init(this); window.statusBarColor=bg; window.navigationBarColor=bg; render(); handle(intent); if(Repository.engine.phase!="idle" || Repository.prefs.getBoolean("showPet",false)) safe { service("SYNC") } }
+    override fun onCreate(state:Bundle?) { super.onCreate(state); Repository.init(this); window.statusBarColor=bg; window.navigationBarColor=bg; window.decorView.systemUiVisibility=window.decorView.systemUiVisibility and (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR).inv(); render(); handle(intent); if(Repository.engine.phase!="idle" || Repository.prefs.getBoolean("showPet",false)) safe { service("SYNC") } }
     override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); handle(intent) }
     private fun handle(intent:Intent?) {
         if(intent?.action=="FINISH") safe { Repository.finish(); service("SYNC"); saveDialog() }
@@ -103,7 +106,7 @@ class MainActivity: Activity() {
         setOnClickListener { safe(action) }; minHeight=dp(48) }
     private fun line(parent:LinearLayout=root, build:(LinearLayout)->Unit) { val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }; parent.addView(row); build(row) }
     private fun render() {
-        phase=Repository.engine.phase; timer=null; cat=null
+        phase=Repository.engine.phase; timer=null; cat=null; groveStatus=null
         val outer=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(bg); setPadding(dp(20),dp(12),dp(20),dp(10)) }
         // Keep content below system bars on edge-to-edge Android versions.
         outer.setOnApplyWindowInsetsListener { view,insets -> if(Build.VERSION.SDK_INT>=30) { val bars=insets.getInsets(WindowInsets.Type.systemBars()); view.setPadding(dp(20)+bars.left,dp(12)+bars.top,dp(20)+bars.right,dp(10)+bars.bottom) }; insets }
@@ -114,9 +117,9 @@ class MainActivity: Activity() {
         Repository.error?.let { root.addView(text(it,13f,Color.rgb(255,170,130))) }
     }
     private fun timerPage() {
-        cat=CatView(this); root.addView(cat,LinearLayout.LayoutParams(-1,dp(150))); cat?.refresh()
+        cat=TreeView(this); root.addView(cat,LinearLayout.LayoutParams(-1,dp(150))); cat?.refresh()
         timer=text(clockText(Repository.engine.elapsed()),42f,cyan).apply { gravity=Gravity.CENTER; typeface=Typeface.MONOSPACE }; root.addView(timer)
-        root.addView(text(when(phase) { "running" -> "Locked in ⚡"; "paused" -> "Paused — take a breather"; "finished" -> "Session cleared"; else -> "A little focus goes a long way" },14f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
+        root.addView(text(when(phase) { "running" -> "A little water. A little growth."; "paused" -> "Watering paused — your progress is safe"; "finished" -> "Your grove is growing"; else -> "Make a little room to grow" },14f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
         line { row ->
             row.gravity=Gravity.CENTER
             row.addView(button(if(phase=="running") "Ⅱ" else if(phase=="finished") "↓" else "▶",if(phase=="running") "Pause" else if(phase=="finished") "Save session" else "Start or resume") {
@@ -124,8 +127,9 @@ class MainActivity: Activity() {
             },LinearLayout.LayoutParams(dp(64),dp(56)))
             row.addView(button("✓","Finish session") { if(Repository.engine.phase!="idle") { Repository.finish(); service("SYNC"); saveDialog(); render() } }.apply { isEnabled=phase!="idle" },LinearLayout.LayoutParams(dp(64),dp(56)))
         }
-        root.addView(text("The stopwatch keeps running in the notification shade. Floating pet is optional.",13f,Color.LTGRAY))
-        root.addView(button("Floating pet options") { tab="Settings"; render() })
+        groveStatus=text(Forest.text(Repository.growthElapsed())+(if(Forest.garden(Repository.growthElapsed())) " · Garden grown" else " · One tree per focused hour"),15f,cyan).apply { gravity=Gravity.CENTER }; root.addView(groveStatus)
+        root.addView(text("The stopwatch keeps running in the notification shade. Floating tree is optional.",13f,Color.LTGRAY))
+        root.addView(button("Floating tree options") { tab="Settings"; render() })
         if(phase!="idle") root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { Repository.discard(); service("SYNC"); render() } }.show() })
     }
     private fun saveDialog() {
@@ -164,26 +168,27 @@ class MainActivity: Activity() {
         for(index in 0..41) {
             val day=start.plusDays(index.toLong()); val sum=total(recordsFor(day))
             val cell=TextView(this).apply {
-                text="${day.dayOfMonth}\n${if(sum>0) focusText(sum) else "—"}"; textSize=10f; gravity=Gravity.CENTER
+                text="${day.dayOfMonth}\n${if(sum>0) focusText(sum) else "—"}\n${Forest.cell(sum)}"; textSize=10f; gravity=Gravity.CENTER
                 setTextColor(if(YearMonth.from(day)==month) Color.WHITE else Color.GRAY)
                 background=card(if(day==selected) Color.rgb(29,93,112) else if(sum>0) Color.rgb(28,60,75) else surface)
-                contentDescription=day.toString()+", "+focusText(sum)+" tracked"
+                contentDescription=day.toString()+", "+focusText(sum)+" tracked, "+Forest.text(sum)+(if(Forest.garden(sum))", garden" else "")
                 setOnClickListener { selected=day; scope="Day"; render() }
             }
-            grid.addView(cell,GridLayout.LayoutParams().apply { width=0; height=dp(54); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f); setMargins(dp(2),dp(2),dp(2),dp(2)) })
+            grid.addView(cell,GridLayout.LayoutParams().apply { width=0; height=dp(68); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f); setMargins(dp(2),dp(2),dp(2),dp(2)) })
         }; root.addView(grid)
         line { row -> for(name in listOf("Day","Week","Month")) row.addView(button(name) { scope=name; render() },LinearLayout.LayoutParams(0,dp(48),1f)) }
         val weekStart=selected.minusDays((selected.dayOfWeek.value-1).toLong())
         val records=Repository.sessions.filter { val d=dayOf(it.getLong("start")); when(scope) { "Week"-> !d.isBefore(weekStart)&&d.isBefore(weekStart.plusDays(7)); "Month"->YearMonth.from(d)==YearMonth.from(selected); else->d==selected } }
         root.addView(text("${selected.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · $scope",19f))
         root.addView(text("${focusText(total(records))} · ${records.size} sessions",24f,cyan))
+        root.addView(text(if(scope=="Day" && Forest.garden(total(records))) "Garden grown · "+Forest.text(total(records)) else Forest.summary(total(records),records.groupBy { dayOf(it.getLong("start")) }.values.map { total(it) }),18f,Color.rgb(169,218,177)))
         root.addView(text(records.groupBy { Repository.deviceLabel(it) }.toSortedMap().map { (name,items) -> "$name ${focusText(total(items))}" }.joinToString(" · "),13f,Color.LTGRAY))
         deleted?.let { item -> root.addView(button("Undo last deletion") { Repository.restore(item); deleted=null; render() }) }
         if(records.isEmpty()) root.addView(text("No sessions for this period yet.",14f,Color.LTGRAY))
         for(record in records.sortedByDescending { it.getLong("start") }) {
             val box=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(14),dp(10),dp(14),dp(10)); background=card() }
             box.addView(text(record.getString("name"),17f))
-            box.addView(text(Repository.deviceLabel(record),12f,Color.LTGRAY))
+            box.addView(text(Repository.deviceLabel(record)+" · "+Forest.text(record.getLong("duration")),12f,Color.LTGRAY))
             box.addView(text("${Instant.ofEpochMilli(record.getLong("start")).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d · HH:mm"))}   ${focusText(record.getLong("duration"))}",13f,cyan))
             line(box) { row ->
                 row.addView(button("✎","Rename session") { val input=EditText(this).apply { setText(record.getString("name")); setSingleLine() }; AlertDialog.Builder(this).setTitle("Rename session").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Save") { _,_-> safe { Repository.rename(record.getString("id"),input.text.toString()); render() } }.show() })
@@ -197,13 +202,13 @@ class MainActivity: Activity() {
         root.addView(button("Account / Sync") { accountDialog() })
         root.addView(text(if(Cloud.owner!=null) "${Cloud.username} · ${Cloud.status}" else "Local only · sign in to sync devices",13f,Color.LTGRAY))
         root.addView(text("Your desktop companion",24f))
-        root.addView(text("Notification controls work without floating-window permission. To use the cat above other apps, allow “Display over other apps”.",14f,Color.LTGRAY))
-        root.addView(button(if(Settings.canDrawOverlays(this)) "Show floating cat" else "Enable floating cat…") {
+        root.addView(text("Notification controls work without floating-window permission. To use the tree above other apps, allow “Display over other apps”.",14f,Color.LTGRAY))
+        root.addView(button(if(Settings.canDrawOverlays(this)) "Show floating tree" else "Enable floating tree…") {
             notifications()
-            if(Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); Toast.makeText(this,"Floating cat enabled",Toast.LENGTH_SHORT).show() }
+            if(Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); Toast.makeText(this,"Floating tree enabled",Toast.LENGTH_SHORT).show() }
             else { requestOverlay=true; startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName"))) }
         })
-        root.addView(button("Hide floating cat") { Repository.prefs.edit().putBoolean("showPet",false).apply(); service("HIDE") })
+        root.addView(button("Hide floating tree") { Repository.prefs.edit().putBoolean("showPet",false).apply(); service("HIDE") })
         val opacity=text("Pet opacity ${(Repository.prefs.getFloat("opacity",1f)*100).toInt()}%",16f); root.addView(opacity)
         root.addView(SeekBar(this).apply {
             max=70; progress=(Repository.prefs.getFloat("opacity",1f)*100).toInt()-30
@@ -212,7 +217,7 @@ class MainActivity: Activity() {
                 override fun onStartTrackingTouch(bar:SeekBar?) {}; override fun onStopTrackingTouch(bar:SeekBar?) {}
             })
         })
-        root.addView(Switch(this).apply { text="Animate cat"; isChecked=Repository.prefs.getBoolean("animate",true); setOnCheckedChangeListener { _,value->Repository.prefs.edit().putBoolean("animate",value).apply() } })
+        root.addView(Switch(this).apply { text="Animate tree and water"; isChecked=Repository.prefs.getBoolean("animate",true); setOnCheckedChangeListener { _,value->Repository.prefs.edit().putBoolean("animate",value).apply() } })
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Cyber Cat to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }

@@ -4,7 +4,7 @@ A real desktop app made with Python + **Qt Widgets (PySide6 Essentials)**. No El
 
 ## What is implemented
 
-- Transparent 150 × 100 logical-pixel floating cyber-cat with blink, tail movement, and gentle sway.
+- Transparent 150 × 100 logical-pixel floating tree with gentle sway, slow water droplets, and elapsed-time growth.
 - Compact square icon buttons, accurate stopwatch, pause/resume, and recovery after closing/restarting.
 - Local completed history with editable names, delete confirmation and Undo.
 - Month calendar with daily totals (`2h`, `1h 15m`), selection and Day/Week/Month detail totals.
@@ -18,7 +18,7 @@ A real desktop app made with Python + **Qt Widgets (PySide6 Essentials)**. No El
 
 Install **64-bit Python 3.12** from python.org, extract this folder, then double-click **run-windows.cmd**. The first launch installs the pinned Qt runtime in a local `.venv`; later launches reuse it. Internet is needed for that initial dependency install. Python 3.10+ may also work; Python 3.12 is the build target.
 
-The app appears as a pet and system tray icon. Right-click the cat for options. Ctrl+R toggles it globally. **Ctrl+S starts/resumes, Ctrl+P pauses, and Ctrl+F finishes only while the pet is visible.** These combinations temporarily replace Save/Print/Find in other apps while visible. Hide the pet to release S/P/F. Ctrl+R remains registered until Quit. Native Windows hotkey registration requires no keyboard-monitoring permission; conflicts are reported through the tray.
+The app appears as a pet and system tray icon. Right-click the tree for options. Ctrl+R toggles it globally. **Ctrl+S starts/resumes, Ctrl+P pauses, and Ctrl+F finishes only while the pet is visible.** These combinations temporarily replace Save/Print/Find in other apps while visible. Hide the pet to release S/P/F. Ctrl+R remains registered until Quit. Native Windows hotkey registration requires no keyboard-monitoring permission; conflicts are reported through the tray.
 
 ## Run on Ubuntu / GNOME
 
@@ -84,3 +84,7 @@ Qt API references: [QCalendarWidget](https://doc.qt.io/qtforpython-6/PySide6/QtW
 ## Shared account (v1.1)
 
 Open Account / Sync from the pet controls, tray or journal. Username + four-digit PIN; saved securely with Windows Credential Manager or Ubuntu Secret Service. A functioning OS vault is required to sign in. Local-only mode still works without one. See [sync details](../backend/README.md).
+
+## Focus forest
+
+A young plant grows at 30 minutes, with one completed tree for each full focus hour. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing freezes water and sway; disable animation for a still companion.

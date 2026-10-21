@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
     QDialog, QComboBox, QDialogButtonBox, QSlider, QCheckBox, QScrollArea, QCalendarWidget,
     QSystemTrayIcon, QMenu, QMessageBox, QInputDialog, QFileDialog, QFrame)
 from .model import Store, clock_text, duration_text, device_label
+from .forest import tree_text, cell_text, summary as forest_summary, garden
+from .tree import paint_tree
 from .shortcuts import Shortcuts, gnome_available, install_gnome, remove_gnome
 
 STYLE = '''
@@ -77,58 +79,28 @@ def label(text, role=None):
     return w
 
 
-class Cat(QWidget):
+class GrowingTree(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.c = controller
         self.setFixedSize(110, 45)
-        self.setToolTip('Drag cat to move · click or right-click for controls')
-        self.setAccessibleName('Cyber cat. Drag to move or click for controls.')
+        self.setToolTip('Drag tree to move · click or right-click for controls')
+        self.setAccessibleName('Growing tree. Drag to move or click for controls.')
         self.drag_start = None
         self.animation = QTimer(self)
         self.animation.timeout.connect(self.update)
 
     def sync(self):
-        if self.c.pet.isVisible() and self.c.store.settings.get('animation', True):
-            self.animation.start(83)
+        if self.c.pet.isVisible() and self.c.store.phase == 'running' and self.c.store.settings.get('animation', True):
+            self.animation.start(50)
         else:
             self.animation.stop()
         self.update()
 
     def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.scale(.84, .78)
-        p.translate(8, 1)
-        running = self.c.store.phase == 'running'
-        animate = self.animation.isActive()
-        t = time.monotonic() if animate else 1
-        wag = math.sin(t * (2.8 if running else 1.4)) * 3 if animate else 0
-        if animate:
-            p.translate(0, math.sin(t * 1.8) * .8)
-        ink = QColor('#111922')
-        accent = QColor('#ac8aff' if self.c.store.phase == 'paused' else '#30c3e8')
-        tail = QPainterPath()
-        tail.moveTo(81, 48)
-        tail.cubicTo(102, 56 + wag, 107, 32 + wag, 94, 36 + wag)
-        p.setPen(QPen(ink, 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        p.drawPath(tail)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(ink)
-        for coords in ((25, 20, 26, 1, 43, 13), (64, 12, 82, 1, 83, 24)):
-            path = QPainterPath()
-            path.moveTo(coords[0], coords[1]); path.lineTo(coords[2], coords[3]); path.lineTo(coords[4], coords[5]); path.closeSubpath()
-            p.drawPath(path)
-        p.drawRoundedRect(QRectF(29, 29, 52, 24), 10, 10)
-        p.setPen(QPen(accent, .8)); p.drawRoundedRect(QRectF(24, 12, 60, 31), 11, 11)
-        p.setPen(Qt.PenStyle.NoPen); p.setBrush(accent)
-        blink = self.c.store.phase == 'paused' or (animate and t % 5.5 < .18)
-        for x in (37, 63):
-            p.drawRoundedRect(QRectF(x, 25, 9, 2 if blink else 5), 2, 2)
-        p.setPen(QPen(accent, 1))
-        p.drawLine(49, 34, 54, 36); p.drawLine(54, 36, 59, 34)
-        p.setBrush(ink); p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(QRectF(34, 47, 12, 7), 3, 3); p.drawRoundedRect(QRectF(66, 47, 12, 7), 3, 3)
+        p=QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.scale(self.width()/110, self.height()/58)
+        paint_tree(p,self.c.store.growth_elapsed,self.c.store.phase,self.c.store.settings.get('animation',True))
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
@@ -165,7 +137,7 @@ class Pet(QWidget):
         self.setWindowTitle('Cyber Cat')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(2)
-        self.cat = Cat(controller)
+        self.cat = GrowingTree(controller)
         layout.addWidget(self.cat, alignment=Qt.AlignmentFlag.AlignCenter)
         self.timer = label('00:00:00')
         timer_font = QFont('Noto Sans Mono', 13)
@@ -196,6 +168,7 @@ class Pet(QWidget):
         self.finish.setEnabled(phase in ('running', 'paused'))
         self.finish.setAccessibleName('Finish session')
         self.setWindowOpacity(max(.3, min(1, self.c.store.settings.get('opacity', 1))))
+        self.cat.setToolTip(tree_text(self.c.store.growth_elapsed) + (' · Garden grown' if garden(self.c.store.growth_elapsed) else '') + ' · Drag to move; click for controls')
         self.cat.sync()
 
     def closeEvent(self, event):
@@ -208,7 +181,7 @@ class FocusCalendar(QCalendarWidget):
         self.store = store
         self.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
         self.setGridVisible(False)
-        self.setMinimumSize(440, 370)
+        self.setMinimumSize(440, 430)
 
     def paintCell(self, painter, rect, day):
         painter.save()
@@ -230,6 +203,9 @@ class FocusCalendar(QCalendarWidget):
         painter.setPen(QColor('#30c3e8') if amount else QColor('#56616c'))
         painter.setFont(QFont(QApplication.font().family(), 9))
         painter.drawText(QPointF(r.left()+8, r.bottom()-8), duration_text(amount) if amount else '—')
+        if amount:
+            painter.setPen(QColor('#b5deac') if garden(amount) else QColor('#9fbda8')); painter.setFont(QFont(QApplication.font().family(),8))
+            painter.drawText(QPointF(r.left()+8,r.top()+33),cell_text(amount))
         painter.restore()
 
 
@@ -254,6 +230,7 @@ class History(QWidget):
         detail.addWidget(self.scope)
         self.title = label('', 'title'); detail.addWidget(self.title)
         self.total = label('', 'total'); detail.addWidget(self.total)
+        self.forest = label('', 'total'); self.forest.setWordWrap(True); self.forest.setStyleSheet('color:#b5deac; background:#22372c; border:1px solid #41664b; border-radius:9px; padding:10px; font-size:15px;'); detail.addWidget(self.forest)
         self.devices = label('', 'subtitle'); self.devices.setWordWrap(True); detail.addWidget(self.devices)
         self.undo = button('Undo last deletion', self.restore); self.undo.hide(); detail.addWidget(self.undo)
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
@@ -280,6 +257,11 @@ class History(QWidget):
         records = sorted(filter(included, self.c.store.sessions), key=lambda r:r['start'], reverse=True)
         self.title.setText(selected.strftime('%b %d') if scope == 'Day' else scope + ' of ' + selected.strftime('%b %d'))
         self.total.setText(duration_text(sum(r['duration'] for r in records)) + f' · {len(records)} sessions')
+        daily={}
+        for r in records:
+            d=datetime.fromtimestamp(r['start']).date(); daily[d]=daily.get(d,0)+r['duration']
+        amount=sum(r['duration'] for r in records)
+        self.forest.setText('Garden grown · '+tree_text(amount) if scope=='Day' and garden(amount) else forest_summary(amount,daily.values()))
         devices = {}
         for r in records: devices[device_label(r)] = devices.get(device_label(r), 0) + r['duration']
         self.devices.setText('  ·  '.join(name + ' ' + duration_text(value) for name, value in sorted(devices.items())))
@@ -291,6 +273,7 @@ class History(QWidget):
         for record in records:
             card = QFrame(); card.setObjectName('card'); layout = QVBoxLayout(card)
             name = label(record['name']); name.setWordWrap(True); layout.addWidget(name)
+            layout.addWidget(label(tree_text(record['duration']), 'subtitle'))
             row = QHBoxLayout()
             row.addWidget(label(device_label(record) + ' · ' + datetime.fromtimestamp(record['start']).strftime('%b %d · %H:%M') + '  ' + duration_text(record['duration']), 'subtitle'))
             row.addStretch()
@@ -339,13 +322,12 @@ class Controller:
         self.accounts = Accounts(self)
         self.persist = QTimer(); self.persist.timeout.connect(lambda:self.safe(self.store.checkpoint)); self.persist.start(15000)
         if not QSystemTrayIcon.isSystemTrayAvailable():
-            self.pet.setToolTip('System tray unavailable. Click the cat for all controls, including Quit.')
+            self.pet.setToolTip('System tray unavailable. Click the tree for all controls, including Quit.')
 
     def icon(self):
         pix = QPixmap(32, 32); pix.fill(Qt.GlobalColor.transparent)
         p = QPainter(pix); p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setBrush(QColor('#152330')); p.setPen(QPen(QColor('#30c3e8'), 2)); p.drawRoundedRect(2, 6, 28, 24, 8, 8)
-        p.setPen(QPen(QColor('#30c3e8'), 3)); p.drawPoint(11, 16); p.drawPoint(22, 16); p.end()
+        p.scale(32/110,32/58); paint_tree(p,3600,'idle',False); p.end()
         return QIcon(pix)
 
     def safe(self, operation):
@@ -462,7 +444,7 @@ class Controller:
             opacity_text.setText(f'Pet opacity · {value}%'); self.pet.setWindowOpacity(value/100)
         slider.valueChanged.connect(opacity); slider.sliderReleased.connect(lambda:self.safe(lambda:self.store.setting('opacity',slider.value()/100)))
         layout.addWidget(slider)
-        animate = QCheckBox('Animate cat'); animate.setChecked(self.store.settings.get('animation',True))
+        animate = QCheckBox('Animate tree and water'); animate.setChecked(self.store.settings.get('animation',True))
         animate.toggled.connect(lambda value: (self.safe(lambda:self.store.setting('animation',value)), self.pet.cat.sync())); layout.addWidget(animate)
         if gnome_available():
             layout.addWidget(button('Enable GNOME Ctrl shortcuts', self.enable_gnome))

@@ -13,7 +13,7 @@ import AppKit
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         var sessions: [Session] = []
-        for (days, hours, name) in [(0, 1.0, "Work"), (1, 2.0, "Upskill"), (3, 1.5, "Interview Prep"), (5, 3.0, "Job Apply")] {
+        for (days, hours, name) in [(0, 1.0, "Work"), (1, 8.0, "Upskill"), (3, 1.5, "Interview Prep"), (5, 3.0, "Job Apply")] {
             let start = calendar.date(byAdding: .day, value: -days, to: today)!.addingTimeInterval(36000)
             sessions.append(Session(name: name, start: start, end: start.addingTimeInterval(hours * 3600), duration: hours * 3600))
         }

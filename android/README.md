@@ -1,6 +1,6 @@
 # Cyber Cat for Android
 
-A native **Kotlin Android app**, matching the charcoal/electric-blue cyber-cat desktop companion. No Electron, web view, account, internet permission, or cloud service. Supports **Android 8.0 (API 26) and newer**; targets Android 15 (API 35).
+A native **Kotlin Android app**, with a native growing-tree companion. Optional shared accounts securely sync history across devices. No Electron or web view. Supports **Android 8.0 (API 26) and newer**; targets Android 15 (API 35).
 
 ## Install
 
@@ -14,15 +14,15 @@ Copy `CyberCat-Android-debug.apk` to your phone, open it, and permit installatio
 
 Notifications are the default background experience. You do **not** need floating-window permission for stopwatch functionality. On Android 13+, denying notification permission can hide the notification from the shade even while the foreground service is running; use Settings → Notification settings to allow it.
 
-## Optional floating cat
+## Optional floating tree
 
-Open **Settings → Enable floating cat…**, grant Android’s **Display over other apps** permission, then return to Cyber Cat. A small transparent cat appears above ordinary apps:
+Open **Settings → Enable floating tree…**, grant Android’s **Display over other apps** permission, then return to Cyber Cat. A small transparent tree appears above ordinary apps:
 
-- Drag the cat to move it; position is remembered.
+- Drag the tree to move it; position is remembered.
 - ▶ / Ⅱ starts, resumes, or pauses.
 - ✓ finishes the session and opens naming.
 - × hides the pet without stopping an active session.
-- Tap the cat itself to open the app.
+- Tap the tree itself to open the app.
 - Settings also provides an opacity slider (30–100%), animation switch, and Show/Hide controls.
 
 If the OS does not allow an overlay, notification controls remain available. Sensitive system screens, banking apps, lock screens, some manufacturers, and managed devices may hide overlays. No Accessibility service is requested. If launching the naming screen from the overlay is blocked by Android, the finished session remains available from the notification.
@@ -78,3 +78,7 @@ adb shell am instrument -w com.cybercat.stopwatch.test/com.cybercat.stopwatch.Sm
 ## Shared account (v1.1)
 
 Settings → Account / Sync supports username + four-digit PIN. Credentials persist using Android Keystore encryption; the PIN is not stored. INTERNET permission is used for optional sync. Existing sessions upload only on opt-in. See [backend guide](../backend/README.md).
+
+## Focus forest
+
+A young plant grows at 30 minutes, with one completed tree for each full focus hour. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing freezes water and sway; disable animation for a still companion.

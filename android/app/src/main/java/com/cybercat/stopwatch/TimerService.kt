@@ -13,7 +13,7 @@ class TimerService: Service() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var windows: WindowManager
     private var pet: LinearLayout? = null
-    private var cat: CatView? = null
+    private var cat: TreeView? = null
     private var timeLabel: TextView? = null
     private var play: Button? = null
     private var params: WindowManager.LayoutParams? = null
@@ -69,7 +69,7 @@ class TimerService: Service() {
     }
     private fun createOverlay() {
         val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; gravity=Gravity.CENTER; setPadding(0,0,0,0) }
-        cat = CatView(this); root.addView(cat,LinearLayout.LayoutParams(dp(120),dp(58)))
+        cat = TreeView(this); root.addView(cat,LinearLayout.LayoutParams(dp(120),dp(58)))
         timeLabel = TextView(this).apply { setTextColor(Color.CYAN); textSize=13f; typeface=android.graphics.Typeface.MONOSPACE; setBackgroundColor(Color.rgb(17,25,34)); gravity=Gravity.CENTER }
         root.addView(timeLabel,LinearLayout.LayoutParams(dp(120),dp(25)))
         val row = LinearLayout(this).apply { gravity=Gravity.CENTER }

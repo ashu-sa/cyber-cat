@@ -1,9 +1,9 @@
-# Cyber Cat v1.1.0
+# Cyber Cat v1.2.0 — Your focus forest
 
-- Shared account across Android, macOS, Windows and Ubuntu: username + four-digit PIN, with securely remembered login.
-- Combined calendar/history, Phone/Mac/Windows/Linux source labels and per-device totals.
-- Account-scoped offline cache/outbox, replay protection, revision conflicts with explicit review, and synced deletions/undo.
-- Optional import of existing local sessions; local-only mode remains available.
-- Live Supabase backend with owner-only history policies and rate-limited PIN sign-in.
+- Replaces the cat with a native animated tree on Android, macOS, Windows and Ubuntu.
+- Slow falling water, gentle leaf movement and smooth growth: a young plant at 30 minutes, one completed tree per focused hour. Pause freezes the animation; reduced motion is supported.
+- Short sessions and synced devices contribute to the same daily grove. Eight hours of saved focus in a day unlocks a Garden badge.
+- Calendar days show duration and trees; day/week/month summaries include tree totals and garden days. Editing or deleting history recalculates rewards.
+- Existing local history, accounts and secure login remain compatible; no migration or new account required.
 
-Open Account / Sync (Android: Settings). Use the same username and PIN on each device. No email recovery; keep your credentials safe. Windows/Ubuntu sign-in needs the OS credential vault. Android uses INTERNET permission for sync. Existing signing/notarization limitations still apply.
+Android requires Android 8+, macOS requires macOS 14+. Packages remain unsigned/ad-hoc signed as documented. Android ships the existing debug signing identity for update compatibility.

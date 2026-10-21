@@ -89,3 +89,7 @@ After a successful normal session save, calendar history now opens automatically
 ## Shared account (v1.1)
 
 Open Account / Sync in the menu bar or journal. Username + four-digit PIN; sessions stay signed in through Keychain. The PIN is never saved. See [sync details](../backend/README.md).
+
+## Focus forest
+
+A young plant grows at 30 minutes, with one completed tree for each full focus hour. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing freezes water and sway; disable animation for a still companion.

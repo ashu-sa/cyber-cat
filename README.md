@@ -1,6 +1,6 @@
 # Cyber Cat
 
-A tiny animated cyber-cat that keeps track of your focus time. Native SwiftUI on macOS, Kotlin on Android, and Qt Widgets on Windows and Linux—no Electron or web views.
+A tiny animated growing tree that keeps track of your focus time. Native SwiftUI on macOS, Kotlin on Android, and Qt Widgets on Windows and Linux—no Electron or web views.
 
 [Download the latest release](https://github.com/ashu-sa/cyber-cat/releases/latest) · [Builds](https://github.com/ashu-sa/cyber-cat/actions/workflows/build.yml)
 
@@ -17,7 +17,7 @@ Windows and Linux packages bundle their runtime. The APK is debug-signed; deskto
 
 ## What it does
 
-- An animated, draggable cyber-cat with compact icon controls, opacity adjustment, and Hide/Show.
+- An animated, draggable growing tree with compact icon controls, opacity adjustment, and Hide/Show.
 - A stopwatch based on elapsed time rather than counting UI ticks; Pause excludes breaks.
 - Save with **Job Apply, Upskill, Interview Prep, Work**, or a custom task name.
 - A month calendar showing daily totals such as **2h yesterday / 1h today**, with Day/Week/Month details.
@@ -26,30 +26,37 @@ Windows and Linux packages bundle their runtime. The APK is debug-signed; deskto
 - Synced session history across all four platforms, source labels such as Phone/Mac, and per-device totals. Offline changes retry when connected.
 - Secure OS credential storage, optional upload of existing local sessions, and explicit review for conflicting edits.
 
+## Your focus forest
+
+A slow falling droplet waters your tree while you focus. At 30 minutes it becomes a young plant; every full hour earns a tree and starts the next sprout. Short sessions add up, including synced sessions from your other devices. Eight hours of completed focus in one day earns a **Garden** badge. Calendar days show time and trees; week/month summaries also count garden days. Rewards are derived from saved durations, so editing or deleting a session updates them immediately. Pausing freezes the watering animation; reduced-motion preferences and the animation toggle are respected.
+
+![Native tree growth milestones](docs/screenshots/forest-milestones.png)
+
 ## Screenshots
 
 The images show the actual platform views rendered with isolated example sessions. macOS images are captured from native AppKit-hosted SwiftUI views; Windows/Linux images are captured from Qt widgets on their respective CI runners. Android is captured from the native app on an Android 15 emulator. Sample time totals are demonstration data, not personal activity.
 
 ### Android
 
-<img src="docs/screenshots/android-journal.png" alt="Android calendar journal with Mac and Phone totals" width="280" />
+<img src="docs/screenshots/android-timer.png" alt="Android growing tree stopwatch" width="280" />
+<img src="docs/screenshots/android-journal.png" alt="Android calendar journal with tree and garden totals" width="280" />
 <img src="docs/screenshots/android-account.png" alt="Simple username and four-digit PIN account screen" width="280" />
 
 ### macOS
 
-<img src="docs/screenshots/macos-pet.png" alt="Tiny macOS floating cyber-cat stopwatch" width="200" />
+<img src="docs/screenshots/macos-pet.png" alt="Tiny macOS floating tree stopwatch" width="200" />
 
 ![macOS focus journal](docs/screenshots/macos-journal.png)
 
 ### Windows
 
-<img src="docs/screenshots/windows-pet.png" alt="Windows floating cyber-cat stopwatch" width="180" />
+<img src="docs/screenshots/windows-pet.png" alt="Windows floating tree stopwatch" width="180" />
 
 ![Windows calendar journal](docs/screenshots/windows-journal.png)
 
 ### Ubuntu / Linux
 
-<img src="docs/screenshots/linux-pet.png" alt="Linux floating cyber-cat stopwatch" width="180" />
+<img src="docs/screenshots/linux-pet.png" alt="Linux floating tree stopwatch" width="180" />
 
 ![Linux calendar journal](docs/screenshots/linux-journal.png)
 

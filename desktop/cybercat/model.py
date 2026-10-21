@@ -91,6 +91,16 @@ class Store:
         return json.loads(path.read_text(encoding='utf-8')) if path.exists() else fallback
 
     @property
+    def growth_elapsed(self):
+        day = datetime.fromtimestamp(self.started if self.started is not None and self.phase != 'idle' else self.wall()).date()
+        active = self.session_id if self.phase != 'idle' else None
+        context = (day, active)
+        if getattr(self, '_growth_records', None) is not self.sessions or getattr(self, '_growth_context', None) != context:
+            self._growth_records, self._growth_context = self.sessions, context
+            self._growth_base = sum(r['duration'] for r in self.records_on(day) if r['id'] != active)
+        return self._growth_base + self.elapsed
+
+    @property
     def elapsed(self):
         return self.accumulated + (self.clock() - self.anchor if self.anchor is not None else 0)
 

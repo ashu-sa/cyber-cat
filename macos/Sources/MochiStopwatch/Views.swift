@@ -5,45 +5,71 @@ extension Color {
     static let cyber = Color(red: 0.12, green: 0.78, blue: 0.95)
     static let teal = Color(red: 0.20, green: 0.90, blue: 0.72)
 }
-struct CyberCat: View {
+struct GrowingTree: View {
     var phase: Stopwatch.Phase
     var animated = true
+    var elapsed: () -> TimeInterval = { 0 }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var accent: Color { phase == .paused ? .purple : phase == .finished ? .teal : .cyber }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: !animated || reduceMotion)) { timeline in
-        let time = animated && !reduceMotion ? timeline.date.timeIntervalSinceReferenceDate : 1
-        let blink = animated && !reduceMotion && time.truncatingRemainder(dividingBy: 5.5) < 0.18
-        let wag = animated && !reduceMotion ? sin(time * (phase == .running ? 2.8 : 1.4)) * 3 : 0
-        Canvas { ctx, size in
-            if animated && !reduceMotion { ctx.translateBy(x: 0, y: sin(time * 1.8) * 0.8) }
-            func shape(_ points: [CGPoint], _ color: Color) {
-                var p = Path(); p.addLines(points); p.closeSubpath(); ctx.fill(p, with: .color(color))
+        TimelineView(.animation(minimumInterval: 1.0/20, paused: !animated || reduceMotion || phase != .running)) { _ in
+            let seconds=max(0,elapsed())
+            let n=grownTrees(seconds)
+            let remainder=seconds.truncatingRemainder(dividingBy:3600)
+            let motion=animated && !reduceMotion
+            let t=motion ? seconds : 0
+            Canvas { context,size in
+                var ctx=context
+                ctx.scaleBy(x:size.width/110,y:size.height/58)
+                func ellipse(_ rect:CGRect,_ color:Color) { ctx.fill(Path(ellipseIn:rect),with:.color(color)) }
+                func smooth(_ x:Double)->Double { let v=min(1,max(0,x)); return v*v*(3-2*v) }
+                ellipse(CGRect(x:25,y:45,width:60,height:12),Color.teal.opacity(0.09))
+                for i in 0..<min(n,3) {
+                    let x:Double=[15,94,103][i]
+                    ellipse(CGRect(x:x-5,y:35,width:10,height:12),Color.teal.opacity(0.25))
+                    ctx.fill(Path(roundedRect:CGRect(x:x-1,y:43,width:2,height:9),cornerRadius:1),with:.color(.teal.opacity(0.25)))
+                }
+                func tree(_ g:Double,_ alpha:Double) {
+                    guard alpha>0 else { return }
+                    var c=ctx; c.opacity=alpha
+                    c.translateBy(x:55,y:51); c.rotate(by:.degrees(motion ? sin(t*1.1)*1.2 : 0)); c.translateBy(x:-55,y:-51)
+                    let top=51-(7+22*g), canopy=smooth((g-0.5)*2)
+                    var stem=Path(); stem.move(to:CGPoint(x:55,y:51)); stem.addCurve(to:CGPoint(x:55,y:top),control1:CGPoint(x:53,y:43),control2:CGPoint(x:57,y:top+7))
+                    c.stroke(stem,with:.color(Color(red:0.76,green:0.63,blue:0.44)),style:StrokeStyle(lineWidth:2+2*g,lineCap:.round))
+                    for side:Double in [-1,1] {
+                        let y=top+4
+                        var leaf=Path(); leaf.move(to:CGPoint(x:55,y:y+3))
+                        leaf.addCurve(to:CGPoint(x:55+side*(12+8*g),y:y-5),control1:CGPoint(x:55+side*3,y:y-7),control2:CGPoint(x:55+side*(9+7*g),y:y-8))
+                        leaf.addCurve(to:CGPoint(x:55,y:y+3),control1:CGPoint(x:55+side*(10+6*g),y:y+4),control2:CGPoint(x:55+side*3,y:y+8))
+                        c.fill(leaf,with:.color(side<0 ? Color(red:0.55,green:0.83,blue:0.64) : Color(red:0.27,green:0.59,blue:0.47)))
+                    }
+                    if canopy>0 {
+                        c.translateBy(x:55,y:top+2); c.scaleBy(x:canopy,y:canopy); c.translateBy(x:-55,y:-(top+2))
+                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:[Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)]),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
+                        for r in [CGRect(x:30,y:top-14,width:30,height:29),CGRect(x:52,y:top-14,width:29,height:29),CGRect(x:39,y:top-21,width:32,height:31)] { c.fill(Path(ellipseIn:r),with:fill) }
+                        c.fill(Path(ellipseIn:CGRect(x:43,y:top-16,width:14,height:10)),with:.color(Color(red:0.8,green:0.95,blue:0.7).opacity(0.35)))
+                    }
+                }
+                let blend=n>0 ? smooth(remainder/8) : 1
+                if n>0 { tree(1,1-blend) }
+                tree(remainder/3600,blend)
+                ellipse(CGRect(x:30,y:50,width:51,height:7),Color(red:0.29,green:0.24,blue:0.20))
+                ellipse(CGRect(x:31,y:49,width:49,height:4),Color(red:0.42,green:0.61,blue:0.44))
+                if motion && (phase == .running || phase == .paused) {
+                    let u=t.truncatingRemainder(dividingBy:3.6)/3.6, fall=min(1,u/0.78), y=3+44*fall*fall
+                    var water=ctx; water.opacity=phase == .paused ? 0.4 : 1
+                    if u<0.78 {
+                        var p=Path(); p.move(to:CGPoint(x:84,y:y-5)); p.addCurve(to:CGPoint(x:81,y:y+5),control1:CGPoint(x:82,y:y-2),control2:CGPoint(x:78,y:y+3)); p.addCurve(to:CGPoint(x:84,y:y-5),control1:CGPoint(x:87,y:y+9),control2:CGPoint(x:90,y:y+2))
+                        water.fill(p,with:.color(Color(red:0.51,green:0.84,blue:0.93)))
+                        water.fill(Path(ellipseIn:CGRect(x:82,y:y+1,width:1.5,height:2.5)),with:.color(.white.opacity(0.8)))
+                    } else {
+                        let r=(u-0.78)/0.22
+                        water.stroke(Path(ellipseIn:CGRect(x:84-10*r,y:51-2*r,width:20*r,height:4*r)),with:.color(Color.cyber.opacity((1-r)*0.65)),lineWidth:0.8)
+                    }
+                }
+                if n>0 { ctx.draw(Text("\(n)×").font(.system(size:8,weight:.semibold)).foregroundStyle(Color(red:0.66,green:0.85,blue:0.71)),at:CGPoint(x:13,y:45)) }
             }
-            let black = Color(red: 0.08, green: 0.10, blue: 0.13)
-            // Angular ears, compact chassis, and a curled robotic tail.
-            var tail = Path(); tail.move(to: CGPoint(x: 81,y: 48)); tail.addCurve(to: CGPoint(x: 94,y: 36 + wag), control1: CGPoint(x: 102,y: 56 + wag), control2: CGPoint(x: 107,y: 32 + wag))
-            ctx.stroke(tail, with: .color(black), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-            ctx.fill(Path(roundedRect: CGRect(x: 29,y: 29,width: 52,height: 24),cornerRadius: 10),with: .color(black))
-            shape([CGPoint(x:25,y:20),CGPoint(x:26,y:1),CGPoint(x:43,y:13)],black)
-            shape([CGPoint(x:64,y:12),CGPoint(x:82,y:1),CGPoint(x:83,y:24)],black)
-            shape([CGPoint(x:29,y:15),CGPoint(x:30,y:7),CGPoint(x:38,y:14)],accent.opacity(0.6))
-            shape([CGPoint(x:70,y:14),CGPoint(x:78,y:7),CGPoint(x:79,y:16)],accent.opacity(0.6))
-            let head = Path(roundedRect: CGRect(x:24,y:12,width:60,height:31),cornerRadius: 11)
-            ctx.fill(head,with: .color(black)); ctx.stroke(head,with: .color(accent.opacity(0.45)),lineWidth: 1)
-            for x: CGFloat in [37,63] {
-                let eye = CGRect(x:x,y:25,width:9,height:phase == .paused || blink ? 2 : 5)
-                ctx.fill(Path(roundedRect: eye,cornerRadius: 2),with: .color(accent))
-            }
-            var mouth = Path(); mouth.move(to: CGPoint(x:49,y:34)); mouth.addLine(to: CGPoint(x:54,y:36)); mouth.addLine(to: CGPoint(x:59,y:34))
-            ctx.stroke(mouth,with: .color(accent.opacity(0.8)),lineWidth: 1)
-            for x: CGFloat in [34,66] { ctx.fill(Path(roundedRect: CGRect(x:x,y:47,width:12,height:7),cornerRadius: 3),with: .color(black)) }
-            ctx.fill(Path(CGRect(x:51,y:44,width:6,height:3)),with: .color(accent))
-        }
-        }.frame(width: 110,height: 55)
-        .rotationEffect(.degrees(phase == .finished ? -5 : 0))
-        .scaleEffect(phase == .running ? 1.03 : 1)
-        .animation(.easeOut(duration: 0.22),value: phase)
+        }.frame(width:110,height:58)
+        .accessibilityLabel(treeText(elapsed()) + (isGarden(elapsed()) ? ", garden grown" : ", growing your grove"))
     }
 }
 struct PetControlStyle: ButtonStyle {
@@ -67,7 +93,7 @@ struct PetView: View {
     var finish: () -> Void
     var body: some View {
         VStack(spacing: 3) {
-            CyberCat(phase: model.phase, animated: model.petVisible && petAnimations)
+            GrowingTree(phase: model.phase, animated: model.petVisible && petAnimations, elapsed: { model.growthElapsed })
                 .scaleEffect(0.76).frame(width: 110, height: 42)
                 .overlay(PetInteraction(showOptions: showOptions))
             Text(model.menuTime)
@@ -108,8 +134,8 @@ final class PetHitView: NSView {
     var showOptions: ((NSView) -> Void)?
     override init(frame: NSRect) {
         super.init(frame: frame)
-        toolTip = "Drag cat to move · click cat for history, hide, and close"
-        setAccessibilityElement(true); setAccessibilityRole(.button); setAccessibilityLabel("Cyber cat controls. Drag to move.")
+        toolTip = "Drag tree to move · click tree for history, hide, and close"
+        setAccessibilityElement(true); setAccessibilityRole(.button); setAccessibilityLabel("Growing tree controls. Drag to move.")
     }
     required init?(coder: NSCoder) { fatalError() }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -211,6 +237,7 @@ struct HistoryView: View {
                         }
                     }
                     Text(Dictionary(grouping: records, by: { $0.deviceLabel }).sorted { $0.key < $1.key }.map { $0.key + " " + focusDuration($0.value.reduce(0) { $0 + $1.duration }) }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                    Text(period == .day && isGarden(total) ? "Garden grown · " + treeText(total) : forestSummary(total,daily:Array(Dictionary(grouping:records,by:{ Calendar.current.startOfDay(for:$0.start) }).values.map { $0.reduce(0) { $0+$1.duration } }))).font(.system(size:15,weight:.semibold,design:.rounded)).foregroundStyle(Color.teal)
                     Divider()
                     if let deleted {
                         HStack {
@@ -292,7 +319,7 @@ struct HistoryView: View {
         let inMonth = calendar.isDate(day, equalTo: selectedDate, toGranularity: .month)
         let today = calendar.isDateInToday(day)
         return Button { selectedDate = day; period = .day } label: {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack {
                     Text("\(calendar.component(.day, from: day))").font(.system(size: 12, weight: selected || today ? .bold : .medium))
                     Spacer(minLength: 0)
@@ -300,17 +327,19 @@ struct HistoryView: View {
                 }
                 Text(duration > 0 ? focusDuration(duration) : "—").font(.system(size: 11, weight: duration > 0 ? .semibold : .regular, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
                     .foregroundStyle(duration > 0 ? Color.cyber : Color.white.opacity(0.2))
-            }.padding(8).frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+                Text(treeCellText(duration)).font(.system(size:9,weight:.semibold)).foregroundStyle(isGarden(duration) ? Color.yellow : Color.teal).lineLimit(1).minimumScaleFactor(0.6)
+            }.padding(8).frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
                 .background(Color.cyber.opacity(duration > 0 ? 0.10 + min(duration / 14400, 1) * 0.32 : 0.025), in: RoundedRectangle(cornerRadius: 9))
                 .overlay(RoundedRectangle(cornerRadius: 9).stroke(selected ? Color.cyber : Color.white.opacity(0.035), lineWidth: selected ? 1.5 : 1))
                 .opacity(inMonth ? 1 : 0.3)
         }.buttonStyle(.plain)
-            .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + ", " + focusDuration(duration) + " tracked")
+            .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + ", " + focusDuration(duration) + " tracked, " + treeText(duration) + (isGarden(duration) ? ", garden" : ""))
             .accessibilityAddTraits(selected ? .isSelected : [])
             .help(day.formatted(date: .complete, time: .omitted) + " · " + timeText(duration))
     }
     func journalRow(_ session: Session) -> some View {
         VStack(alignment: .leading, spacing: 9) {
+            Text(treeText(session.duration)).font(.caption).foregroundStyle(Color.teal)
             Text(session.name).font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
             HStack(spacing: 5) {
                 Text(session.deviceLabel + " · " + session.start.formatted(date: .omitted, time: .shortened)).font(.system(size: 10)).foregroundStyle(.secondary)
@@ -400,7 +429,7 @@ struct PetOptionsView: View {
                             Text("\(Int(petOpacity * 100))%").font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
                         }
                         Slider(value: $petOpacity, in: 0.3...1, step: 0.05) { Text("Pet opacity") }.help("Adjust pet transparency from 30% to 100%")
-                        Toggle("Animate cat", isOn: $petAnimations).font(.system(size: 12)).toggleStyle(.switch).controlSize(.small)
+                        Toggle("Animate tree and water", isOn: $petAnimations).font(.system(size: 12)).toggleStyle(.switch).controlSize(.small)
                     }.padding(12).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     Divider().padding(.vertical, 5)
                     row("Session History", "clock.arrow.circlepath", history)

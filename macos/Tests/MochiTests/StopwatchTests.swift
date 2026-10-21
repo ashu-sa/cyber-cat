@@ -13,6 +13,7 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         try tests.testSaveRecoveryDoesNotDuplicate()
         tests.testMonthCalendar()
         tests.testFormatting()
+        tests.testForest()
         print("PASS: timing, recovery, rename persistence, delete/restore, calendar periods and totals, formatting")
     }
     @MainActor func testPauseResumeSaveAndReload() async throws {
@@ -123,6 +124,14 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         XCTAssertEqual(focusDuration(4500), "1h 15m")
         XCTAssertEqual(focusDuration(0), "0m")
         XCTAssertEqual(focusDuration(29), "29s")
+    }
+    func testForest() {
+        for (seconds,count):(Double,Int) in [(0,0),(1799,0),(1800,0),(3599,0),(3600,1),(5400,1),(7200,2),(28799,7),(28800,8),(28801,8)] {
+            XCTAssertEqual(grownTrees(seconds),count); XCTAssertEqual(isGarden(seconds),seconds>=28800)
+        }
+        XCTAssertEqual(treeText(1800+1800),"1 tree")
+        XCTAssertEqual(forestSummary(28800,daily:Array(repeating:3600,count:8)),"8 trees")
+        XCTAssertEqual(forestSummary(28800,daily:[28800]),"8 trees · 1 garden day")
     }
     func testFormatting() {
         let legacy = try! JSONDecoder().decode(Session.self, from: Data("{\"id\":\"55CE8492-6E44-4142-9242-AC3C0D75A6A4\",\"name\":\"Old\",\"start\":0,\"end\":60,\"duration\":60}".utf8))

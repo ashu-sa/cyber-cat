@@ -14,7 +14,10 @@ object Repository {
     lateinit var context: Context
     val engine = TimerEngine { SystemClock.elapsedRealtime() }
     var started = 0L; var ended = 0L
+    private var growthKey:String?=null
+    private var growthBase=0L
     var sessions = mutableListOf<JSONObject>()
+        set(value) { field=value; growthKey=null }
     var error: String? = null
     private var initialized = false
     private var sessionId = UUID.randomUUID().toString()
@@ -47,6 +50,14 @@ object Repository {
             .putLong("started", started).putLong("ended", ended).putString("sessionId", sessionId)
             .putInt("boot", boot()).putLong("checkpointMono", SystemClock.elapsedRealtime())
             .putLong("checkpointWall", System.currentTimeMillis()).commit()) { "Unable to preserve timer state" }
+    }
+    fun growthElapsed():Long {
+        val time=if(engine.phase!="idle")started else System.currentTimeMillis()
+        fun day(ms:Long)=java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val date=day(time); val active=if(engine.phase!="idle")sessionId else ""
+        val key="$date:$active"
+        if(growthKey!=key) { growthBase=sessions.filter { day(it.getLong("start"))==date && it.getString("id")!=active }.sumOf { it.getLong("duration") }; growthKey=key }
+        return growthBase+engine.elapsed()
     }
     fun start() { if(Cloud.busy.get() && Cloud.owner==null) return; if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; engine.start(); checkpoint() }
     fun pause() { engine.pause(); checkpoint() }

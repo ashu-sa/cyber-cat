@@ -55,7 +55,7 @@ class SmokeInstrumentation: Instrumentation() {
             runOnMainSync {
                 val settings=find(activity.window.decorView) { it is TextView && it.text.toString()=="Settings" } ?: error("Missing settings")
                 settings.performClick()
-                val show=find(activity.window.decorView) { it is TextView && it.text.toString()=="Show floating cat" } ?: error("Missing overlay control")
+                val show=find(activity.window.decorView) { it is TextView && it.text.toString()=="Show floating tree" } ?: error("Missing overlay control")
                 show.performClick()
             }
             SystemClock.sleep(1000)

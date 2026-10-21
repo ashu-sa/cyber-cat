@@ -18,7 +18,7 @@ struct Session: Codable, Identifiable {
 @MainActor final class Stopwatch: ObservableObject {
     enum Phase: String, Codable { case idle, running, paused, finished }
     @Published var phase: Phase = .idle
-    @Published var sessions: [Session] = []
+    @Published var sessions: [Session] = [] { didSet { growthCache=nil } }
     @Published var error: String?
     @Published var saved = false
     @Published var petVisible = true
@@ -29,6 +29,7 @@ struct Session: Codable, Identifiable {
     private var started: Date?
     private var ended: Date?
     private var sessionId: UUID?
+    private var growthCache: (Date, UUID?, TimeInterval)?
     private let clock = ContinuousClock()
     let cloud: CloudAccount
     private let directory: URL
@@ -55,6 +56,14 @@ struct Session: Codable, Identifiable {
             if self.cloud.owner != nil { self.sessions=self.cloud.visible }
             else { self.sessions=(try? JSONDecoder().decode([Session].self,from:Data(contentsOf:self.historyURL))) ?? [] }
         }
+    }
+    var growthElapsed: TimeInterval {
+        let day=Calendar.current.startOfDay(for: phase != .idle ? (started ?? Date()) : Date())
+        let active=phase != .idle ? sessionId : nil
+        if growthCache?.0 != day || growthCache?.1 != active {
+            growthCache=(day,active,sessions.filter { Calendar.current.isDate($0.start,inSameDayAs:day) && $0.id != active }.reduce(0) { $0+$1.duration })
+        }
+        return (growthCache?.2 ?? 0)+elapsed
     }
     var elapsed: TimeInterval {
         guard let anchor else { return accumulated }
@@ -148,4 +157,14 @@ func monthCalendarDates(containing date: Date, calendar: Calendar = .current) ->
     let offset = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7
     let first = calendar.date(byAdding: .day, value: -offset, to: start)!
     return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: first) }
+}
+
+// Rewards derive from focus time, including fragments from separate sessions.
+func grownTrees(_ seconds: TimeInterval) -> Int { seconds.isFinite ? Int(max(0, seconds) / 3600) : 0 }
+func isGarden(_ seconds: TimeInterval) -> Bool { seconds.isFinite && seconds >= 28800 }
+func treeText(_ seconds: TimeInterval) -> String { let n=grownTrees(seconds); return "\(n) tree\(n == 1 ? "" : "s")" }
+func treeCellText(_ seconds: TimeInterval) -> String { isGarden(seconds) ? "Garden" : grownTrees(seconds)>0 ? treeText(seconds) : seconds>0 ? "Growing" : "—" }
+func forestSummary(_ seconds: TimeInterval, daily: [TimeInterval]) -> String {
+    let n=daily.filter(isGarden).count
+    return treeText(seconds) + (n>0 ? " · \(n) garden day\(n == 1 ? "" : "s")" : "")
 }
