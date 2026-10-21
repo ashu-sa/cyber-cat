@@ -46,7 +46,7 @@ class ForestInstrumentation:Instrumentation() {
             runOnMainSync { Repository.start(); Repository.engine.accumulated=1800000; Repository.checkpoint() }
             val activity=startActivitySync(Intent(targetContext,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
             android.os.SystemClock.sleep(1500);waitForIdleSync()
-            fun screenshot(name:String) { uiAutomation.takeScreenshot()!!.let { image -> targetContext.openFileOutput(name,0).use { image.compress(Bitmap.CompressFormat.PNG,100,it) };image.recycle() } }
+            fun screenshot(name:String) { android.os.SystemClock.sleep(900); waitForIdleSync(); uiAutomation.takeScreenshot()!!.let { image -> targetContext.openFileOutput(name,0).use { image.compress(Bitmap.CompressFormat.PNG,100,it) };image.recycle() } }
             screenshot("android-timer.png")
             runOnMainSync { Repository.discard(); targetContext.startService(Intent(targetContext,TimerService::class.java).setAction("SYNC")); find(activity.window.decorView,"Journal")!!.performClick() }
             waitForIdleSync();screenshot("android-journal.png")
