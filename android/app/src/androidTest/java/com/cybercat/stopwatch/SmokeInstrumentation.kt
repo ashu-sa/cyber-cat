@@ -79,6 +79,9 @@ class SmokeInstrumentation:Instrumentation() {
             val export=java.io.File(targetContext.filesDir,"export-test.json")
             runOnMainSync { MainActivity::class.java.getDeclaredMethod("onActivityResult",Int::class.javaPrimitiveType,Int::class.javaPrimitiveType,Intent::class.java).apply { isAccessible=true }.invoke(activity,42,Activity.RESULT_OK,Intent().setData(android.net.Uri.fromFile(export))) }
             check(JSONArray(export.readText()).getJSONObject(0).getString("name")=="MVP renamed")
+            runOnMainSync { find(activity.window.decorView,"Timer")!!.performClick();find(activity.window.decorView,"Start or resume")!!.performClick();find(activity.window.decorView,"Finish session")!!.performClick() }
+            waitForIdleSync();tap("Close");tap("Reset timer");tap("Reset")
+            check(Repository.engine.phase=="idle" && Repository.sessions.single().getString("name")=="MVP renamed")
             fun shell(command:String)=android.os.ParcelFileDescriptor.AutoCloseInputStream(uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
             shell("appops set ${targetContext.packageName} SYSTEM_ALERT_WINDOW allow")
             runOnMainSync { find(activity.window.decorView,"Settings")!!.performClick();find(activity.window.decorView,"Show floating tree")!!.performClick() }

@@ -179,13 +179,13 @@ class MainActivity: Activity() {
         growthBar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply { max=1000; progressTintList=android.content.res.ColorStateList.valueOf(cyan); progressBackgroundTintList=android.content.res.ColorStateList.valueOf(surface); contentDescription="Progress to next tree" }
         root.addView(growthBar,LinearLayout.LayoutParams(-1,dp(8)).apply { setMargins(dp(35),dp(8),dp(35),0) })
         growthHint=text("",12f,Color.rgb(161,181,165)).apply { gravity=Gravity.CENTER }; root.addView(growthHint); updateGrowth()
-        root.addView(text("30m · Young plant     1h · Tree     8h · Garden",11f,Color.rgb(161,181,165)).apply { gravity=Gravity.CENTER })
+        root.addView(text("Every minute · Growth     1h · Tree     8h · Garden",11f,Color.rgb(161,181,165)).apply { gravity=Gravity.CENTER })
         if(phase=="idle") {
             root.addView(text("Grow here, or take your tree with you.",13f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
             root.addView(button("Floating tree options") { tab="Settings"; render() })
         } else {
-            root.addView(text("Your timer continues in the notification shade.",12f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
-            root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { Repository.discard(); service("SYNC"); render() } }.show() })
+            root.addView(text(if(phase=="finished") "Session stopped · Save, resume or reset when you’re ready." else "Your timer continues in the notification shade.",12f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
+            if(phase!="finished") root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { Repository.discard(); service("SYNC"); render() } }.show() })
         }
     }
     private fun saveDialog() {
@@ -208,7 +208,7 @@ class MainActivity: Activity() {
         }
         content.addView(text("Close to save later, resume, or reset from the timer screen.",12f,Color.LTGRAY))
         val dialog=AlertDialog.Builder(this).setIcon(R.mipmap.ic_launcher).setTitle("What did you work on?").setView(content).setNegativeButton("Close",null).setPositiveButton("Save",null).create()
-        dialog.setOnDismissListener { naming=false }
+        dialog.setOnDismissListener { naming=false; if(!isFinishing && !isDestroyed && Repository.engine.phase=="finished") render() }
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             safe { val day=dayOf(Repository.started); Repository.save(name.text.toString()); service("SYNC"); dialog.dismiss(); tab="Journal"; selected=day; month=YearMonth.from(day); scope="Day"; render() }
         } }; dialog.show()

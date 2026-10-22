@@ -48,6 +48,10 @@ class ForestInstrumentation:Instrumentation() {
             android.os.SystemClock.sleep(1500);waitForIdleSync()
             fun screenshot(name:String) { android.os.SystemClock.sleep(900); waitForIdleSync(); uiAutomation.takeScreenshot()!!.let { image -> targetContext.openFileOutput(name,0).use { image.compress(Bitmap.CompressFormat.PNG,100,it) };image.recycle() } }
             screenshot("android-timer.png")
+            runOnMainSync { find(activity.window.decorView,"Finish session")!!.performClick() }
+            waitForIdleSync();screenshot("android-save.png")
+            uiAutomation.rootInActiveWindow.findAccessibilityNodeInfosByText("Close").first { it.text?.toString()?.equals("Close",true)==true }.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+            waitForIdleSync();screenshot("android-finished.png")
             runOnMainSync { Repository.discard(); targetContext.startService(Intent(targetContext,TimerService::class.java).setAction("SYNC")); find(activity.window.decorView,"Journal")!!.performClick() }
             waitForIdleSync();screenshot("android-journal.png")
             runOnMainSync { find(activity.window.decorView,"Settings")!!.performClick() }

@@ -1,5 +1,7 @@
 # Focanopy
 
+<img src="docs/screenshots/app-icon.png" alt="Focanopy tree app icon" width="96" />
+
 **Make room to grow.** An Android-first focus stopwatch that turns your time into a living forest, with native companion apps for macOS, Windows and Ubuntu.
 
 Focanopy combines **focus + canopy**: start a session, watch gentle water droplets nourish your tree, and build a garden from a day of focused work.
@@ -26,6 +28,8 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 - **Useful history:** month calendar, Day/Week/Month summaries, daily trees, garden days, device totals, rename, delete confirmation and undo.
 - **Local data ownership:** atomic private JSON history and document-picker JSON export. Existing history is preserved on upgrade.
 - **Optional cloud account:** username + four-digit PIN; remembered secure login, offline changes, cross-device sessions, deletion sync and explicit conflict resolution.
+
+<img src="docs/screenshots/android-save.png" alt="Save session with the Focanopy app icon and task categories" width="260" /> <img src="docs/screenshots/android-finished.png" alt="Finished session with Save, Resume and Reset controls" width="260" />
 
 ### Grow a forest
 
