@@ -68,3 +68,14 @@ class GoogleTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'needs setup'): cloud.authenticate_google(failed,lambda:self.fail('Should not launch browser'))
             self.assertFalse(cloud.switching); self.assertIsNone(cloud.owner)
             self.assertEqual(failed.server.socket.fileno(),-1)
+
+    def test_cancel_during_exchange_does_not_adopt_account(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault=Vault(); flow=GoogleFlow()
+            def transport(path,body,token=None):
+                flow.cancel()
+                return dict(access_token='unused',refresh_token='unused',user=dict(id='not-adopted'))
+            cloud=Cloud(directory,vault,transport); cloud.switching=True
+            with patch('cybercat.oauth.require_google'), patch.object(flow,'wait',return_value=dict(auth_code='once',code_verifier=flow.verifier)):
+                with self.assertRaisesRegex(RuntimeError,'cancelled'): cloud.authenticate_google(flow,lambda:None)
+            self.assertIsNone(cloud.owner); self.assertIsNone(vault.data); self.assertFalse(cloud.switching)
