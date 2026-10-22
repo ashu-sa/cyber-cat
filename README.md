@@ -31,6 +31,10 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 <img src="docs/screenshots/android-save.png" alt="Save session with the Focanopy app icon and task categories" width="260" /> <img src="docs/screenshots/android-finished.png" alt="Finished session with Save, Resume and Reset controls" width="260" />
 
+### Fast-forward preview on macOS
+
+Run `./macos/simulate-growth.sh` to open a separate native simulator using the app’s actual tree renderer. One hour takes 10 seconds by default, with speed, scrub, pause, restart and next-tree controls. Preview time is never saved to your timer or history.
+
 ### Grow a forest
 
 | Focus time | Reward |
