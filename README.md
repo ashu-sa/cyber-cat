@@ -37,6 +37,8 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 **Owner setup required:** Google is currently disabled in the hosted Supabase project. Complete the [one-time Google OAuth setup](backend/GOOGLE_SIGN_IN.md) before live Google sign-in can succeed. No client secret ships in the apps. Until enabled, the Google button shows a setup message; username/PIN accounts and offline timing continue to work.
 
+<img src="docs/screenshots/android-google-account.png" alt="Native Android account screen with Continue with Google and existing username/PIN sign-in" width="300" />
+
 ### Fast-forward preview on macOS
 
 Run `./macos/simulate-growth.sh` to open a separate native simulator using the app’s actual tree renderer. One hour takes 10 seconds by default, with speed, scrub, pause, restart and next-tree controls. Preview time is never saved to your timer or history.

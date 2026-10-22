@@ -27,11 +27,15 @@ class GoogleInstrumentation:Instrumentation() {
             catch(e:IllegalStateException) { check(e.message!!.contains("expired")) }
             check(Cloud.owner==null && Repository.sessions.toString()==before)
             val activity=startActivitySync(Intent(targetContext,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
-            runOnMainSync { find(activity.window.decorView,"Settings")!!.performClick() }
+            runOnMainSync { activity.setShowWhenLocked(true); activity.setTurnScreenOn(true); find(activity.window.decorView,"Settings")!!.performClick() }
             waitForIdleSync()
             runOnMainSync { find(activity.window.decorView,"Account / Sync")!!.performClick() }
             waitForIdleSync()
-            val nodes=uiAutomation.rootInActiveWindow.findAccessibilityNodeInfosByText("Continue with Google")
+            var window=uiAutomation.rootInActiveWindow
+            val until=android.os.SystemClock.uptimeMillis()+10000
+            while(window==null && android.os.SystemClock.uptimeMillis()<until) { android.os.SystemClock.sleep(200); window=uiAutomation.rootInActiveWindow }
+            check(window!=null) { "Native account window did not become accessible" }
+            val nodes=window.findAccessibilityNodeInfosByText("Continue with Google")
             check(nodes.isNotEmpty()) { "Google sign-in control missing" }
             uiAutomation.takeScreenshot()!!.let { image -> targetContext.openFileOutput("android-google-account.png",0).use { image.compress(Bitmap.CompressFormat.PNG,100,it) }; image.recycle() }
             check(Repository.engine.phase=="idle" && Cloud.owner==null && Repository.sessions.toString()==before)

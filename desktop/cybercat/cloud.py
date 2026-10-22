@@ -135,6 +135,7 @@ class Cloud:
             if flow.cancelled.is_set(): raise RuntimeError("Google sign-in cancelled.")
             open_browser()
             result = self.transport('/auth/v1/token?grant_type=pkce', flow.wait())
+            if flow.cancelled.is_set(): raise RuntimeError('Google sign-in cancelled. Your local history is safe.')
             self.accept_login(result)
         finally:
             flow.server.server_close(); flow.verifier = ""
