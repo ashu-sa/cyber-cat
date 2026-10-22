@@ -14,6 +14,7 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         tests.testMonthCalendar()
         tests.testFormatting()
         tests.testForest()
+        try await tests.testResumeFinishedExcludesGap()
         print("PASS: timing, recovery, rename persistence, delete/restore, calendar periods and totals, formatting")
     }
     @MainActor func testPauseResumeSaveAndReload() async throws {
@@ -124,6 +125,19 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         XCTAssertEqual(focusDuration(4500), "1h 15m")
         XCTAssertEqual(focusDuration(0), "0m")
         XCTAssertEqual(focusDuration(29), "29s")
+    }
+    @MainActor func testResumeFinishedExcludesGap() async throws {
+        let dir=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:dir) }
+        try FileManager.default.createDirectory(at:dir,withIntermediateDirectories:true)
+        let id=UUID(), old=Date().addingTimeInterval(-3600)
+        let draft=Stopwatch.Draft(phase:.finished,elapsed:1200,start:old.addingTimeInterval(-1200),end:old,checkpoint:old,sessionId:id)
+        try JSONEncoder().encode(draft).write(to:dir.appendingPathComponent("active-session.json"))
+        let timer=Stopwatch(directory:dir);timer.resumeFinished();timer.resumeFinished()
+        try await Task.sleep(for:.milliseconds(80));timer.pause()
+        precondition(timer.elapsed>=1200 && timer.elapsed<1201,"Finished gap must be excluded")
+        timer.finish();timer.save("Continued work");precondition(timer.sessions.count==1 && timer.sessions[0].id==id)
+        timer.start();timer.finish();precondition(timer.discard());precondition(timer.elapsed==0 && timer.sessions.count==1)
     }
     func testForest() {
         for (seconds,count):(Double,Int) in [(0,0),(1799,0),(1800,0),(3599,0),(3600,1),(5400,1),(7200,2),(28799,7),(28800,8),(28801,8)] {

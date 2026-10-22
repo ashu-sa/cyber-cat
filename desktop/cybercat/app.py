@@ -56,6 +56,8 @@ def action_icon(symbol):
         painter.drawRoundedRect(QRectF(6,4,4,16),1,1);painter.drawRoundedRect(QRectF(15,4,4,16),1,1)
     elif symbol == '✓':
         painter.drawLine(4,12,10,18);painter.drawLine(10,18,21,5)
+    elif symbol == '↺':
+        painter.drawArc(QRectF(5,5,14,14),40*16,290*16);painter.drawLine(4,4,4,11);painter.drawLine(4,11,10,10)
     elif symbol == '↓':
         painter.drawLine(12,3,12,16);painter.drawLine(7,11,12,16);painter.drawLine(12,16,17,11);painter.drawLine(5,21,19,21)
     else:
@@ -65,7 +67,7 @@ def action_icon(symbol):
 
 def button(text, callback, tooltip=''):
     b = QPushButton(text)
-    if text in ('▶','Ⅱ','✓','↓','✎'):
+    if text in ('▶','Ⅱ','✓','↓','✎','↺'):
         b.setText('');b.setIcon(action_icon(text));b.setIconSize(QSize(14,14));b.setAccessibleName(tooltip or text)
     b.clicked.connect(callback)
     b.setToolTip(tooltip)
@@ -151,12 +153,15 @@ class Pet(QWidget):
         for b in (self.play, self.finish):
             b.setFixedSize(26, 26); b.setIconSize(QSize(10,10))
             b.setStyleSheet('QPushButton { color:#addaad; background:#111b17; border:1px solid #567e58; border-radius:4px; padding:0; font-size:10px; } QPushButton:disabled { color:#56616b; border-color:#36414a; }')
-        row.addWidget(self.play); row.addWidget(self.finish)
+        self.resume_finished = button('▶', controller.start, 'Resume timer')
+        self.reset_finished = button('↺', controller.cancel, 'Reset timer')
+        for b in (self.resume_finished,self.reset_finished): b.setFixedSize(26,26); b.setIconSize(QSize(10,10)); b.setStyleSheet(self.play.styleSheet())
+        row.addWidget(self.play); row.addWidget(self.finish); row.addWidget(self.resume_finished); row.addWidget(self.reset_finished)
         layout.addLayout(row)
         row.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drag_start = None
         self.dragged = False
-        for target in (self, self.timer, self.play, self.finish):
+        for target in (self, self.timer, self.play, self.finish, self.resume_finished, self.reset_finished):
             target.installEventFilter(self)
             target.setMouseTracking(True)
         for key in 'RSPF':
@@ -188,6 +193,7 @@ class Pet(QWidget):
         self.play.setToolTip({'running':'Pause · Ctrl+P', 'paused':'Resume · Ctrl+S', 'finished':'Name and save session', 'idle':'Start · Ctrl+S'}[phase])
         self.play.setAccessibleName(self.play.toolTip())
         self.finish.setEnabled(phase in ('running', 'paused'))
+        self.finish.setVisible(phase!='finished');self.resume_finished.setVisible(phase=='finished');self.reset_finished.setVisible(phase=='finished')
         self.finish.setAccessibleName('Finish session')
         self.setWindowOpacity(max(.3, min(1, self.c.store.settings.get('opacity', 1))))
         self.cat.setToolTip(tree_text(self.c.store.growth_elapsed) + (' · Garden grown' if garden(self.c.store.growth_elapsed) else '') + ' · Drag to move; click for controls')
@@ -412,7 +418,7 @@ class Controller:
         self.refresh()
 
     def start(self):
-        self.safe(self.store.start); self.show_pet(); self.refresh()
+        self.safe((self.store.resume_finished if self.store.phase=="finished" else self.store.start)); self.show_pet(); self.refresh()
 
     def finish(self, reveal=True):
         if self.modal or self.store.phase == 'idle': return False
@@ -425,7 +431,7 @@ class Controller:
         field = QComboBox(); field.setEditable(True)
         field.addItems(['Job Apply', 'Upskill', 'Interview Prep', 'Work']); field.setCurrentIndex(-1)
         field.lineEdit().setPlaceholderText('Choose a category or type your own')
-        layout.addWidget(field); layout.addWidget(label('Close keeps the session ready to save later.', 'subtitle'))
+        layout.addWidget(field); layout.addWidget(label('Close to save later, resume, or reset from timer controls.', 'subtitle'))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Close)
         buttons.accepted.connect(dialog.accept); buttons.rejected.connect(dialog.reject); layout.addWidget(buttons)
         accepted = dialog.exec() == QDialog.DialogCode.Accepted

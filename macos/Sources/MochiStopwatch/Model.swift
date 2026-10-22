@@ -76,6 +76,10 @@ struct Session: Codable, Identifiable {
         guard phase == .idle || phase == .paused else { return }
         anchor = clock.now; phase = .running; saved = false; refreshMenu(); checkpoint()
     }
+    func resumeFinished() {
+        guard phase == .finished, !cloud.authenticating else { return }
+        ended=nil;anchor=clock.now;phase = .running;saved=false;refreshMenu();checkpoint()
+    }
     func pause() { guard phase == .running else { return }; accumulated = elapsed; anchor = nil; phase = .paused; refreshMenu(); checkpoint() }
     func finish() { guard phase == .running || phase == .paused else { return }; accumulated = elapsed; anchor = nil; ended = Date(); phase = .finished; refreshMenu(); checkpoint() }
     @discardableResult func checkpoint() -> Bool {

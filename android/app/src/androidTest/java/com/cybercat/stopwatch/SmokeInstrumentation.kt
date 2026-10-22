@@ -62,6 +62,9 @@ class SmokeInstrumentation:Instrumentation() {
             (notice.actions.firstOrNull { it.title.toString()=="Finish" } ?: error("Missing Finish action: "+notice.actions.map { it.title })).actionIntent.send();awaitPhase("finished");SystemClock.sleep(400);waitForIdleSync()
             tap("Session category");tap("Work");check(Repository.prefs.getString("draftName","")=="Work")
             type("Session task name","Android MVP");tap("Close")
+            runOnMainSync { check(find(activity.window.decorView,"Reset timer")!=null);find(activity.window.decorView,"Resume timer")!!.performClick() }
+            awaitPhase("running")
+            runOnMainSync { find(activity.window.decorView,"Finish session")!!.performClick() };waitForIdleSync();tap("Close")
             runOnMainSync { find(activity.window.decorView,"Save session")!!.performClick() };waitForIdleSync()
             check(node(uiAutomation.rootInActiveWindow,"Session task name")!!.text.toString()=="Android MVP")
             tap("Save");check(Repository.sessions.single().getString("name")=="Android MVP")

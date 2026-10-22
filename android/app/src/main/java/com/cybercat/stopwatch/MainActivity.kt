@@ -166,7 +166,14 @@ class MainActivity: Activity() {
             row.addView(button(if(phase=="running") "Ⅱ" else if(phase=="finished") "↓" else "▶",if(phase=="running") "Pause" else if(phase=="finished") "Save session" else "Start or resume") {
                 if(phase=="finished") saveDialog() else { notifications(); if(Repository.engine.phase=="running") Repository.pause() else Repository.start(); service("SYNC"); render() }
             }.apply { setTextColor(bg); background=card(cyan); textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
-            row.addView(button("✓","Finish session") { if(Repository.engine.phase!="idle") { Repository.finish(); service("SYNC"); render(); saveDialog() } }.apply { isEnabled=phase!="idle"; alpha=if(isEnabled)1f else .35f; textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
+            row.addView(button("✓","Finish session") { if(Repository.engine.phase!="idle") { Repository.finish(); service("SYNC"); render(); saveDialog() } }.apply { isEnabled=phase!="idle"; visibility=if(phase=="finished")View.GONE else View.VISIBLE; alpha=if(isEnabled)1f else .35f; textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
+        }
+        if(phase=="finished") {
+            root.addView(text("Not ready to save? Continue this session or start fresh.",13f,Color.LTGRAY))
+            line { row ->
+                row.addView(button("▶","Resume timer") { Repository.resumeFinished();service("SYNC");render() },LinearLayout.LayoutParams(0,dp(48),1f))
+                row.addView(button("↺","Reset timer") { AlertDialog.Builder(this).setTitle("Reset this unsaved timer?").setMessage("Saved history stays in your journal.").setNegativeButton("Keep timer",null).setPositiveButton("Reset") { _,_-> safe { Repository.discard();service("SYNC");render() } }.show() },LinearLayout.LayoutParams(0,dp(48),1f))
+            }
         }
         groveStatus=text(Forest.text(Repository.growthElapsed())+(if(Forest.garden(Repository.growthElapsed())) " · Garden grown" else " · One tree per focused hour"),14f,cyan).apply { gravity=Gravity.CENTER }; root.addView(groveStatus)
         growthBar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply { max=1000; progressTintList=android.content.res.ColorStateList.valueOf(cyan); progressBackgroundTintList=android.content.res.ColorStateList.valueOf(surface); contentDescription="Progress to next tree" }
@@ -199,8 +206,8 @@ class MainActivity: Activity() {
             override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long) { if(position in 1..4) name.setText(choices[position]); if(position==5) { name.setText(""); name.requestFocus() } }
             override fun onNothingSelected(parent:AdapterView<*>?) {}
         }
-        content.addView(text("Close keeps this session ready to save later.",12f,Color.LTGRAY))
-        val dialog=AlertDialog.Builder(this).setTitle("What did you work on?").setView(content).setNegativeButton("Close",null).setPositiveButton("Save",null).create()
+        content.addView(text("Close to save later, resume, or reset from the timer screen.",12f,Color.LTGRAY))
+        val dialog=AlertDialog.Builder(this).setIcon(R.mipmap.ic_launcher).setTitle("What did you work on?").setView(content).setNegativeButton("Close",null).setPositiveButton("Save",null).create()
         dialog.setOnDismissListener { naming=false }
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             safe { val day=dayOf(Repository.started); Repository.save(name.text.toString()); service("SYNC"); dialog.dismiss(); tab="Journal"; selected=day; month=YearMonth.from(day); scope="Day"; render() }
@@ -287,7 +294,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.3.1",12f,cyan))
+        root.addView(text("Focanopy · 1.4.0",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }

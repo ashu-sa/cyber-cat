@@ -22,7 +22,7 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 - **Background controls:** Android foreground service with a system chronometer and Pause/Resume/Finish actions. No overlay permission required.
 - **A growing companion:** native Canvas tree, slow water droplets, gentle sway, reduced-motion support, and next-tree progress. Pausing gives the plant a dry, dormant appearance and stops water; resuming revives green foliage and watering.
 - **Optional floating tree:** drag from the tree, timer, controls or empty space above other apps, adjust opacity, hide/show, and use compact icon controls. Finishing stops time even when Android blocks opening the naming screen.
-- **Save without friction:** Job Apply, Upskill, Interview Prep, Work or a custom name. Close the popup and your typed name remains available. Save opens the journal.
+- **Save without friction:** Job Apply, Upskill, Interview Prep, Work or a custom name. Close the popup and your typed name remains available; Resume continues the same unsaved session and Reset starts fresh. Save opens the journal.
 - **Useful history:** month calendar, Day/Week/Month summaries, daily trees, garden days, device totals, rename, delete confirmation and undo.
 - **Local data ownership:** atomic private JSON history and document-picker JSON export. Existing history is preserved on upgrade.
 - **Optional cloud account:** username + four-digit PIN; remembered secure login, offline changes, cross-device sessions, deletion sync and explicit conflict resolution.
@@ -31,8 +31,8 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 | Focus time | Reward |
 |---|---|
-| 30 minutes within the current hour | Young plant |
-| Every completed hour | One tree; the next sprout begins |
+| Every minute within the current hour | Trunk, leaves and crown grow a little |
+| Every completed hour | A completed tree stays visible beside the next sprout |
 | 8 hours of saved focus in a single day | Garden badge |
 
 Short sessions add up, including synced sessions from different devices. Rewards derive from saved focus durations, so old history gets rewards and edits/deletions recalculate them. Pauses do not count. Days use the session’s local start date; week/month views count garden days rather than treating eight separate one-hour days as a garden.

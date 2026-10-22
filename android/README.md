@@ -88,7 +88,7 @@ Settings → Account / Sync supports username + four-digit PIN. Credentials pers
 
 ## Focus forest
 
-A young plant grows at 30 minutes, with one completed tree for each full focus hour. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing stops water and turns the current plant dry and dormant; resuming restores green foliage and watering. Disable animation for a still companion.
+The trunk, leaves and crown grow continuously across the full hour. Each completed tree stays visible beside the next sprout. Saved sessions add together per day, including synced sessions from other devices. Eight saved hours in a day earns a Garden badge. Calendar days show time and tree rewards; week/month summaries count garden days. Rewards recalculate after edits/deletions. Pausing stops water and turns the current plant dry and dormant; resuming restores green foliage and watering. Disable animation for a still companion.
 
 ## Android MVP (v1.3)
 
@@ -97,3 +97,5 @@ Android is Focanopy’s flagship application. The home screen includes saved dai
 Settings → **Export session history** opens Android’s document picker to save the visible history as JSON. This export contains task names, times, durations and device metadata; credentials and PINs are never exported. The save dialog retains the task name in private app preferences until saved or discarded. Package ID and Keystore aliases retain the original namespace for upgrade compatibility.
 
 Floating controls support dragging from the tree, timer, button surfaces and empty space. Movement beyond the drag threshold suppresses the click action; a regular click/tap still controls the stopwatch. Pausing never removes earned trees or saved focus time.
+
+Closing the save popup preserves the unsaved session. Use **Resume Timer** to continue it without counting the waiting/naming gap, or **Reset Timer** to clear only that unsaved timer. Save remains available.

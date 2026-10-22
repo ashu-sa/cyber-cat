@@ -19,8 +19,10 @@ final class FloatingPanel: NSPanel {
     var displayTimer: Timer?
     var ticks = 0
     var dialogOpen = false
+    var pendingTaskName = ""
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        if let url=Bundle.main.url(forResource:"AppIcon",withExtension:"icns"),let icon=NSImage(contentsOf:url) { NSApp.applicationIconImage=icon }
         panel = FloatingPanel(contentRect:NSRect(x:0,y:0,width:150,height:100),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]
@@ -34,7 +36,7 @@ final class FloatingPanel: NSPanel {
             case .finished: self.finish()
             case .idle, .paused: self.start()
             }
-        },finish:{ [weak self] in self?.finish() }))
+        },finish:{ [weak self] in self?.finish() },resumeFinished:{ [weak self] in self?.start() },reset:{ [weak self] in self?.cancelSession() }))
         restorePosition(); panel.delegate = self
         registerShortcut(); showPet()
         Task { await model.cloud.sync() }
@@ -130,7 +132,7 @@ final class FloatingPanel: NSPanel {
     @objc func showPet() { guard panel != nil else { return }; clampPosition(); model.petVisible = true; panel.orderFrontRegardless(); updateSessionShortcuts() }
     @objc func hidePet() { controlsPopover.close(); savePosition(); model.petVisible = false; panel.orderOut(nil); updateSessionShortcuts() }
     @objc func closePet() { hidePet() }
-    @objc func start() { model.start(); showPet() }
+    @objc func start() { if model.phase == .finished { model.resumeFinished() } else { model.start() }; showPet() }
     @objc func pause() { model.pause() }
     @objc func resume() { model.start() }
     @objc func finish() { model.finish(); nameSession() }
@@ -139,13 +141,14 @@ final class FloatingPanel: NSPanel {
         dialogOpen = true; updateSessionShortcuts()
         defer { dialogOpen = false; updateSessionShortcuts() }
         NSApp.activate(ignoringOtherApps:true)
-        let alert = NSAlert(); alert.messageText = "What did you work on?"
-        alert.informativeText = "Session cleared! \(timeText(model.elapsed)) of focus."
+        let alert = NSAlert(); alert.icon=Bundle.main.url(forResource:"AppIcon",withExtension:"icns").flatMap { NSImage(contentsOf:$0) } ?? NSApp.applicationIconImage; alert.messageText = "What did you work on?"
+        alert.informativeText = "Nice work! \(timeText(model.elapsed)) of focus."
         alert.addButton(withTitle:"Save Session")
         let closeButton = alert.addButton(withTitle:"Close")
         closeButton.keyEquivalent = "\u{1b}"
         let field = NSComboBox(frame: NSRect(x: 0, y: 25, width: 320, height: 28))
         field.addItems(withObjectValues: ["Job Apply", "Upskill", "Interview Prep", "Work"])
+        field.stringValue=pendingTaskName
         field.isEditable = true
         field.completes = true
         field.numberOfVisibleItems = 4
@@ -157,17 +160,19 @@ final class FloatingPanel: NSPanel {
         label.font = .systemFont(ofSize: 11)
         label.textColor = .secondaryLabelColor
         label.frame = NSRect(x: 0, y: 57, width: 320, height: 17)
-        let hint = NSTextField(labelWithString: "Close keeps this session ready to save later.")
+        let hint = NSTextField(labelWithString: "Close to save later, resume, or reset from the timer controls.")
         hint.font = .systemFont(ofSize: 10)
         hint.textColor = .secondaryLabelColor
         hint.frame = NSRect(x: 0, y: 0, width: 320, height: 17)
         accessory.addSubview(label); accessory.addSubview(field); accessory.addSubview(hint)
         alert.accessoryView = accessory
         alert.window.initialFirstResponder = field
-        if alert.runModal() == .alertFirstButtonReturn {
+        let result=alert.runModal();pendingTaskName=field.stringValue
+        if result == .alertFirstButtonReturn {
             model.save(field.stringValue)
             showError()
             let saved = model.phase == .idle
+            if saved { pendingTaskName="" }
             if saved && revealHistory {
                 showHistory()
                 historyWindow?.contentView = NSHostingView(rootView: HistoryView(model: model, initialDate: model.sessions.first?.start ?? Date()))
@@ -187,7 +192,7 @@ final class FloatingPanel: NSPanel {
         let alert = NSAlert(); alert.messageText = "Discard this session?"; alert.informativeText = "This session won’t be added to history."
         alert.addButton(withTitle:"Keep Session"); alert.addButton(withTitle:"Discard Session")
         NSApp.activate(ignoringOtherApps:true)
-        if alert.runModal() == .alertSecondButtonReturn { _ = model.discard(); showError() }
+        if alert.runModal() == .alertSecondButtonReturn { if model.discard() { pendingTaskName="" }; showError() }
     }
     @objc func quit() { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -281,9 +286,9 @@ struct MenuContents: View {
         case .idle: Button("Start Stopwatch",action:delegate.start)
         case .running: Button("Pause",action:delegate.pause); Button("Finish Session…",action:delegate.finish)
         case .paused: Button("Resume",action:delegate.resume); Button("Finish Session…",action:delegate.finish)
-        case .finished: Button("Name & Save Session…",action:delegate.finish)
+        case .finished: Button("Name & Save Session…",action:delegate.finish);Button("Resume Timer",action:delegate.start);Button("Reset Timer…",action:delegate.cancelSession)
         }
-        if model.phase != .idle { Button("Cancel Session…",action:delegate.cancelSession) }
+        if model.phase != .idle && model.phase != .finished { Button("Cancel Session…",action:delegate.cancelSession) }
         Divider()
         Button("Show / Hide Pet (⌘R)",action:delegate.togglePet)
         Button("Show Pet",action:delegate.showPet); Button("Hide Pet",action:delegate.hidePet)

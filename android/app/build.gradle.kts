@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "com.cybercat.stopwatch"
     compileSdk = 35
-    defaultConfig { applicationId = "com.cybercat.stopwatch"; minSdk = 26; targetSdk = 35; versionCode = 5; versionName = "1.3.1"; testInstrumentationRunner = if(project.hasProperty("interactionQa")) "com.cybercat.stopwatch.InteractionInstrumentation" else if(project.hasProperty("mvpQa")) "com.cybercat.stopwatch.SmokeInstrumentation" else if(project.hasProperty("forestQa")) "com.cybercat.stopwatch.ForestInstrumentation" else if(project.hasProperty("cloudQa")) "com.cybercat.stopwatch.CloudInstrumentation" else "com.cybercat.stopwatch.SmokeInstrumentation" }
+    defaultConfig { applicationId = "com.cybercat.stopwatch"; minSdk = 26; targetSdk = 35; versionCode = 6; versionName = "1.4.0"; testInstrumentationRunner = if(project.hasProperty("interactionQa")) "com.cybercat.stopwatch.InteractionInstrumentation" else if(project.hasProperty("mvpQa")) "com.cybercat.stopwatch.SmokeInstrumentation" else if(project.hasProperty("forestQa")) "com.cybercat.stopwatch.ForestInstrumentation" else if(project.hasProperty("cloudQa")) "com.cybercat.stopwatch.CloudInstrumentation" else "com.cybercat.stopwatch.SmokeInstrumentation" }
     buildTypes { create("qa") { initWith(getByName("debug")); applicationIdSuffix=".qa"; signingConfig=signingConfigs.getByName("debug") } }
     testBuildType = if(project.hasProperty("interactionQa") || project.hasProperty("mvpQa") || project.hasProperty("forestQa") || project.hasProperty("cloudQa")) "qa" else "debug"
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

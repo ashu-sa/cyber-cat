@@ -118,6 +118,10 @@ class Store:
         self.anchor, self.phase = self.clock(), 'running'
         self.checkpoint()
 
+    def resume_finished(self):
+        if self.phase != "finished" or getattr(self.cloud,"switching",False): return
+        self.ended=None;self.anchor=self.clock();self.phase="running";self.checkpoint()
+
     def pause(self):
         if self.phase == 'running':
             self.accumulated = self.elapsed

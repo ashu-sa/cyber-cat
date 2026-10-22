@@ -33,29 +33,32 @@ class TreeView(c:Context):View(c) {
         val dry=phase=="paused"; val motion=animate && motionEnabled && !dry; val t=if(motion)seconds else 0.0
         fun ellipse(x:Float,y:Float,w:Float,h:Float,color:Int) { paint.shader=null; paint.style=Paint.Style.FILL; paint.color=color; c.drawOval(x,y,x+w,y+h,paint) }
         ellipse(25f,45f,60f,12f,Color.argb(24,91,165,123))
-        for(i in 0 until minOf(n,3).toInt()) { val x=listOf(15f,94f,103f)[i]; ellipse(x-5,35f,10f,12f,Color.argb(65,91,165,123)); c.drawRoundRect(x-1,43f,x+1,52f,1f,1f,paint) }
-        fun tree(g:Float,alpha:Float) {
+        fun tree(g:Float,alpha:Float,center:Float=55f,scale:Float=1f,dormant:Boolean=false) {
             if(alpha<=0) return
-            val layer=c.saveLayerAlpha(0f,0f,110f,58f,(alpha*255).toInt())
+            val layer=c.saveLayerAlpha(0f,0f,110f,58f,(alpha*255).toInt());c.translate(center-55*scale,51-51*scale);c.scale(scale,scale)
             c.rotate(if(motion)(sin(t*1.1)*1.2).toFloat() else 0f,55f,51f)
-            val top=51-(7+22*g); val canopy=smooth((g-.5f)*2)
+            val top=51-(5+23*g); val canopy=g
             val stem=Path().apply { moveTo(55f,51f); cubicTo(53f,43f,57f,top+7,55f,top) }
             paint.shader=null; paint.color=Color.rgb(195,161,113); paint.style=Paint.Style.STROKE; paint.strokeWidth=2+2*g; paint.strokeCap=Paint.Cap.ROUND; c.drawPath(stem,paint)
             for(side in listOf(-1,1)) {
-                val y=top+4; val leaf=Path().apply { moveTo(55f,y+3); cubicTo(55+side*3f,y-7,55+side*(9+7*g),y-8,55+side*(12+8*g),y-5); cubicTo(55+side*(10+6*g),y+4,55+side*3f,y+8,55f,y+3) }
-                c.save(); if(dry)c.rotate(side*18f,55f,y+3)
-                paint.style=Paint.Style.FILL; paint.color=if(dry)Color.rgb(168,146,100) else if(side<0)Color.rgb(139,211,163) else Color.rgb(70,151,121); c.drawPath(leaf,paint); c.restore()
+                val y=top+1; val leaf=Path().apply { moveTo(55f,y+3); cubicTo(55+side*3f,y-(2+4*g),55+side*(3+7*g),y-(3+4*g),55+side*(3+8*g),y-(1+3*g)); cubicTo(55+side*(3+6*g),y+4,55+side*3f,y+8,55f,y+3) }
+                c.save(); if(dormant)c.rotate(side*18f,55f,y+3)
+                paint.style=Paint.Style.FILL; paint.color=if(dormant)Color.rgb(168,146,100) else if(side<0)Color.rgb(139,211,163) else Color.rgb(70,151,121); c.drawPath(leaf,paint); c.restore()
             }
             if(canopy>0) {
                 c.save(); c.scale(canopy,canopy,55f,top+2)
-                paint.shader=LinearGradient(40f,top-20,65f,top+12,if(dry)intArrayOf(Color.rgb(213,191,140),Color.rgb(178,156,110),Color.rgb(123,115,90)) else intArrayOf(Color.rgb(178,226,173),Color.rgb(101,181,139),Color.rgb(44,121,93)),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP)
+                paint.shader=LinearGradient(40f,top-20,65f,top+12,if(dormant)intArrayOf(Color.rgb(213,191,140),Color.rgb(178,156,110),Color.rgb(123,115,90)) else intArrayOf(Color.rgb(178,226,173),Color.rgb(101,181,139),Color.rgb(44,121,93)),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP)
                 c.drawOval(30f,top-14,60f,top+15,paint); c.drawOval(52f,top-14,81f,top+15,paint); c.drawOval(39f,top-21,71f,top+10,paint)
                 ellipse(43f,top-16,14f,10f,Color.argb(95,203,242,180)); c.restore()
             }; c.restoreToCount(layer)
         }
-        val blend=if(n>0)smooth(remainder/8) else 1f
-        if(n>0)tree(1f,1-blend); tree(remainder/3600,blend)
-        ellipse(30f,50f,51f,7f,Color.rgb(73,60,50)); ellipse(31f,49f,49f,4f,if(dry)Color.rgb(141,119,88) else Color.rgb(106,156,112))
+        if(n>0) {
+            val centers=if(n==1L)listOf(25f) else if(n==2L)listOf(15f,33f) else listOf(12f,27f,42f)
+            centers.forEachIndexed { i,x -> tree(1f,.95f,x,if(n==1L).62f else if(i==1).52f else .44f) }
+        }
+        val active=if(n>0)74f else 55f
+        tree(remainder/3600,1f,active,1f,dry)
+        ellipse(active-25,50f,51f,7f,Color.rgb(73,60,50)); ellipse(active-24,49f,49f,4f,if(dry)Color.rgb(141,119,88) else Color.rgb(106,156,112))
         if(motion && phase=="running") {
             c.saveLayerAlpha(0f,0f,110f,58f,255)
             val u=(t%3.6/3.6).toFloat(); val fall=(u/.78f).coerceAtMost(1f); val y=3+44*fall*fall
@@ -68,7 +71,7 @@ class TreeView(c:Context):View(c) {
                 c.drawOval(84-10*r,51-2*r,84+10*r,51+2*r,paint)
             }; c.restore()
         }
-        if(n>0) { paint.shader=null; paint.style=Paint.Style.FILL; paint.color=Color.rgb(168,217,180); paint.textSize=8f; paint.typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL); c.drawText("${n}×",2f,47f,paint) }
+        if(n>0) { paint.shader=null; paint.style=Paint.Style.FILL; paint.color=Color.rgb(168,217,180); paint.textSize=8f; paint.typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL); c.drawText("${n}×",12f,57f,paint) }
         c.restore()
     }
 }

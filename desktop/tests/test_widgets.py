@@ -53,6 +53,16 @@ class WidgetTests(unittest.TestCase):
             self.assertEqual(self.c.pet.pos(),origin+type(origin)(40,30))
             self.assertEqual(self.c.store.phase,'idle')
         self.c.pet.play.click(); self.assertEqual(self.c.store.phase,'running')
+    def test_growth_changes_throughout_hour_and_keeps_completed_tree(self):
+        def image(seconds):
+            img=QImage(330,174,QImage.Format.Format_ARGB32);img.fill(Qt.GlobalColor.transparent)
+            p=QPainter(img);p.scale(3,3);paint_tree(p,seconds,'idle',False);p.end();return img
+        frames=[image(seconds) for seconds in (0,300,600,900,1200,1500,1800,2100,2400,2700,3000,3300,3599)]
+        self.assertEqual(len({bytes(frame.constBits()) for frame in frames}),len(frames))
+        completed=image(3600)
+        self.assertTrue(any(completed.pixelColor(x,y).green()>completed.pixelColor(x,y).red()+10 for x in range(20,120) for y in range(40,140)))
+        # New sprout has its own trunk/leaf pixels to the right of the completed tree.
+        self.assertTrue(any(completed.pixelColor(x,y).alpha()>0 for x in range(207,237) for y in range(120,148)))
     def test_paused_tree_dry_without_water(self):
         def render(phase):
             image=QImage(330,174,QImage.Format.Format_ARGB32);image.fill(Qt.GlobalColor.transparent)

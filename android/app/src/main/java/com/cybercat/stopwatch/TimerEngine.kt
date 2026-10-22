@@ -10,6 +10,7 @@ class TimerEngine(private val clock: () -> Long) {
         if (phase == "idle") accumulated = 0
         anchor = clock(); phase = "running"
     }
+    fun resumeFinished() { if(phase=="finished") { anchor=clock(); phase="running" } }
     fun pause() { if (phase == "running") { accumulated = elapsed(); phase = "paused" } }
     fun finish() { if (phase == "running" || phase == "paused") { accumulated = elapsed(); phase = "finished" } }
     fun reset() { phase = "idle"; accumulated = 0; anchor = 0 }
