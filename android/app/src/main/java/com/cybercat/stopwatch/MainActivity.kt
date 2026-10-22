@@ -33,6 +33,7 @@ class MainActivity: Activity() {
     private var month = YearMonth.now()
     private var scope = "Day"
     private var naming = false
+    private var accountSheet:Dialog?=null
     private var syncTicks=0
     private var phase = ""
     private var requestOverlay = false
@@ -50,6 +51,18 @@ class MainActivity: Activity() {
     override fun onCreate(state:Bundle?) { super.onCreate(state); Repository.init(this); if(state!=null) { tab=state.getString("tab","Timer"); selected=LocalDate.parse(state.getString("selected",LocalDate.now().toString())); month=YearMonth.parse(state.getString("month",YearMonth.now().toString())); scope=state.getString("scope","Day"); requestOverlay=state.getBoolean("requestOverlay") }; window.statusBarColor=bg; window.navigationBarColor=bg; window.decorView.systemUiVisibility=window.decorView.systemUiVisibility and (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR).inv(); render(); handle(intent); if(Repository.engine.phase!="idle" || Repository.prefs.getBoolean("showPet",false)) safe { service("SYNC") } }
     override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); handle(intent) }
     private fun handle(intent:Intent?) {
+        val callback=intent?.dataString
+        if(intent?.action==Intent.ACTION_VIEW && callback!=null && GoogleOAuth.isCallback(callback)) {
+            intent.data=null; intent.action=null
+            Cloud.run({ Cloud.completeGoogle(callback) }) { error ->
+                if(!isFinishing && !isDestroyed) {
+                    accountSheet?.dismiss(); render()
+                    if(error==null) { Toast.makeText(this,"Signed in with Google",Toast.LENGTH_SHORT).show(); Cloud.run({ Cloud.sync() }) }
+                    else { accountDialog() }
+                }
+            }
+            return
+        }
         if(intent?.action=="FINISH") safe { Repository.finish(); service("SYNC"); saveDialog() }
         else if(intent?.action=="SAVE" || Repository.engine.phase=="finished") saveDialog()
         intent?.action=null
@@ -68,7 +81,7 @@ class MainActivity: Activity() {
     private fun safe(action:()->Unit) { try { action() } catch(e:Exception) { AlertDialog.Builder(this).setTitle("Couldn’t complete action").setMessage(e.localizedMessage).setPositiveButton("OK",null).show() } }
     private fun service(action:String) { startForegroundService(Intent(this,TimerService::class.java).setAction(action)) }
     private fun accountDialog() {
-        val dialog=Dialog(this)
+        val dialog=Dialog(this); accountSheet?.dismiss(); accountSheet=dialog
         val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(22),dp(20),dp(22),dp(20)); setBackgroundColor(bg) }
         dialog.setContentView(ScrollView(this).apply { addView(content); isFillViewport=false }); dialog.window?.setLayout(-1,-2)
         content.addView(text("Your focus, everywhere",22f,cyan))
@@ -89,13 +102,32 @@ class MainActivity: Activity() {
                 else { Cloud.signOut(); Repository.loadGuest(); render(); dialog.dismiss() }
             })
         } else {
+            content.addView(button("Continue with Google") {
+                if(Repository.engine.phase!="idle") status.text="Finish your current timer before signing in."
+                else if(Cloud.googlePending) status.text="Finish Google sign-in in your browser, or cancel below."
+                else {
+                    var url=""
+                    val include=content.findViewWithTag<CheckBox>("include-existing")?.isChecked==true
+                    run({ url=Cloud.beginGoogle(include) }) { error ->
+                        if(error==null) {
+                            try { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url))); dialog.dismiss() }
+                            catch(_:ActivityNotFoundException) { Cloud.cancelGoogle(); status.text="No browser is available. Install a browser and try again." }
+                        }
+                    }
+                }
+            })
+            if(Cloud.googlePending) {
+                content.addView(text("Google sign-in is waiting in your browser.",12f,Color.LTGRAY))
+                content.addView(button("Cancel Google sign-in") { Cloud.cancelGoogle(); dialog.dismiss(); accountDialog() })
+            }
+            content.addView(text("or use your existing username and PIN",12f,Color.LTGRAY))
             val username=EditText(this).apply { hint="Username"; setSingleLine(); inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS; setTextColor(Color.WHITE) }; content.addView(username)
             val pin=EditText(this).apply { hint="4-digit PIN"; inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD; filters=arrayOf(android.text.InputFilter.LengthFilter(4)); setTextColor(Color.WHITE) }; content.addView(pin)
-            val upload=CheckBox(this).apply { text="Add this device’s existing sessions to my account"; setTextColor(Color.WHITE) }; content.addView(upload)
-            content.addView(text("Use the same username and PIN on every device. Keep them safe; this account has no email recovery.",12f,Color.LTGRAY))
+            val upload=CheckBox(this).apply { tag="include-existing"; text="Add this device’s existing sessions to my account"; setTextColor(Color.WHITE) }; content.addView(upload)
+            content.addView(text("Use the same Google account on every device. Username/PIN accounts are separate and have no email recovery.",12f,Color.LTGRAY))
             for(signup in listOf(false,true)) content.addView(button(if(signup)"Create account" else "Sign in") {
                 val name=username.text.toString().trim().lowercase(java.util.Locale.ROOT); val code=pin.text.toString()
-                if(Repository.engine.phase!="idle") { status.text="Finish your current timer before signing in." }
+                if(Repository.engine.phase!="idle" || Cloud.googlePending) { status.text="Finish your current timer or cancel Google sign-in before signing in." }
                 else if(!Regex("^[a-z0-9_]{3,24}$").matches(name) || !Regex("^[0-9]{4}$").matches(code)) status.text="Use 3–24 letters, numbers or underscores and a 4-digit PIN."
                 else {
                     val existing=if(upload.isChecked) Repository.sessions.toList() else emptyList()
@@ -294,7 +326,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.4.0",12f,cyan))
+        root.addView(text("Focanopy · 1.5.0",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }

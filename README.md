@@ -31,6 +31,12 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 <img src="docs/screenshots/android-save.png" alt="Save session with the Focanopy app icon and task categories" width="260" /> <img src="docs/screenshots/android-finished.png" alt="Finished session with Save, Resume and Reset controls" width="260" />
 
+### Google sign-in
+
+**Account / Sync → Continue with Google** is available on Android, macOS, Windows and Linux. Sign in once with the same Google account to share your journal across devices. Existing username/PIN sign-in is still available. Google uses the system browser, PKCE and the existing secure account caches.
+
+**Owner setup required:** Google is currently disabled in the hosted Supabase project. Complete the [one-time Google OAuth setup](backend/GOOGLE_SIGN_IN.md) before live Google sign-in can succeed. No client secret ships in the apps. Until enabled, the Google button shows a setup message; username/PIN accounts and offline timing continue to work.
+
 ### Fast-forward preview on macOS
 
 Run `./macos/simulate-growth.sh` to open a separate native simulator using the app’s actual tree renderer. One hour takes 10 seconds by default, with speed, scrub, pause, restart and next-tree controls. Preview time is never saved to your timer or history.

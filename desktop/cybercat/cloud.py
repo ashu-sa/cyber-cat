@@ -21,7 +21,7 @@ def post(path, body, token=None):
         with urllib.request.urlopen(request, timeout=20, context=ssl.create_default_context(cafile=certifi.where())) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
-        try: message = json.load(error).get('error') or 'Cloud request failed. Try again.'
+        try: message = (lambda d: d.get('error_description') or d.get('msg') or d.get('error'))(json.load(error)) or 'Cloud request failed. Try again.'
         except Exception: message = 'Cloud request failed. Try again.'
         raise RuntimeError(message) from None
 
@@ -72,7 +72,9 @@ class Cloud:
 
     @property
     def username(self):
-        return (self.session or {}).get('user', {}).get('user_metadata', {}).get('username', '')
+        user = (self.session or {}).get('user', {})
+        metadata = user.get('user_metadata') or {}
+        return metadata.get('username') or metadata.get('full_name') or metadata.get('name') or user.get('email') or 'Google account'
 
     def read(self):
         path = self.directory / ('cloud-' + self.owner + '.json')
@@ -110,18 +112,33 @@ class Cloud:
         self.switching=True
         try:
             result = self.transport('/functions/v1/cybercat-account', dict(action='signup' if signup else 'login', username=username, pin=pin))
-            # Verify the vault before changing the active cache/account.
-            self.vault(result)
-            with self.lock:
-                previous = (self.session, self.owner, self.records)
-                try:
-                    self.session, self.owner = result, result['user']['id']
-                    self.records = self.read()
-                except Exception:
-                    self.session, self.owner, self.records = previous
-                    self.vault(previous[0]); raise
-            self.status = 'Signed in · waiting to sync'
+            self.accept_login(result)
         finally: self.switching=False
+
+    def accept_login(self, result):
+        # Verify the vault and cache before switching the active account.
+        self.vault(result)
+        with self.lock:
+            previous = (self.session, self.owner, self.records)
+            try:
+                self.session, self.owner = result, result['user']['id']
+                self.records = self.read()
+            except Exception:
+                self.session, self.owner, self.records = previous
+                self.vault(previous[0]); raise
+        self.status = 'Signed in · waiting to sync'
+
+    def authenticate_google(self, flow, open_browser):
+        try:
+            from .oauth import require_google
+            require_google()
+            if flow.cancelled.is_set(): raise RuntimeError("Google sign-in cancelled.")
+            open_browser()
+            result = self.transport('/auth/v1/token?grant_type=pkce', flow.wait())
+            self.accept_login(result)
+        finally:
+            flow.server.server_close(); flow.verifier = ""
+            self.switching=False
 
     def signout(self):
         with self.lock:

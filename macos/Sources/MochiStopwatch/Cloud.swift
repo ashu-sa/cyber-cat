@@ -1,11 +1,14 @@
 import Foundation
 import SwiftUI
 import Security
+import AuthenticationServices
+import CryptoKit
+import AppKit
 
 private let cloudURL = "https://fwlengqpmrtmpbrhtxis.supabase.co"
 private let cloudPublicKey = "sb_publishable_gsnb17q8TXRiHPu7W1vr4g_K7J8Np3H" // Public project key is filled before packaging.
-struct CloudMetadata: Codable { var username: String? }
-struct CloudUser: Codable { var id: String; var userMetadata: CloudMetadata? }
+struct CloudMetadata: Codable { var username: String?; var fullName: String? = nil; var name: String? = nil }
+struct CloudUser: Codable { var id: String; var userMetadata: CloudMetadata?; var email: String? = nil }
 struct CloudLogin: Codable { var accessToken: String; var refreshToken: String; var user: CloudUser }
 struct CloudRecord: Codable {
     var id: String; var name: String; var startMs: Int64; var endMs: Int64; var durationMs: Int64
@@ -41,6 +44,65 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
     guard status == errSecSuccess else { throw NSError(domain:NSOSStatusErrorDomain,code:Int(status)) }
     return result as? Data
 }
+struct GooglePKCE {
+    let verifier: String
+    let state: String
+    init() throws {
+        func random() throws -> String {
+            var bytes=[UInt8](repeating:0,count:32)
+            guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw URLError(.unknown) }
+            return Data(bytes).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
+        }
+        verifier=try random(); state=try random()
+    }
+    var challenge: String { Data(SHA256.hash(data:Data(verifier.utf8))).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"") }
+    var url: URL {
+        var redirect=URLComponents(string:"focanopy://auth/callback")!
+        redirect.queryItems=[URLQueryItem(name:"state",value:state)]
+        var url=URLComponents(string:cloudURL+"/auth/v1/authorize")!
+        url.queryItems=[URLQueryItem(name:"provider",value:"google"),URLQueryItem(name:"redirect_to",value:redirect.url!.absoluteString),URLQueryItem(name:"code_challenge",value:challenge),URLQueryItem(name:"code_challenge_method",value:"s256"),URLQueryItem(name:"scopes",value:"openid email profile"),URLQueryItem(name:"prompt",value:"select_account")]
+        return url.url!
+    }
+    func code(_ url: URL) throws -> String {
+        guard let parts=URLComponents(url:url,resolvingAgainstBaseURL:false), parts.scheme=="focanopy", parts.host=="auth", parts.path=="/callback" else { throw URLError(.badServerResponse) }
+        let items=parts.queryItems ?? []
+        guard items.filter({ $0.name=="state" }).count==1, items.first(where: { $0.name=="state" })?.value==state else { throw URLError(.badServerResponse) }
+        guard !items.contains(where: { $0.name=="error" }), items.filter({ $0.name=="code" }).count==1, let code=items.first(where: { $0.name=="code" })?.value, !code.isEmpty, code.count<=2048 else { throw NSError(domain:"Focanopy.Google",code:1,userInfo:[NSLocalizedDescriptionKey:"Google sign-in was not completed. Please try again."]) }
+        return code
+    }
+}
+
+@MainActor final class GoogleBrowserSignIn: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private var session: ASWebAuthenticationSession?
+    private var completion: CheckedContinuation<URL,Error>?
+    private var timeout: Task<Void,Never>?
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { NSApp.keyWindow ?? NSApp.windows.first ?? NSWindow() }
+    func open(_ url: URL) async throws -> URL {
+        try await withCheckedThrowingContinuation { completion in
+            self.completion=completion
+            let session=ASWebAuthenticationSession(url:url,callbackURLScheme:"focanopy") { [weak self] url,error in
+                Task { @MainActor in
+                    if let url { self?.finish(.success(url)) }
+                    else { self?.finish(.failure(error ?? CancellationError())) }
+                }
+            }
+            session.presentationContextProvider=self
+            self.session=session
+            if !session.start() { finish(.failure(URLError(.cannotConnectToHost))); return }
+            timeout=Task { [weak self] in
+                do { try await Task.sleep(nanoseconds:180_000_000_000) } catch { return }
+                self?.cancel()
+            }
+        }
+    }
+    private func finish(_ result: Result<URL,Error>) {
+        guard let completion else { return }
+        self.completion=nil; timeout?.cancel(); timeout=nil; session=nil
+        completion.resume(with:result)
+    }
+    func cancel() { session?.cancel(); finish(.failure(CancellationError())) }
+}
+
 @MainActor final class CloudAccount: ObservableObject {
     @Published var login: CloudLogin?
     @Published var status = "Local only"
@@ -49,10 +111,13 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
     private let persistCredentials: Bool
     private let vaultService: String
     @Published var authenticating=false
+    @Published var googleSignInActive=false
+    private var googleBrowser: GoogleBrowserSignIn?
+    private var googleRequestID: UUID?
     let directory: URL
     var onChange: (() -> Void)?
     var owner: String? { login?.user.id }
-    var username: String { login?.user.userMetadata?.username ?? "" }
+    var username: String { login?.user.userMetadata?.username ?? login?.user.userMetadata?.fullName ?? login?.user.userMetadata?.name ?? login?.user.email ?? "Google account" }
     var visible: [Session] { cache.records.filter { !$0.deleted }.map(\.local).sorted { $0.start > $1.start } }
     init(directory: URL, enabled: Bool, vaultService:String = "CyberCat.Sync") {
         self.directory=directory; self.persistCredentials=enabled; self.vaultService=vaultService
@@ -87,7 +152,8 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
         req.httpBody=try JSONSerialization.data(withJSONObject:body)
         let (data,response)=try await URLSession.shared.data(for:req)
         guard let http=response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            let message=(try? JSONSerialization.jsonObject(with:data) as? [String:Any])?["error"] as? String ?? "Unable to sync. Please try again."
+            let details=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any]
+            let message=details?["error_description"] as? String ?? details?["msg"] as? String ?? details?["error"] as? String ?? "Unable to sync. Please try again."
             throw NSError(domain:"CyberCat.Cloud",code:1,userInfo:[NSLocalizedDescriptionKey:message])
         }
         return try cloudDecoder().decode(T.self,from:data)
@@ -96,12 +162,42 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
         guard !busy else { return }; busy=true; authenticating=true; defer { busy=false; authenticating=false }
         do {
             let result:CloudLogin=try await request("/functions/v1/cybercat-account",["action":signup ? "signup":"login","username":username,"pin":pin])
-            let loaded=try load(result.user.id)
-            if persistCredentials { _ = try credential(cloudEncoder().encode(result),service:vaultService) }; login=result; cache=loaded
-            if !existing.isEmpty { try replace(visible+existing.filter { s in !visible.contains { $0.id == s.id } }) }
-            status="Signed in · waiting to sync"; onChange?()
+            try acceptLogin(result,existing:existing)
         } catch { status=error.localizedDescription }
     }
+    private func acceptLogin(_ result: CloudLogin,existing: [Session]) throws {
+        let loaded=try load(result.user.id)
+        if persistCredentials { _ = try credential(cloudEncoder().encode(result),service:vaultService) }; login=result; cache=loaded
+        if !existing.isEmpty { try replace(visible+existing.filter { s in !visible.contains { $0.id == s.id } }) }
+        status="Signed in · waiting to sync"; onChange?()
+    }
+    func authenticateGoogle(existing: [Session]) async {
+        guard !busy else { return }; busy=true; authenticating=true; googleSignInActive=true
+        let requestID=UUID(); googleRequestID=requestID
+        defer { busy=false; authenticating=false; googleSignInActive=false; googleBrowser=nil; googleRequestID=nil }
+        do {
+            var settingsRequest=URLRequest(url:URL(string:cloudURL+"/auth/v1/settings")!); settingsRequest.timeoutInterval=15
+            settingsRequest.setValue(cloudPublicKey,forHTTPHeaderField:"apikey")
+            let (settingsData,settingsResponse)=try await URLSession.shared.data(for:settingsRequest)
+            guard let http=settingsResponse as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
+            let settings=(try JSONSerialization.jsonObject(with:settingsData)) as? [String:Any]
+            guard (settings?["external"] as? [String:Any])?["google"] as? Bool == true else { throw NSError(domain:"Focanopy.Google",code:2,userInfo:[NSLocalizedDescriptionKey:"Google sign-in needs one-time setup by the app owner. Username and PIN still work."]) }
+            guard googleRequestID == requestID else { throw CancellationError() }
+            let pkce=try GooglePKCE()
+            let browser=GoogleBrowserSignIn(); googleBrowser=browser
+            status="Continue with Google in your browser…"
+            let callback=try await browser.open(pkce.url)
+            guard googleRequestID == requestID else { throw CancellationError() }
+            let code=try pkce.code(callback)
+            let result:CloudLogin=try await request("/auth/v1/token?grant_type=pkce",["auth_code":code,"code_verifier":pkce.verifier])
+            guard googleRequestID == requestID else { throw CancellationError() }
+            try acceptLogin(result,existing:existing)
+        } catch is CancellationError { status="Google sign-in cancelled. Your local history is safe." }
+        catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin { status="Google sign-in cancelled. Your local history is safe." }
+        catch { status=error.localizedDescription }
+    }
+    func cancelGoogleSignIn() { googleRequestID=nil; googleBrowser?.cancel() }
+
     func signOut() throws {
         guard !busy else { return }; if persistCredentials { _ = try credential(clear:true,service:vaultService) }; login=nil; cache=CloudCache(); status="Local only"; onChange?()
     }

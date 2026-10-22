@@ -14,8 +14,24 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         tests.testMonthCalendar()
         tests.testFormatting()
         tests.testForest()
+        try tests.testGooglePKCE()
         try await tests.testResumeFinishedExcludesGap()
         print("PASS: timing, recovery, rename persistence, delete/restore, calendar periods and totals, formatting")
+    }
+    func testGooglePKCE() throws {
+        let flow=try GooglePKCE(); let other=try GooglePKCE()
+        precondition(flow.verifier.count>=43 && flow.verifier != other.verifier)
+        let items=URLComponents(url:flow.url,resolvingAgainstBaseURL:false)!.queryItems!
+        XCTAssertEqual(items.first { $0.name=="code_challenge_method" }?.value,"s256")
+        precondition(!flow.url.absoluteString.contains(flow.verifier))
+        let base="focanopy://auth/callback?state="+flow.state
+        XCTAssertEqual(try flow.code(URL(string:base+"&code=once")!),"once")
+        for value in ["other://auth/callback?state="+flow.state+"&code=x", "focanopy://wrong/callback?state="+flow.state+"&code=x", "focanopy://auth/callback?state=wrong&code=x",base+"&state="+flow.state+"&code=x",base+"&code=x&code=y",base+"&error=access_denied"] {
+            do { _ = try flow.code(URL(string:value)!); preconditionFailure("Invalid Google callback accepted") } catch {}
+        }
+        let json=Data(#"{"access_token":"a","refresh_token":"r","user":{"id":"google-user","email":"focus@example.com","user_metadata":{"full_name":"Tree Grower"}}}"#.utf8)
+        let login=try cloudDecoder().decode(CloudLogin.self,from:json)
+        XCTAssertEqual(login.user.userMetadata?.fullName,"Tree Grower")
     }
     @MainActor func testPauseResumeSaveAndReload() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

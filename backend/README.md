@@ -2,6 +2,10 @@
 
 Live project: [cyber-cat](https://supabase.com/dashboard/project/fwlengqpmrtmpbrhtxis), owned by **ashu-sa**, Cyber Cat Free organization, Mumbai (`ap-south-1`).
 
+## Google sign-in
+
+The native clients also support Google through Supabase OAuth + PKCE. The hosted provider must be configured by the owner before Google login works; follow [Google sign-in setup](GOOGLE_SIGN_IN.md). Google credentials use the same sync API, RLS and per-account caches; no schema or PIN gateway changes are required.
+
 ## App experience
 
 Open **Account / Sync** (Android: Settings), choose a username and **four-digit PIN**, then Create account or Sign in. The same credentials work on Android, macOS, Windows and Linux. The app keeps the login in the OS credential vault and opens normally on later launches. The PIN is never saved on the device.

@@ -59,7 +59,7 @@ object Repository {
         if(growthKey!=key) { growthBase=sessions.filter { day(it.getLong("start"))==date && it.getString("id")!=active }.sumOf { it.getLong("duration") }; growthKey=key }
         return growthBase+engine.elapsed()
     }
-    fun start() { if(Cloud.busy.get() && Cloud.owner==null) return; if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; engine.start(); checkpoint() }
+    fun start() { if((Cloud.busy.get() && Cloud.owner==null) || Cloud.googlePending) return; if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; engine.start(); checkpoint() }
     fun resumeFinished() { if(engine.phase=="finished") { ended=0;engine.resumeFinished();checkpoint() } }
     fun pause() { engine.pause(); checkpoint() }
     fun finish() { if (engine.phase == "running" || engine.phase == "paused") ended = System.currentTimeMillis(); engine.finish(); checkpoint() }

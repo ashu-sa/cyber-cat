@@ -10,7 +10,7 @@ struct AccountView: View {
     init(model:Stopwatch,onClose:(() -> Void)? = nil) { self.model=model; self.cloud=model.cloud; self.onClose=onClose }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
-            HStack { Text("Your focus, everywhere").font(.title2.bold()); Spacer(); Button("Close") { if let onClose { onClose() } else { dismiss() } } }
+            HStack { Text("Your focus, everywhere").font(.title2.bold()); Spacer(); Button("Close") { cloud.cancelGoogleSignIn(); if let onClose { onClose() } else { dismiss() } } }
             Text(cloud.status).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             if cloud.owner != nil {
                 Text("Signed in as \(cloud.username)")
@@ -22,17 +22,24 @@ struct AccountView: View {
                         Button("Use cloud changes") { resolve(false) }
                     }
                 }
-                Button("Sign out") { do { try cloud.signOut() } catch { cloud.status=error.localizedDescription } }.disabled(model.phase != .idle)
+                Button("Sign out") { do { try cloud.signOut() } catch { cloud.status=error.localizedDescription } }.disabled(model.phase != .idle || cloud.busy)
             } else {
+                Button("Continue with Google") {
+                    guard model.phase == .idle else { return }
+                    let records=upload ? model.sessions : []
+                    Task { await cloud.authenticateGoogle(existing:records); if cloud.owner != nil { await cloud.sync() } }
+                }.buttonStyle(.borderedProminent).disabled(model.phase != .idle || cloud.busy)
+                Text("or use your existing username and PIN").font(.caption).foregroundStyle(.secondary)
                 TextField("Username",text:$username).textFieldStyle(.roundedBorder)
                 SecureField("4-digit PIN",text:$pin).textFieldStyle(.roundedBorder)
                 Toggle("Add this device’s existing sessions to my account",isOn:$upload)
-                Text("Use the same username and PIN on every device. Keep them safe; this account has no email recovery.").font(.caption).foregroundStyle(.secondary)
-                HStack { Button("Sign in") { submit(false) }; Button("Create account") { submit(true) } }.disabled(model.phase != .idle)
+                Text("Use the same Google account on every device. Username/PIN accounts are separate and have no email recovery.").font(.caption).foregroundStyle(.secondary)
+                HStack { Button("Sign in") { submit(false) }; Button("Create account") { submit(true) } }.disabled(model.phase != .idle || cloud.busy)
             }
             if model.phase != .idle { Text("Finish your current timer before switching accounts.").font(.caption) }
             if cloud.busy { ProgressView().controlSize(.small) }
-        }.padding(24).frame(width:410).disabled(cloud.busy)
+            if cloud.googleSignInActive { Button("Cancel Google sign-in") { cloud.cancelGoogleSignIn() } }
+        }.padding(24).frame(width:410)
     }
     func submit(_ signup:Bool) {
         let name=username.trimmingCharacters(in:.whitespacesAndNewlines).lowercased()

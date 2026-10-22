@@ -37,6 +37,7 @@ import AppKit
         try render(PetView(model: model, showOptions: { _ in }, primary: {}, finish: {}), name: "macos-pet.png", width: 150, height: 100)
         model.start(); model.finish()
         try render(PetView(model:model,showOptions:{ _ in },primary:{},finish:{}),name:"macos-finished.png",width:150,height:100)
+        try render(AccountView(model:model),name:"macos-google-account.png",width:460,height:570)
         try render(GrowingTree(phase:.paused,elapsed:{2701}).scaleEffect(2.5),name:"macos-tree-paused.png",width:330,height:174)
         try render(GrowingTree(phase:.running,elapsed:{2701}).scaleEffect(2.5),name:"macos-tree-running.png",width:330,height:174)
         print("Rendered macOS native screenshots")

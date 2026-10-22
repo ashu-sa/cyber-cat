@@ -1,7 +1,8 @@
 """Native account sheet; networking never runs on the Qt UI thread."""
 import time
 from concurrent.futures import ThreadPoolExecutor
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QMessageBox
 
 class Accounts(QObject):
@@ -72,8 +73,35 @@ class Accounts(QObject):
             username=QLineEdit(); username.setPlaceholderText('Username'); username.setAccessibleName('Username'); layout.addWidget(username)
             pin=QLineEdit(); pin.setEchoMode(QLineEdit.EchoMode.Password); pin.setMaxLength(4); pin.setPlaceholderText('4-digit PIN'); pin.setAccessibleName('4-digit PIN'); layout.addWidget(pin)
             upload=QCheckBox("Add this device’s existing sessions to my account"); layout.addWidget(upload)
-            note=QLabel('Use the same username and PIN on every device. Keep them safe; this account has no email recovery.'); note.setWordWrap(True); layout.addWidget(note)
-            buttons=[]
+            note=QLabel('Use the same Google account on every device. Username/PIN accounts are separate and have no email recovery.'); note.setWordWrap(True); layout.addWidget(note)
+            google=QPushButton('Continue with Google'); layout.insertWidget(2,google)
+            layout.insertWidget(3,QLabel('or use your existing username and PIN'))
+            cancel_google=QPushButton('Cancel Google sign-in'); layout.addWidget(cancel_google); cancel_google.hide()
+            flow_holder=[]
+            buttons=[google]
+            def google_signin():
+                if self.busy or c.store.phase!='idle': status.setText('Finish your current timer before signing in.'); return
+                from .oauth import GoogleFlow
+                try: flow=GoogleFlow()
+                except Exception: status.setText('Could not open the local sign-in callback. Please try again.'); return
+                flow_holder[:] = [flow]
+                existing=list(c.store.sessions); include=upload.isChecked()
+                cloud.switching=True
+                for b in buttons: b.setEnabled(False)
+                cancel_google.show(); status.setText('Continue in your browser. Return here when finished.')
+                def done(_,error):
+                    flow_holder.clear(); cancel_google.hide()
+                    for b in buttons: b.setEnabled(True)
+                    if error: status.setText(error); return
+                    c.store.sessions=cloud.visible()
+                    if include: c.safe(lambda:c.store.replace_sessions(c.store.sessions+[r for r in existing if r['id'].lower() not in {x['id'] for x in c.store.sessions}]))
+                    self.refresh(); dialog.accept(); self.sync()
+                def open_browser():
+                    self.complete.emit(lambda: None if flow.cancelled.is_set() else (QDesktopServices.openUrl(QUrl(flow.url)) or flow.cancel()))
+                self.run(lambda:cloud.authenticate_google(flow,open_browser),done)
+            google.clicked.connect(google_signin)
+            cancel_google.clicked.connect(lambda:flow_holder and flow_holder[0].cancel())
+            dialog.rejected.connect(lambda:flow_holder and flow_holder[0].cancel())
             def submit(signup):
                 if self.busy or c.store.phase!='idle': status.setText('Finish your current timer before signing in.'); return
                 name= username.text().strip().lower(); code=pin.text()

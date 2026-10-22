@@ -34,7 +34,43 @@ object Cloud {
     var status="Local only"; private set
     var changed:(()->Unit)?=null
     val owner get()=login?.getJSONObject("user")?.getString("id")
-    val username get()=login?.optJSONObject("user")?.optJSONObject("user_metadata")?.optString("username") ?: ""
+    val username get():String {
+        val user=login?.optJSONObject("user"); val meta=user?.optJSONObject("user_metadata")
+        return listOf(meta?.optString("username"),meta?.optString("full_name"),meta?.optString("name"),user?.optString("email")).firstOrNull { !it.isNullOrBlank() } ?: "Google account"
+    }
+    private val googleFile get()=AtomicFile(File(context.noBackupFilesDir,"google-pending"))
+    private fun pendingGoogle():JSONObject? {
+        if(!googleFile.baseFile.exists() && !File(googleFile.baseFile.path+".bak").exists()) return null
+        val value=readSealed(googleFile)
+        val age=System.currentTimeMillis()-value.getLong("created")
+        if(age !in 0..180000) { googleFile.delete(); return null }
+        return value
+    }
+    val googlePending get()=try { pendingGoogle()!=null } catch(_:Exception) { googleFile.delete(); false }
+    fun cancelGoogle() { googleFile.delete() }
+    fun beginGoogle(include:Boolean):String {
+        check(owner==null && Repository.engine.phase=="idle") { "Finish your current timer before signing in." }
+        val connection=URL(URL_ROOT+"/auth/v1/settings").openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout=15000; connection.readTimeout=15000; connection.setRequestProperty("apikey",PUBLIC_KEY)
+            check(connection.responseCode in 200..299) { "Unable to check Google sign-in. Please try again." }
+            val settings=JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            check(settings.optJSONObject("external")?.optBoolean("google")==true) { "Google sign-in needs one-time setup by the app owner. Username and PIN still work." }
+        } finally { connection.disconnect() }
+        val flow=GoogleOAuth.create()
+        saveSealed(googleFile,JSONObject().put("verifier",flow.verifier).put("state",flow.state).put("created",System.currentTimeMillis()).put("include",include))
+        return flow.authorize(URL_ROOT)
+    }
+    fun completeGoogle(callback:String) {
+        val pending=pendingGoogle() ?: error("Google sign-in expired. Please try again.")
+        val flow=GoogleOAuth(pending.getString("verifier"),pending.getString("state"))
+        // Validate before consuming: unrelated links cannot cancel a legitimate pending sign-in.
+        val code=try { flow.code(callback) } catch(e:Exception) { if(flow.matchesState(callback)) googleFile.delete(); throw e }
+        check(owner==null && Repository.engine.phase=="idle") { "Finish your current timer before signing in." }
+        googleFile.delete()
+        val existing=if(pending.optBoolean("include")) Repository.sessions.toList() else emptyList()
+        acceptLogin(post("/auth/v1/token?grant_type=pkce",JSONObject().put("auth_code",code).put("code_verifier",flow.verifier)),existing)
+    }
     private val tokenFile get()=AtomicFile(File(context.noBackupFilesDir,"cloud-credentials"))
     private fun file(id:String)=AtomicFile(File(context.filesDir,"cloud-$id.json"))
     private fun key():SecretKey {
@@ -44,18 +80,22 @@ object Cloud {
         }.generateKey()
     }
     private fun write(file:AtomicFile,bytes:ByteArray) { val out=file.startWrite(); try { out.write(bytes); file.finishWrite(out) } catch(e:Exception) { file.failWrite(out); throw e } }
-    private fun saveLogin(value:JSONObject) {
+    private fun saveLogin(value:JSONObject) = saveSealed(tokenFile,value)
+    private fun saveSealed(file:AtomicFile,value:JSONObject) {
         val cipher=Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE,key())
         val data=JSONObject().put("iv",Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).put("data",Base64.encodeToString(cipher.doFinal(value.toString().toByteArray()),Base64.NO_WRAP))
-        write(tokenFile,data.toString().toByteArray())
+        write(file,data.toString().toByteArray())
+    }
+    private fun readSealed(file:AtomicFile):JSONObject {
+        val sealed=JSONObject(file.openRead().bufferedReader().use { it.readText() })
+        val cipher=Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,Base64.decode(sealed.getString("iv"),Base64.NO_WRAP)))
+        return JSONObject(String(cipher.doFinal(Base64.decode(sealed.getString("data"),Base64.NO_WRAP))))
     }
     fun init(c:Context) {
         context=c.applicationContext
         try {
             if(tokenFile.baseFile.exists() || File(tokenFile.baseFile.path+".bak").exists()) {
-                val sealed=JSONObject(tokenFile.openRead().bufferedReader().use { it.readText() })
-                val cipher=Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,Base64.decode(sealed.getString("iv"),Base64.NO_WRAP)))
-                login=JSONObject(String(cipher.doFinal(Base64.decode(sealed.getString("data"),Base64.NO_WRAP))))
+                login=readSealed(tokenFile)
                 records=read(owner!!); status="Saved offline · waiting to sync"
             }
         } catch(e:Exception) { login=null; status="Couldn’t open secure account storage. Local history is safe." }
@@ -94,7 +134,7 @@ object Cloud {
             c.outputStream.use { it.write(body.toString().toByteArray()) }
             val ok=c.responseCode in 200..299
             val result=JSONObject((if(ok)c.inputStream else c.errorStream).bufferedReader().use { it.readText() })
-            check(ok) { result.optString("error","Unable to sync. Please try again.") }; return result
+            check(ok) { result.optString("error_description").ifEmpty { result.optString("msg").ifEmpty { result.optString("error","Unable to sync. Please try again.") } } }; return result
         } finally { c.disconnect() }
     }
     fun run(action:()->Unit,done:(String?)->Unit={}) {
@@ -107,6 +147,9 @@ object Cloud {
     }
     fun authenticate(name:String,pin:String,signup:Boolean,existing:List<JSONObject>) {
         val result=post("/functions/v1/cybercat-account",JSONObject().put("action",if(signup)"signup" else "login").put("username",name).put("pin",pin))
+        acceptLogin(result,existing)
+    }
+    private fun acceptLogin(result:JSONObject,existing:List<JSONObject>) {
         val loaded=read(result.getJSONObject("user").getString("id")); saveLogin(result)
         synchronized(lock) { login=result; records=loaded; if(existing.isNotEmpty()) { val current=visible(); replace(current+existing.filter { r -> current.none { it.getString("id")==r.getString("id") } }) } }
         status="Signed in · waiting to sync"

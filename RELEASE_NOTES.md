@@ -1,9 +1,10 @@
-# Focanopy v1.4.0 — Continuous growth, a lasting grove
+# Focanopy v1.5.0 — Google sign-in support
 
-- Trunk, leaves and crown grow continuously across the full hour, including the first 30 minutes.
-- Every earned tree stays visible in the grove while the next sprout begins beside it.
-- Finish/save dialogs use the real Focanopy app icon; macOS now includes a native high-resolution application icon.
-- Closing the save dialog keeps the session unsaved and exposes Save, Resume and Reset. Resume preserves the session identity and elapsed focus, excluding the gap spent naming or waiting. Reset clears only the unsaved timer.
-- Includes the draggable timer/button surfaces, forest-green desktop theme and dry paused-tree appearance from the previous update.
+- Adds **Continue with Google** on native Android, macOS, Windows and Ubuntu account screens.
+- Uses the system browser and PKCE, with validated callbacks, cancellation, a three-minute timeout, and the existing OS-secured credential stores.
+- Google users share the same account-scoped journal and device-labelled sessions across all platforms. Local-session upload remains an explicit choice. Existing username/PIN accounts remain available and separate.
+- Android retains pending sign-in securely across activity/process recreation; macOS uses ASWebAuthenticationSession; Windows/Linux use an IPv4 loopback callback on a random port and single-use path.
 
-Existing accounts, history, tree rewards and signing identities remain compatible. Android remains a debug-signed testing build; desktop packages remain unsigned/ad-hoc signed.
+**Owner setup is still required:** the hosted Supabase project's Google provider is disabled and has no Google OAuth client configured. Complete `backend/GOOGLE_SIGN_IN.md` before live Google login can succeed. The apps show a clear setup message until it is enabled. End-to-end Google consent and cross-device login remain pending that configuration; callback, account isolation and existing timer tests are automated.
+
+No Google client secret is included in any app or repository. Existing history, credentials and signing identities remain compatible. Android is a debug-signed testing APK; desktop packages remain unsigned/ad-hoc signed.
