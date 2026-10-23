@@ -1,0 +1,75 @@
+name: Publish verified portable Linux packages
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Portable Linux and Fedora checks run ID
+        required: true
+      tag:
+        description: Existing release to extend with verified Linux packages
+        default: v1.12.0
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify, collect and publish Linux packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > run.json
+          python3 - <<'PY'
+          import json
+          info=json.load(open('run.json'))
+          assert info['conclusion']=='success' and info['path']=='.github/workflows/linux-portable.yml'
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs" > jobs.json
+          python3 - <<'PY'
+          import json
+          jobs=json.load(open('jobs.json'))['jobs']
+          expected={f'Fedora {v} {a} runtime' for v in ('43','44') for a in ('aarch64','x86_64')}
+          actual={j['name'] for j in jobs if j['conclusion']=='success'}
+          assert expected<=actual,(expected,actual)
+          PY
+          mkdir -p release
+          for arch in aarch64 x86_64; do
+            gh run download "$BUILD_RUN" --name "portable-linux-$arch" --dir "artifacts/$arch"
+            (cd "artifacts/$arch" && sha256sum --check "SHA256SUMS-Linux-$arch.txt")
+            cp artifacts/"$arch"/* release/
+          done
+          file release/*.AppImage
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          for arch,machine in [('aarch64',183),('x86_64',62)]:
+              header=Path(f'release/Focanopy-Linux-{arch}.AppImage').read_bytes()[:64]
+              assert header[:4]==b'\x7fELF' and header[4:6]==b'\x02\x01'
+              assert struct.unpack_from('<H',header,18)[0]==machine
+          PY
+          gh release download "$RELEASE_TAG" --pattern SHA256SUMS.txt --dir previous
+          gh release view "$RELEASE_TAG" --json body > release.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os
+          hashes={}
+          for line in Path('previous/SHA256SUMS.txt').read_text().splitlines():
+              digest,name=line.split(maxsplit=1);hashes[Path(name.strip().lstrip('*')).name]=digest
+          for p in Path('release').iterdir():
+              if not p.name.startswith('SHA256SUMS'):hashes[p.name]=hashlib.sha256(p.read_bytes()).hexdigest()
+          Path('release/SHA256SUMS.txt').write_text(''.join(f'{digest}  {name}\n' for name,digest in sorted(hashes.items())))
+          source=json.load(open('run.json'))['head_sha']
+          body=json.load(open('release.json'))['body']
+          marker='\n## Portable Linux update\n'
+          body=body.split(marker)[0]+marker+f'\nNative ARM64/aarch64 and Intel/AMD x86-64 AppImages are now available. Both passed packaged X11 and native Wayland smoke tests on Fedora 43 and 44. No host Python installation is required. Use `--appimage-extract-and-run` if FUSE is unavailable.\n\nSee the [Fedora GNOME guide](https://github.com/ashu-sa/cyber-cat/blob/main/desktop/LINUX.md). ARM64 requires glibc 2.39+; x86-64 requires glibc 2.35+.\n\nLinux packaging source: `{source}`; verified build: https://github.com/ashu-sa/cyber-cat/actions/runs/{os.environ["BUILD_RUN"]}. Existing Android, macOS and Windows packages are unchanged.\n'
+          Path('release-notes.md').write_text(body)
+          PY
+          gh release upload "$RELEASE_TAG" release/* --clobber
+          gh release edit "$RELEASE_TAG" --notes-file release-notes.md
