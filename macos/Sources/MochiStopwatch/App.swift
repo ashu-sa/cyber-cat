@@ -1,15 +1,20 @@
 import SwiftUI
 import AppKit
 import Carbon
+import UserNotifications
+import UniformTypeIdentifiers
 
 final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
     override func close() { orderOut(nil) }
 }
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
     let model = Stopwatch(directory: ProcessInfo.processInfo.environment["MOCHI_TEST_DATA_DIRECTORY"].map { URL(fileURLWithPath: $0) })
     var panel: NSPanel!
+    var focusWindow:NSWindow?
+    var focusShield:NSPanel?
+    var appObserver:NSObjectProtocol?
     var historyWindow: NSWindow?
     var accountWindow: NSWindow?
     let controlsPopover = NSPopover()
@@ -22,6 +27,7 @@ final class FloatingPanel: NSPanel {
     var pendingTaskName = ""
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        UNUserNotificationCenter.current().delegate=self
         if let url=Bundle.main.url(forResource:"AppIcon",withExtension:"icns"),let icon=NSImage(contentsOf:url) { NSApp.applicationIconImage=icon }
         panel = FloatingPanel(contentRect:NSRect(x:0,y:0,width:150,height:100),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
         panel.level = .floating
@@ -42,15 +48,54 @@ final class FloatingPanel: NSPanel {
         Task { await model.cloud.sync() }
         displayTimer = Timer.scheduledTimer(withTimeInterval:1,repeats:true) { [weak self] _ in
             Task { @MainActor in
-                guard let self else { return }; self.model.refreshMenu(); self.ticks += 1
+                guard let self else { return }; self.model.advancePomodoro();self.model.refreshMenu(); self.ticks += 1
+                if let notice=self.model.focusNotice {
+                    self.model.focusNotice=nil
+                    let content=UNMutableNotificationContent();content.title="Focanopy · Flower focus";content.body=notice;content.sound = .default
+                    try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier:UUID().uuidString,content:content,trigger:nil))
+                    self.showPet()
+                }
+                if self.model.phase != .running || !UserDefaults.standard.bool(forKey:"focusBlocking") { self.focusShield?.orderOut(nil) }
+                if let front=NSWorkspace.shared.frontmostApplication { self.blockIfSelected(front) }
                 if self.ticks % 30 == 0 { Task { await self.model.cloud.sync() } }
                 if self.ticks % 15 == 0 && self.model.phase == .running { self.model.checkpoint() }
             }
+        }
+        appObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.didActivateApplicationNotification,object:nil,queue:.main) { [weak self] note in
+            guard let app=note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            Task { @MainActor in self?.blockIfSelected(app) }
         }
         if let displayTimer { RunLoop.main.add(displayTimer, forMode: .common) }
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(woke),name:NSWorkspace.didWakeNotification,object:nil)
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(sleeping),name:NSWorkspace.willSleepNotification,object:nil)
         NotificationCenter.default.addObserver(self,selector:#selector(screensChanged),name:NSApplication.didChangeScreenParametersNotification,object:nil)
+    }
+    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
+    func showFocusSettings() {
+        if focusWindow == nil {
+            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:570),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            w.title="Focanopy · Flower focus";w.isReleasedWhenClosed=false
+            w.contentView=NSHostingView(rootView:FocusPreferences(model:model));w.center();focusWindow=w
+        }
+        NSApp.activate(ignoringOtherApps:true);focusWindow?.makeKeyAndOrderFront(nil)
+    }
+    func blockIfSelected(_ app:NSRunningApplication) {
+        model.advancePomodoro()
+        guard model.pomodoroEnabled,model.phase == .running,model.pomodoro.stage=="focus",UserDefaults.standard.bool(forKey:"focusBlocking"),let id=app.bundleIdentifier,id != Bundle.main.bundleIdentifier,
+            !["com.apple.finder","com.apple.dock","com.apple.systempreferences","com.apple.loginwindow"].contains(id),
+            (UserDefaults.standard.stringArray(forKey:"focusBlockedApps") ?? []).contains(id) else { return }
+        guard app.hide() else { model.error="Could not hide the selected app. You can pause focus or turn blocking off.";return }
+        if focusShield == nil {
+            let p=NSPanel(contentRect:NSRect(x:0,y:0,width:380,height:190),styleMask:[.titled,.closable,.nonactivatingPanel],backing:.buffered,defer:false)
+            p.title="Let your flower grow";p.level = .floating;p.isReleasedWhenClosed=false;p.center();focusShield=p
+        }
+        focusShield?.contentView=NSHostingView(rootView:VStack(spacing:16) {
+            Text("🌸 Let your flower grow").font(.title2)
+            Text("This app is hidden during running focus rounds. Your work stays open.").multilineTextAlignment(.center)
+            Button("Pause focus & allow apps") { self.model.pause();self.focusShield?.orderOut(nil) }
+            Button("Turn app blocking off") { UserDefaults.standard.set(false,forKey:"focusBlocking");self.focusShield?.orderOut(nil) }
+        }.padding(20).frame(width:380))
+        focusShield?.orderFrontRegardless()
     }
     func showAccount() {
         if accountWindow == nil {
@@ -243,7 +288,7 @@ final class FloatingPanel: NSPanel {
             finish: { [weak self] in self?.finish() }, cancel: { [weak self] in self?.cancelSession() },
             hide: { [weak self] in self?.hidePet() }, close: { [weak self] in self?.closePet() },
             history: { [weak self] in self?.showHistory() }, quit: { [weak self] in self?.quit() },
-            dismiss: { [weak self] in self?.controlsPopover.close() }))
+            dismiss: { [weak self] in self?.controlsPopover.close() },focus: { [weak self] in self?.showFocusSettings() }))
         controlsPopover.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
         controlsPopover.contentViewController?.view.window?.makeKey()
     }
@@ -265,7 +310,8 @@ final class FloatingPanel: NSPanel {
                 Button("Hide Pet",action:delegate.hidePet)
                 Button("Close Pet ×",action:delegate.closePet)
                 Divider()
-                Button("View Session History",action:delegate.showHistory)
+                Button("Free Stopwatch / Pomodoro",action:delegate.showFocusSettings)
+        Button("View Session History",action:delegate.showHistory)
                 Button("Account / Sync",action:delegate.showAccount)
             }
         }
@@ -283,9 +329,9 @@ struct MenuContents: View {
     var body: some View {
         Text("Focanopy · \(model.menuTime)")
         switch model.phase {
-        case .idle: Button("Start Stopwatch",action:delegate.start)
+        case .idle: Button(model.pomodoroEnabled ? "Start 25-minute focus" : "Start Stopwatch",action:delegate.start)
         case .running: Button("Pause",action:delegate.pause); Button("Finish Session…",action:delegate.finish)
-        case .paused: Button("Resume",action:delegate.resume); Button("Finish Session…",action:delegate.finish)
+        case .paused: Button(model.pomodoroEnabled && model.pomodoro.stage != "focus" ? (model.pomodoro.stage=="break" ? "Skip break & start next focus" : "Start next 25-minute focus") : "Resume",action:delegate.resume); Button("Finish Session…",action:delegate.finish)
         case .finished: Button("Name & Save Session…",action:delegate.finish);Button("Resume Timer",action:delegate.start);Button("Reset Timer…",action:delegate.cancelSession)
         }
         if model.phase != .idle && model.phase != .finished { Button("Cancel Session…",action:delegate.cancelSession) }
@@ -293,9 +339,51 @@ struct MenuContents: View {
         Button("Show / Hide Pet (⌘R)",action:delegate.togglePet)
         Button("Show Pet",action:delegate.showPet); Button("Hide Pet",action:delegate.hidePet)
         Button("Close Pet ×",action:delegate.closePet)
+        Button("Free Stopwatch / Pomodoro",action:delegate.showFocusSettings)
         Button("View Session History",action:delegate.showHistory)
                 Button("Account / Sync",action:delegate.showAccount)
         if let error = model.error { Divider(); Text(error); Button("Dismiss Error") { model.error = nil } }
         Divider(); Button("Quit App",action:delegate.quit).keyboardShortcut("q")
+    }
+}
+
+struct FocusPreferences:View {
+    @ObservedObject var model:Stopwatch
+    @AppStorage("focusBlocking") private var blocking=false
+    @State private var appIDs: [String] = UserDefaults.standard.stringArray(forKey:"focusBlockedApps") ?? []
+    var body:some View {
+        ScrollView { VStack(alignment:.leading,spacing:16) {
+            Text("Choose your rhythm").font(.title2.bold())
+            HStack {
+                Button("Free Stopwatch") { model.selectMode(false) }
+                Button("Pomodoro · 25 minutes") {
+                    model.selectMode(true,minutes:model.pomodoro.breakMinutes)
+                    UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in }
+                }
+            }.disabled(model.phase != .idle)
+            Text(model.pomodoroEnabled ? "🌸 Flower focus · "+model.pomodoro.stage.capitalized : "🌳 Free Stopwatch · No scheduled breaks").foregroundStyle(Color.cyber)
+            if model.pomodoroEnabled {
+                Picker("Break",selection:Binding(get:{model.pomodoro.breakMinutes},set:{model.selectMode(true,minutes:$0)})) { Text("5 minutes").tag(5);Text("10 minutes").tag(10) }.disabled(model.phase != .idle)
+                Text(model.menuTime).font(.system(size:32,design:.monospaced))
+                Text(model.pomodoro.stage=="focus" ? "Water your flower for 25 minutes. Breaks never count as focus time." : model.pomodoro.stage=="break" ? "Your flower bloomed! Stop watering, stretch and move a little." : "Come back when you’re ready — your next flower needs water.")
+                if model.pomodoro.stage != "focus" && model.phase != .finished {
+                    Button(model.pomodoro.stage=="break" ? "Skip break & start next focus" : "Start next 25-minute focus") { model.start() }
+                }
+            }
+            Divider()
+            Toggle("Block selected apps during running Pomodoro focus",isOn:$blocking)
+            Text("Selected apps are hidden when opened. They are never quit. Pauses, breaks and Free Stopwatch allow all apps.").font(.caption).foregroundStyle(.secondary)
+            Button("Choose apps…") { chooseApps() }
+            Text(appIDs.isEmpty ? "No apps selected" : appIDs.joined(separator:"\n")).font(.caption).lineLimit(5)
+            Button("Clear selected apps") { appIDs=[];UserDefaults.standard.set(appIDs,forKey:"focusBlockedApps");blocking=false }
+            Text("The next round always waits for you. Finish or reset the current timer to switch modes.").font(.caption).foregroundStyle(.secondary)
+        }.padding(24).frame(maxWidth:.infinity) }.frame(width:478,height:580).preferredColorScheme(.dark)
+    }
+    func chooseApps() {
+        let panel=NSOpenPanel();panel.title="Choose distracting apps";panel.allowedContentTypes=[.applicationBundle];panel.allowsMultipleSelection=true;panel.canChooseDirectories=false
+        if panel.runModal() == .OK {
+            appIDs=panel.urls.compactMap { Bundle(url:$0)?.bundleIdentifier }.filter { ![Bundle.main.bundleIdentifier ?? "","com.apple.finder","com.apple.systempreferences"].contains($0) }
+            UserDefaults.standard.set(appIDs,forKey:"focusBlockedApps")
+        }
     }
 }

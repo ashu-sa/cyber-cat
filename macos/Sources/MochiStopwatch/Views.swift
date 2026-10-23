@@ -8,16 +8,18 @@ extension Color {
 struct GrowingTree: View {
     var phase: Stopwatch.Phase
     var animated = true
+    var flower = false
     var elapsed: () -> TimeInterval = { 0 }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0/20, paused: !animated || reduceMotion || phase != .running)) { _ in
-            let seconds=max(0,elapsed())
+            let raw=max(0,elapsed())*(flower ? 2.4:1)
+            let seconds=flower && raw>0 && raw.truncatingRemainder(dividingBy:3600)<0.0001 ? raw-0.0001:raw
             let n=grownTrees(seconds)
             let remainder=seconds.truncatingRemainder(dividingBy:3600)
             let dry=phase == .paused
             let motion=animated && !reduceMotion && !dry
-            let t=motion ? seconds : 0
+            let t=motion ? elapsed() : 0
             Canvas { context,size in
                 var ctx=context
                 ctx.scaleBy(x:size.width/110,y:size.height/58)
@@ -43,8 +45,14 @@ struct GrowingTree: View {
                     }
                     if canopy>0 {
                         c.translateBy(x:55,y:top+2); c.scaleBy(x:canopy,y:canopy); c.translateBy(x:-55,y:-(top+2))
-                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:dormant ? [Color(red:0.84,green:0.75,blue:0.55),Color(red:0.70,green:0.61,blue:0.43),Color(red:0.48,green:0.45,blue:0.35)] : [Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)]),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
+                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:dormant ? [Color(red:0.84,green:0.75,blue:0.55),Color(red:0.70,green:0.61,blue:0.43),Color(red:0.48,green:0.45,blue:0.35)] : (flower ? [Color(red:1,green:0.79,blue:0.83),Color(red:0.94,green:0.48,blue:0.65),Color(red:0.65,green:0.27,blue:0.49)] : [Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)])),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
                         for r in [CGRect(x:30,y:top-14,width:30,height:29),CGRect(x:52,y:top-14,width:29,height:29),CGRect(x:39,y:top-21,width:32,height:31)] { c.fill(Path(ellipseIn:r),with:fill) }
+                        if flower {
+                            for point in [CGPoint(x:44,y:top-5),CGPoint(x:63,y:top-4),CGPoint(x:54,y:top-14)] {
+                                for a in 0..<5 { let angle=Double(a)*Double.pi*2/5; c.fill(Path(ellipseIn:CGRect(x:point.x+cos(angle)*3-2.8,y:point.y+sin(angle)*3-2.8,width:5.6,height:5.6)),with:.color(Color(red:1,green:0.89,blue:0.92))) }
+                                c.fill(Path(ellipseIn:CGRect(x:point.x-1.7,y:point.y-1.7,width:3.4,height:3.4)),with:.color(.yellow.opacity(0.85)))
+                            }
+                        }
                         c.fill(Path(ellipseIn:CGRect(x:43,y:top-16,width:14,height:10)),with:.color(Color(red:0.8,green:0.95,blue:0.7).opacity(0.35)))
                     }
                 }
@@ -97,7 +105,7 @@ struct PetView: View {
     var reset: () -> Void = {}
     var body: some View {
         VStack(spacing: 3) {
-            GrowingTree(phase: model.phase, animated: model.petVisible && petAnimations, elapsed: { model.growthElapsed })
+            GrowingTree(phase: model.pomodoroEnabled && model.pomodoro.stage != "focus" ? .finished:model.phase, animated: model.petVisible && petAnimations, flower:model.pomodoroEnabled, elapsed: { model.pomodoroEnabled ? model.elapsed:model.growthElapsed })
                 .scaleEffect(0.76).frame(width: 110, height: 42)
                 .overlay(PetInteraction(showOptions: showOptions))
             Text(model.menuTime)
@@ -121,6 +129,7 @@ struct PetView: View {
         }.frame(width: 150, height: 100).background(PetInteraction(showOptions: showOptions)).opacity(min(1, max(0.3, petOpacity)))
     }
     var primaryTitle: String {
+        if model.pomodoroEnabled && model.phase != .finished && model.pomodoro.stage != "focus" { return model.pomodoro.stage=="break" ? "Skip break and start next focus" : "Start next 25-minute focus" }
         switch model.phase { case .idle: return "Play"; case .running: return "Pause"; case .paused: return "Resume"; case .finished: return "Save Session" }
     }
     var primaryIcon: String {
@@ -437,6 +446,7 @@ struct PetOptionsView: View {
     var history: () -> Void
     var quit: () -> Void
     var dismiss: () -> Void
+    var focus: () -> Void = {}
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -473,6 +483,8 @@ struct PetOptionsView: View {
                         Toggle("Animate tree and water", isOn: $petAnimations).font(.system(size: 12)).toggleStyle(.switch).controlSize(.small)
                     }.padding(12).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     Divider().padding(.vertical, 5)
+                    row("Free Stopwatch / Pomodoro", "leaf", focus)
+                    if model.pomodoroEnabled { Text(model.pomodoro.stage=="focus" ? "25-minute flower focus" : model.pomodoro.stage=="break" ? "Stop watering · stretch and move" : "Come back — your flower needs water").font(.caption).foregroundStyle(Color.cyber) }
                     row("Session History", "clock.arrow.circlepath", history)
                     row("Quit App…", "power", quit)
                 }.padding(12)

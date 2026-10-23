@@ -7,10 +7,13 @@ from .forest import trees, growth
 def smooth(x):
     x=max(0,min(1,x)); return x*x*(3-2*x)
 
-def paint_tree(p, seconds, phase, animated=True):
+def paint_tree(p, seconds, phase, animated=True, flower=False):
+    actual=seconds
+    seconds=seconds*2.4 if flower else seconds
+    if flower and seconds>0 and seconds%3600<0.0001: seconds-=0.0001
     n=trees(seconds); progress=growth(seconds)
     dry=phase=="paused"
-    t=seconds if animated and not dry else 0
+    t=actual if animated and not dry else 0
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QColor(91,165,123,24)); p.drawEllipse(QRectF(25,45,60,12))
     def tree(g,alpha,center=55,scale=1,dormant=False):
@@ -29,8 +32,14 @@ def paint_tree(p, seconds, phase, animated=True):
             p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#a89264' if dormant else '#8bd3a3' if side<0 else '#469779')); p.drawPath(leaf); p.restore()
         if canopy>0:
             p.save(); p.translate(55,top+2); p.scale(canopy,canopy); p.translate(-55,-(top+2))
-            gradient=QLinearGradient(40,top-20,65,top+12); gradient.setColorAt(0,QColor('#d5bf8c' if dormant else '#b2e2ad')); gradient.setColorAt(.5,QColor('#b29c6e' if dormant else '#65b58b')); gradient.setColorAt(1,QColor('#7b735a' if dormant else '#2c795d'))
+            gradient=QLinearGradient(40,top-20,65,top+12); gradient.setColorAt(0,QColor('#d5bf8c' if dormant else ('#ffc9d5' if flower else '#b2e2ad'))); gradient.setColorAt(.5,QColor('#b29c6e' if dormant else ('#f07aa6' if flower else '#65b58b'))); gradient.setColorAt(1,QColor('#7b735a' if dormant else ('#a6457d' if flower else '#2c795d')))
             p.setPen(Qt.PenStyle.NoPen); p.setBrush(gradient); p.drawEllipse(QRectF(30,top-14,30,29)); p.drawEllipse(QRectF(52,top-14,29,29)); p.drawEllipse(QRectF(39,top-21,32,31))
+            if flower:
+                for x,y in [(44,top-5),(63,top-4),(54,top-14)]:
+                    p.setBrush(QColor('#ffe3eb'))
+                    for a in range(5):
+                        angle=a*math.pi*2/5; p.drawEllipse(QRectF(x+math.cos(angle)*3-2.8,y+math.sin(angle)*3-2.8,5.6,5.6))
+                    p.setBrush(QColor('#ffe081'));p.drawEllipse(QRectF(x-1.7,y-1.7,3.4,3.4))
             p.setBrush(QColor(203,242,180,95)); p.drawEllipse(QRectF(43,top-16,14,10))
             p.setBrush(QColor(22,80,57,45)); p.drawEllipse(QRectF(47,top+1,22,9)); p.restore()
         p.restore()

@@ -19,13 +19,14 @@ class TimerService: Service() {
     private var params: WindowManager.LayoutParams? = null
     private var lastNotice = ""
     private val tick = object: Runnable { override fun run() {
-        try { syncOverlay(); if (Repository.engine.phase != lastNotice) notifyState() } catch (_: Exception) { removeOverlay() }
+        try { Repository.advancePomodoro();Repository.focusNotice?.let { remind(it);Repository.focusNotice=null };syncOverlay(); if (Repository.engine.phase+(if(Repository.pomodoroEnabled)Repository.pomodoro.stage else "") != lastNotice) notifyState() } catch (_: Exception) { removeOverlay() }
         handler.postDelayed(this, 1000)
     } }
     private val checkpoint = object: Runnable { override fun run() { try { Repository.checkpoint() } catch (_: Exception) {} ; handler.postDelayed(this,15000) } }
     override fun onCreate() {
         super.onCreate(); Repository.init(this); windows = getSystemService(WindowManager::class.java)
         getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("timer", "Running stopwatch", NotificationManager.IMPORTANCE_LOW))
+        getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("pomodoro","Flower focus reminders",NotificationManager.IMPORTANCE_DEFAULT))
         handler.post(tick); handler.postDelayed(checkpoint,15000)
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -43,25 +44,33 @@ class TimerService: Service() {
         } catch (e: Exception) { Toast.makeText(this,e.localizedMessage,Toast.LENGTH_LONG).show() }
         return START_STICKY
     }
+    private fun remind(message:String) {
+        val open=PendingIntent.getActivity(this,19,Intent(this,MainActivity::class.java),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        getSystemService(NotificationManager::class.java).notify(8,Notification.Builder(this,"pomodoro").setSmallIcon(R.drawable.ic_cat).setContentTitle("Focanopy · Flower focus").setContentText(message).setStyle(Notification.BigTextStyle().bigText(message)).setContentIntent(open).setAutoCancel(true).build())
+    }
     private fun notification(): Notification {
         val phase = Repository.engine.phase
         val open = PendingIntent.getActivity(this, 10, Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val finish = PendingIntent.getActivity(this,11, Intent(this,MainActivity::class.java).setAction("FINISH").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = Notification.Builder(this,"timer").setSmallIcon(com.cybercat.stopwatch.R.drawable.ic_cat).setContentTitle("Focanopy · " + when(phase) { "running" -> "Locked in"; "paused" -> "Paused"; "finished" -> "Ready to save"; else -> "Floating companion" })
             .setContentIntent(open).setOnlyAlertOnce(true).setOngoing(true).setShowWhen(false).setCategory(if(Build.VERSION.SDK_INT>=31) Notification.CATEGORY_STOPWATCH else Notification.CATEGORY_SERVICE)
-        if (phase == "running") builder.setWhen(System.currentTimeMillis()-Repository.engine.elapsed()).setShowWhen(true).setUsesChronometer(true)
+        if(Repository.pomodoroEnabled && phase!="finished") {
+            builder.setContentTitle("Focanopy · "+when(Repository.pomodoro.stage) { "break" -> "Take a break · move a little"; "ready" -> "Your flower needs water · ready?"; else -> "Flower focus · 25 minutes" })
+            builder.setContentText(clockText(Repository.displayTime())+" · "+(if(Repository.pomodoro.stage=="ready")"Start the next round when ready" else "Focus excludes breaks"))
+            if(phase=="running" || Repository.pomodoro.stage=="break")builder.setWhen(System.currentTimeMillis()+Repository.displayTime()).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
+        } else if (phase == "running") builder.setWhen(System.currentTimeMillis()-Repository.engine.elapsed()).setShowWhen(true).setUsesChronometer(true)
         else builder.setContentText(clockText(Repository.engine.elapsed()) + if (phase == "finished") " · Tap to name and save" else " · Tap for controls")
         val action = if (phase == "running") "PAUSE" else "START"
-        if (phase != "finished") builder.addAction(Notification.Action.Builder(null, if (phase == "running") "Pause" else if (phase == "paused") "Resume" else "Start", PendingIntent.getService(this,12,Intent(this,TimerService::class.java).setAction(action),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
+        if (phase != "finished") builder.addAction(Notification.Action.Builder(null, if (phase == "running") "Pause" else if(Repository.pomodoroEnabled && Repository.pomodoro.stage!="focus") (if(Repository.pomodoro.stage=="break") "Skip break" else "Start next focus") else if (phase == "paused") "Resume" else "Start", PendingIntent.getService(this,12,Intent(this,TimerService::class.java).setAction(action),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
         if (phase != "idle") builder.addAction(Notification.Action.Builder(null,if (phase == "finished") "Save" else "Finish",finish).build())
         return builder.build()
     }
-    private fun notifyState() { getSystemService(NotificationManager::class.java).notify(7,notification()); lastNotice = Repository.engine.phase }
+    private fun notifyState() { getSystemService(NotificationManager::class.java).notify(7,notification()); lastNotice = Repository.engine.phase+if(Repository.pomodoroEnabled)Repository.pomodoro.stage else "" }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun syncOverlay() {
         if (!Repository.prefs.getBoolean("showPet",false) || !Settings.canDrawOverlays(this)) { removeOverlay(); return }
         if (pet == null) createOverlay()
-        timeLabel?.text = clockText(Repository.engine.elapsed())
+        timeLabel?.text = clockText(Repository.displayTime())
         play?.text = when (Repository.engine.phase) { "running" -> "Ⅱ"; "finished" -> "↓"; else -> "▶" }
         play?.contentDescription = when(Repository.engine.phase) { "running" -> "Pause"; "finished" -> "Save session"; else -> "Start or resume" }
         pet?.alpha = Repository.prefs.getFloat("opacity",1f).coerceIn(.3f,1f)

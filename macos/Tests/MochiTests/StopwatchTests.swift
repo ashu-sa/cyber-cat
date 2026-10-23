@@ -15,8 +15,23 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         tests.testFormatting()
         tests.testForest()
         try tests.testGooglePKCE()
+        try tests.testPomodoroRecoveryAndCaps()
         try await tests.testResumeFinishedExcludesGap()
         print("PASS: timing, recovery, rename persistence, delete/restore, calendar periods and totals, formatting")
+    }
+    @MainActor func testPomodoroRecoveryAndCaps() throws {
+        let dir=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:dir) }
+        let model=Stopwatch(directory:dir);model.selectMode(true,minutes:5)
+        let now=Date()
+        let draft=Stopwatch.Draft(phase:.running,elapsed:1490,start:now.addingTimeInterval(-1490),end:nil,checkpoint:now.addingTimeInterval(-20),sessionId:UUID(),pomodoroEnabled:true,pomodoro:PomodoroState())
+        try JSONEncoder().encode(draft).write(to:dir.appendingPathComponent("active-session.json"))
+        let capped=Stopwatch(directory:dir);XCTAssertEqual(capped.phase,.paused);XCTAssertEqual(capped.elapsed,1500,accuracy:0.01);XCTAssertEqual(capped.pomodoro.stage,"break")
+        precondition(capped.displayTime>288 && capped.displayTime<=290)
+        capped.pomodoro.deadline=Date().addingTimeInterval(-1);capped.checkpoint()
+        let ready=Stopwatch(directory:dir);XCTAssertEqual(ready.pomodoro.stage,"ready");XCTAssertEqual(ready.phase,.paused);XCTAssertEqual(ready.elapsed,1500,accuracy:0.01)
+        ready.start();XCTAssertEqual(ready.phase,.running);XCTAssertEqual(ready.pomodoro.target,3000,accuracy:0.01)
+        ready.pause();ready.finish();ready.save("A flower");XCTAssertEqual(ready.sessions.count,1);precondition(ready.sessions[0].duration<1501)
     }
     func testGooglePKCE() throws {
         let flow=try GooglePKCE(); let other=try GooglePKCE()

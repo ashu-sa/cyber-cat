@@ -1,3 +1,3 @@
 <resources>
     <string name="app_name">Focanopy</string>
-</resources>
+<string name="focus_accessibility_description">Optional Pomodoro app blocking. Detects only which app opens and returns to Home for apps you select during running focus rounds. Does not read screen contents or typing. Pause the timer, turn blocking off in Focanopy, or disable this service at any time. Breaks and Free Stopwatch never block apps.</string></resources>

@@ -31,6 +31,16 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 <img src="docs/screenshots/android-save.png" alt="Save session with the Focanopy app icon and task categories" width="260" /> <img src="docs/screenshots/android-finished.png" alt="Finished session with Save, Resume and Reset controls" width="260" />
 
+### Free Stopwatch or Flower Pomodoro
+
+Keep the original **Free Stopwatch**, or opt into **Pomodoro**: 25 minutes of focus grows a pink flowering tree, followed by a 5- or 10-minute break. Watering stops for the break, a gentle reminder asks you to move, and another invites you back. **You start every next round yourself.** Breaks never count toward saved focus time.
+
+![Native Pomodoro flower growth](docs/screenshots/pomodoro-flower-milestones.png)
+
+<img src="docs/screenshots/android-pomodoro-focus.png" alt="Optional 25-minute Pomodoro with a growing flowering tree" width="260" /> <img src="docs/screenshots/android-pomodoro-break.png" alt="Fully bloomed tree resting during a five-minute break" width="260" /> <img src="docs/screenshots/android-pomodoro-ready.png" alt="Return reminder waiting for the user to start the next focus round" width="260" />
+
+Optional app blocking applies only during running focus rounds. Android uses an explicitly enabled Accessibility service; macOS hides selected apps; Windows minimizes selected windows; Ubuntu/GNOME uses an optional user-enabled shell extension. Apps stay open, and pauses/breaks release blocking. See [Pomodoro and app-blocking setup](POMODORO.md) for controls, permissions and platform limits.
+
 ### Google sign-in
 
 **Account / Sync → Continue with Google** is available on Android, macOS, Windows and Linux. Sign in once with the same Google account to share your journal across devices. Existing username/PIN sign-in is still available. Google uses the system browser, PKCE and the existing secure account caches.

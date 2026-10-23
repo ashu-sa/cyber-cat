@@ -39,6 +39,8 @@ jobs:
           sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
       - run: python -m pip install -r requirements-build.txt
       - run: python -m unittest discover -s tests -v
+      - if: runner.os == 'Linux'
+        run: node --input-type=module --check < cybercat/assets/gnome-focus/extension.js
       - run: python render_screenshots.py --platform ${{ matrix.platform }} --output ../docs/screenshots
       - if: runner.os == 'Windows'
         shell: cmd

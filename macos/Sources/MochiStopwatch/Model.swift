@@ -18,12 +18,55 @@ struct Session: Codable, Identifiable {
 @MainActor final class Stopwatch: ObservableObject {
     enum Phase: String, Codable { case idle, running, paused, finished }
     @Published var phase: Phase = .idle
+    @Published var pomodoroEnabled=false
+    @Published var pomodoro=PomodoroState()
+    @Published var focusNotice:String?
+    private var breakAnchor:ContinuousClock.Instant?
+    private var breakRemaining:TimeInterval=0
+    private var focusSettingsURL:URL { directory.appendingPathComponent("focus-settings.json") }
+    struct FocusSettings:Codable { var enabled:Bool;var breakMinutes:Int }
+    var displayTime:TimeInterval {
+        guard pomodoroEnabled,phase != .finished else { return elapsed }
+        if pomodoro.stage=="ready" { return 0 }
+        if pomodoro.stage=="break" {
+            guard let breakAnchor else { return max(0,pomodoro.deadline?.timeIntervalSinceNow ?? 0) }
+            let c=breakAnchor.duration(to:clock.now).components
+            return max(0,breakRemaining-Double(c.seconds)-Double(c.attoseconds)/1e18)
+        }
+        return max(0,pomodoro.target-elapsed)
+    }
+    func selectMode(_ enabled:Bool,minutes:Int=5) {
+        guard phase == .idle else { error="Finish or reset your session before changing modes."; return }
+        let minutes=minutes==10 ? 10:5
+        do { try JSONEncoder().encode(FocusSettings(enabled:enabled,breakMinutes:minutes)).write(to:focusSettingsURL,options:.atomic)
+            pomodoroEnabled=enabled;pomodoro=PomodoroState(breakMinutes:minutes);refreshMenu()
+        } catch { self.error=error.localizedDescription }
+    }
+    func advancePomodoro() {
+        guard pomodoroEnabled,phase != .idle,phase != .finished else { return }
+        var changed=false
+        if pomodoro.stage=="focus",phase == .running,elapsed>=pomodoro.target {
+            let remaining=Double(pomodoro.breakMinutes*60)-(elapsed-pomodoro.target)
+            accumulated=pomodoro.target;anchor=nil;phase = .paused;pomodoro.stage="break"
+            pomodoro.deadline=Date().addingTimeInterval(remaining);breakAnchor=clock.now;breakRemaining=remaining
+            focusNotice="Your flower bloomed! Stop watering, stretch and move a little.";changed=true
+        }
+        if pomodoro.stage=="break",displayTime<=0 {
+            pomodoro.stage="ready";focusNotice="Come back when you’re ready — your next flower needs water.";changed=true
+        }
+        if changed { checkpoint() }
+    }
+    private func startRoundIfNeeded() {
+        if pomodoroEnabled && (pomodoro.stage=="break" || pomodoro.stage=="ready") {
+            pomodoro.stage="focus";pomodoro.target=elapsed+1500;pomodoro.deadline=nil;breakAnchor=nil;focusNotice=nil
+        }
+    }
     @Published var sessions: [Session] = [] { didSet { growthCache=nil } }
     @Published var error: String?
     @Published var saved = false
     @Published var petVisible = true
     @Published var menuTime = "00:00:00"
-    func refreshMenu() { let text = timeText(elapsed); if menuTime != text { menuTime = text } }
+    func refreshMenu() { let text = timeText(displayTime); if menuTime != text { menuTime = text } }
     private var accumulated: TimeInterval = 0
     private var anchor: ContinuousClock.Instant?
     private var started: Date?
@@ -35,21 +78,25 @@ struct Session: Codable, Identifiable {
     private let directory: URL
     private var historyURL: URL { directory.appendingPathComponent("sessions.json") }
     private var draftURL: URL { directory.appendingPathComponent("active-session.json") }
-    struct Draft: Codable { var phase: Phase; var elapsed: Double; var start: Date; var end: Date?; var checkpoint: Date; var sessionId: UUID? = nil }
+    struct Draft: Codable { var phase: Phase; var elapsed: Double; var start: Date; var end: Date?; var checkpoint: Date; var sessionId: UUID? = nil;var pomodoroEnabled:Bool? = nil;var pomodoro:PomodoroState? = nil }
     init(directory: URL? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MochiStopwatch")
         self.cloud = CloudAccount(directory: self.directory, enabled: directory == nil)
         do {
             try FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
+            if let settings=try? JSONDecoder().decode(FocusSettings.self,from:Data(contentsOf:focusSettingsURL)) { pomodoroEnabled=settings.enabled;pomodoro.breakMinutes=settings.breakMinutes }
             if FileManager.default.fileExists(atPath: historyURL.path) { sessions = try JSONDecoder().decode([Session].self, from: Data(contentsOf: historyURL)) }
             if FileManager.default.fileExists(atPath: draftURL.path) {
                 let d = try JSONDecoder().decode(Draft.self, from: Data(contentsOf: draftURL))
+                pomodoroEnabled=d.pomodoroEnabled ?? pomodoroEnabled;pomodoro=d.pomodoro ?? PomodoroState(breakMinutes:pomodoro.breakMinutes)
+                if let deadline=pomodoro.deadline { breakRemaining=max(0,deadline.timeIntervalSinceNow);breakAnchor=clock.now }
                 started = d.start; ended = d.end; accumulated = d.elapsed; sessionId = d.sessionId ?? UUID()
                 if d.phase == .running { accumulated += max(0, Date().timeIntervalSince(d.checkpoint)); anchor = clock.now }
                 phase = d.phase
                 refreshMenu()
             }
         } catch { self.error = "Couldn’t read saved data: \(error.localizedDescription)" }
+        advancePomodoro();refreshMenu()
         if cloud.owner != nil { sessions=cloud.visible }
         cloud.onChange = { [weak self] in
             guard let self else { return }
@@ -74,23 +121,23 @@ struct Session: Codable, Identifiable {
         guard !cloud.authenticating else { return }
         if phase == .idle { accumulated = 0; started = Date(); ended = nil; sessionId = UUID() }
         guard phase == .idle || phase == .paused else { return }
-        anchor = clock.now; phase = .running; saved = false; refreshMenu(); checkpoint()
+        startRoundIfNeeded();anchor = clock.now; phase = .running; saved = false; refreshMenu(); checkpoint()
     }
     func resumeFinished() {
         guard phase == .finished, !cloud.authenticating else { return }
-        ended=nil;anchor=clock.now;phase = .running;saved=false;refreshMenu();checkpoint()
+        if pomodoroEnabled && elapsed>=pomodoro.target { pomodoro.stage="ready" };startRoundIfNeeded();ended=nil;anchor=clock.now;phase = .running;saved=false;refreshMenu();checkpoint()
     }
-    func pause() { guard phase == .running else { return }; accumulated = elapsed; anchor = nil; phase = .paused; refreshMenu(); checkpoint() }
-    func finish() { guard phase == .running || phase == .paused else { return }; accumulated = elapsed; anchor = nil; ended = Date(); phase = .finished; refreshMenu(); checkpoint() }
+    func pause() { advancePomodoro();guard phase == .running else { return }; accumulated = elapsed; anchor = nil; phase = .paused; refreshMenu(); checkpoint() }
+    func finish() { advancePomodoro();guard phase == .running || phase == .paused else { return }; accumulated = elapsed; anchor = nil; ended = Date(); phase = .finished; refreshMenu(); checkpoint() }
     @discardableResult func checkpoint() -> Bool {
         guard let started, phase != .idle else { return true }
-        do { try JSONEncoder().encode(Draft(phase: phase, elapsed: elapsed, start: started, end: ended, checkpoint: Date(), sessionId: sessionId)).write(to: draftURL, options: .atomic); return true }
+        do { try JSONEncoder().encode(Draft(phase: phase, elapsed: elapsed, start: started, end: ended, checkpoint: Date(), sessionId: sessionId,pomodoroEnabled:pomodoroEnabled,pomodoro:pomodoro)).write(to: draftURL, options: .atomic); return true }
         catch { self.error = "Couldn’t preserve the active timer: \(error.localizedDescription)"; return false }
     }
     @discardableResult func discard() -> Bool {
         do {
             if FileManager.default.fileExists(atPath: draftURL.path) { try FileManager.default.removeItem(at: draftURL) }
-            anchor = nil; accumulated = 0; started = nil; ended = nil; sessionId = nil; phase = .idle; refreshMenu()
+            anchor = nil; accumulated = 0; started = nil; ended = nil; sessionId = nil; phase = .idle;pomodoro=PomodoroState(breakMinutes:pomodoro.breakMinutes);breakAnchor=nil;focusNotice=nil; refreshMenu()
             return true
         } catch { self.error = "Couldn’t discard session: \(error.localizedDescription)"; return false }
     }
@@ -127,7 +174,7 @@ struct Session: Codable, Identifiable {
         let updated = [entry] + sessions.filter { $0.id != entry.id }
         guard replaceHistory(updated) else { return }
         try? FileManager.default.removeItem(at: draftURL)
-        phase = .idle; accumulated = 0; self.started = nil; self.ended = nil; sessionId = nil; saved = true; refreshMenu()
+        phase = .idle; accumulated = 0; self.started = nil; self.ended = nil; sessionId = nil; saved = true;pomodoro=PomodoroState(breakMinutes:pomodoro.breakMinutes);breakAnchor=nil;focusNotice=nil; refreshMenu()
     }
 }
 func timeText(_ value: TimeInterval) -> String {
@@ -171,4 +218,12 @@ func treeCellText(_ seconds: TimeInterval) -> String { isGarden(seconds) ? "Gard
 func forestSummary(_ seconds: TimeInterval, daily: [TimeInterval]) -> String {
     let n=daily.filter(isGarden).count
     return treeText(seconds) + (n>0 ? " · \(n) garden day\(n == 1 ? "" : "s")" : "")
+}
+
+struct PomodoroState: Codable {
+    static let focus:TimeInterval=1500
+    var stage="focus"
+    var target:TimeInterval=1500
+    var breakMinutes=5
+    var deadline:Date?
 }
