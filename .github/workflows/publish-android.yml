@@ -46,6 +46,11 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import hashlib
+          # Verify carried-forward packages against the previous release manifest.
+          for line in Path('release/SHA256SUMS.txt').read_text().splitlines():
+              expected,name=line.split(maxsplit=1);name=Path(name.strip().lstrip('*')).name
+              if name.startswith('Focanopy-Android-'):continue
+              assert hashlib.sha256(Path('release',name).read_bytes()).hexdigest()==expected,name
           files=sorted(p for p in Path('release').iterdir() if not p.name.startswith('SHA256SUMS'))
           Path('release/SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files))
           PY
