@@ -48,6 +48,7 @@ class SmokeInstrumentation:Instrumentation() {
                 runOnMainSync { Repository.discard(); targetContext.stopService(Intent(targetContext,TimerService::class.java));activity.finish() }
                 result.putString("stream","PASS: process restart restored paused timer, duration and saved history\n");finish(Activity.RESULT_OK,result);return
             }
+            val navigation=find(activity.window.decorView,"Timer") ?: error("Missing navigation")
             runOnMainSync { check(Repository.engine.phase=="idle"); find(activity.window.decorView,"Start or resume")!!.performClick() }
             SystemClock.sleep(1300)
             val manager=targetContext.getSystemService(NotificationManager::class.java)
@@ -55,6 +56,7 @@ class SmokeInstrumentation:Instrumentation() {
             var notice=notice()
             check(notice.extras.getBoolean("android.showChronometer"));check(notice.extras.getString("android.title")!!.startsWith("Focanopy"))
             (notice.actions.firstOrNull { it.title.toString()=="Pause" } ?: error("Missing Pause action: "+notice.actions.map { it.title })).actionIntent.send();awaitPhase("paused")
+            runOnMainSync {check(find(activity.window.decorView,"Timer")===navigation) {"Timer transition replaced the navigation shell"}}
             check(Repository.engine.phase=="paused");val paused=Repository.engine.elapsed();SystemClock.sleep(200);check(Repository.engine.elapsed()==paused)
             notice=notice("Resume")
             (notice.actions.firstOrNull { it.title.toString()=="Resume" } ?: error("Missing Resume action: "+notice.actions.map { it.title })).actionIntent.send();awaitPhase("running")

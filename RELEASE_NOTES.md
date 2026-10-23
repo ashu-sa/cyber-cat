@@ -1,8 +1,14 @@
-# Focanopy 1.10.0 · A little tree’s full lifecycle
+# Focanopy Android 1.11.0 · A calmer place to focus
 
-- Completed trees and the growing tree now cluster together on one shared patch of soil.
-- Replaced the cancellation cross mark with a native 3.4-second withering animation: water stops, foliage loses colour, petals drift down, branches droop and a dry bare plant remains.
-- Previously completed flowers stay healthy beside the cancelled tree. Reopening an old cancelled round shows the settled tree without replaying its death.
-- Added an isolated Fast-forward tree preview on Android, macOS, Windows and Linux, with replay, pause and timeline scrubbing. Watch growth, a saved bloom, a second tree and its cancellation in 27 seconds.
-- Preview controls never change the real timer, saved sessions or account. Reduced-motion and animation preferences remain respected by the normal timer.
-- Animation frame updates stop after the withering transition settles.
+This release updates the Android app. Desktop packages remain available in v1.10.0.
+
+- A redesigned focus screen with a clear tree-and-timer card, quieter daily metrics and consistent icon-only session controls.
+- Stable three-destination navigation: timer transitions update the content without replacing the app shell. Each destination keeps its scroll position while navigating.
+- Grouped settings for account, floating grove, appearance, focus permissions and history management.
+- Matching dark dialogs, inset scrollable panels, vector icons, visible touch feedback and accessible control descriptions.
+- Compact layouts keep timer controls above the tree on short screens, including at larger text sizes.
+- Adaptive timer text for narrow screens, larger calendar labels and consistent 48dp control targets.
+- Fixed the floating-tree setting remaining stale after permission approval. Back from Journal or Settings returns to Timer.
+- Existing offline history, sync, notification timer, app blocking and tree growth remain supported.
+
+Validation: Android unit tests and lint; isolated-device save/rename/delete/undo, notification controls, calendar recreation, JSON export, overlay permission fallback, stable navigation shell and Pomodoro lifecycle checks.

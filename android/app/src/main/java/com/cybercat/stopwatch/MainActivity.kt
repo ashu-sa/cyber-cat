@@ -28,6 +28,11 @@ class MainActivity: Activity() {
     private var growthBar: ProgressBar? = null
     private var scroller: ScrollView? = null
     private var renderedTab = ""
+    private var shellReady=false
+    private lateinit var pageTitle:TextView
+    private lateinit var pageSubtitle:TextView
+    private val navItems=mutableMapOf<String,LinearLayout>()
+    private val scrollPositions=mutableMapOf<String,Int>()
     private var groveStatus: TextView? = null
     private var cat: TreeView? = null
     private var tab = "Timer"
@@ -49,7 +54,7 @@ class MainActivity: Activity() {
         cat?.invalidate()
         updateGrowth()
         groveStatus?.text=if(Repository.pomodoroEnabled) "🌸 ${Repository.engine.elapsed()/Pomodoro.FOCUS} flowers completed · Focus time excludes breaks" else Forest.text(Repository.growthElapsed())+(if(Forest.garden(Repository.growthElapsed())) " · Garden grown" else " · One tree per focused hour")
-        if(phase!=Repository.engine.phase || pomoStage!=Repository.pomodoro.stage) render()
+        if(tab=="Timer" && (phase!=Repository.engine.phase || pomoStage!=Repository.pomodoro.stage)) render()
         syncTicks++; if(syncTicks%30==0 && Cloud.owner!=null) Cloud.run({ Cloud.sync() })
         handler.postDelayed(this,1000)
     } }
@@ -77,7 +82,7 @@ class MainActivity: Activity() {
         super.onResume(); Cloud.changed={ if(!isFinishing && !isDestroyed) render() }; if(Cloud.owner!=null) Cloud.run({ Cloud.sync() }); handler.removeCallbacks(tick); handler.post(tick)
         if(tab=="Settings" || tab=="Timer") render()
         refreshFocusPermissions?.invoke()
-        if(requestOverlay && Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); requestOverlay=false }
+        if(requestOverlay && Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); requestOverlay=false;render() }
     }
     override fun onSaveInstanceState(state:Bundle) {
         state.putString("tab",tab); state.putString("selected",selected.toString()); state.putString("month",month.toString()); state.putString("scope",scope); state.putBoolean("requestOverlay",requestOverlay)
@@ -89,7 +94,7 @@ class MainActivity: Activity() {
     private fun service(action:String) { startForegroundService(Intent(this,TimerService::class.java).setAction(action)) }
     private fun accountDialog() {
         val dialog=Dialog(this); accountSheet?.dismiss(); accountSheet=dialog
-        val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(22),dp(20),dp(22),dp(20)); setBackgroundColor(bg) }
+        val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(22),dp(20),dp(22),dp(20)); background=card(bg) }
         dialog.setContentView(ScrollView(this).apply { addView(content); isFillViewport=false }); dialog.window?.setLayout(-1,-2)
         content.addView(text("Your focus, everywhere",22f,cyan))
         val status=text(Cloud.status,13f,Color.LTGRAY); content.addView(status)
@@ -145,7 +150,7 @@ class MainActivity: Activity() {
                 }
             })
         }
-        content.addView(button("Close") { dialog.dismiss() }); dialog.show(); dialog.window?.setLayout(-1,-2)
+        content.addView(button("Close") { dialog.dismiss() }); dialog.show(); dialog.window?.setBackgroundDrawable(card(bg)); dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(32),-2);dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     }
     private fun focusApps() {
         val prefs=Repository.prefs
@@ -159,7 +164,7 @@ class MainActivity: Activity() {
         val excluded=(prefs.getStringSet("excludedApps",emptySet()) ?: emptySet()).toMutableSet()
         var all=prefs.getBoolean("focusBlockAll",false)
         val dialog=Dialog(this)
-        val panel=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(22),dp(20),dp(14));setBackgroundColor(bg)}
+        val panel=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(22),dp(20),dp(14));background=card(bg)}
         panel.addView(text("Apps & permissions",24f,cyan).apply {typeface=Typeface.DEFAULT_BOLD})
         panel.addView(text("Switch on the apps you want to block while you focus.",12f,Color.rgb(161,181,165)))
         fun switch(title:String,on:Boolean)=Switch(this).apply {text=title;isChecked=on;textSize=14f;setTextColor(cyan);minHeight=dp(52);setPadding(dp(8),0,dp(8),0);contentDescription=title}
@@ -205,42 +210,56 @@ class MainActivity: Activity() {
         })
         drawApps();panel.addView(text("On = blocked · Off = allowed. Browsers stay available in all-app mode.",10f,Color.rgb(161,181,165)))
         panel.addView(button("Close") {dialog.dismiss()})
-        panel.isFocusableInTouchMode=true;panel.requestFocus();dialog.setContentView(panel);dialog.setOnDismissListener {refreshFocusPermissions=null;render()};dialog.show();dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);dialog.window?.setLayout(-1,(resources.displayMetrics.heightPixels*.88).toInt())
+        panel.isFocusableInTouchMode=true;panel.requestFocus();dialog.setContentView(panel);dialog.setOnDismissListener {refreshFocusPermissions=null;render()};dialog.show();dialog.window?.setBackgroundDrawable(card(bg));dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*.88).toInt())
     }
     private fun notifications() { if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),5) }
-    private fun text(value:String,size:Float=15f,color:Int=Color.WHITE)=TextView(this).apply { text=value; textSize=size; setTextColor(color); setPadding(0,dp(5),0,dp(5)) }
+    private fun text(value:String,size:Float=15f,color:Int=Color.rgb(238,240,220))=TextView(this).apply { text=value; textSize=size; setTextColor(color); includeFontPadding=false; setLineSpacing(dp(3).toFloat(),1f); setPadding(0,dp(5),0,dp(5)) }
+    private fun section(title:String,hint:String?=null) {
+        root.addView(text(title,18f).apply {typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)},LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(20);bottomMargin=dp(5)})
+        if(hint!=null) root.addView(text(hint,13f,Color.rgb(161,181,165)))
+    }
+    private fun settingsRow(title:String,subtitle:String,action:()->Unit) {
+        val row=focusCard().apply {gravity=Gravity.CENTER_VERTICAL;orientation=LinearLayout.HORIZONTAL;foreground=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Color.argb(35,173,218,173)),null,card());isClickable=true;isFocusable=true;contentDescription=title;setOnClickListener {safe(action)}}
+        val labels=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL};labels.addView(text(title,15f));labels.addView(text(subtitle,12f,Color.rgb(161,181,165)));row.addView(labels,LinearLayout.LayoutParams(0,-2,1f))
+        row.addView(ImageView(this).apply {setImageDrawable(UiIcon("right",cyan));importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(dp(20),dp(20)))
+        root.addView(row,LinearLayout.LayoutParams(-1,-2).apply {bottomMargin=dp(8)})
+    }
     private fun card(color:Int=surface)=GradientDrawable().apply { setColor(color); cornerRadius=dp(16).toFloat() }
-    private fun button(value:String,description:String=value,action:()->Unit)=Button(this).apply { text=value; contentDescription=description; textSize=13f; isAllCaps=false; setTextColor(cyan)
-        background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Color.argb(50,173,218,173)),GradientDrawable().apply { setColor(surface); cornerRadius=dp(14).toFloat(); setStroke(dp(1),Color.rgb(58,78,62)) },null)
-        setOnClickListener { safe(action) }; minHeight=dp(48) }
+    private fun button(value:String,description:String=value,action:()->Unit)=Button(this).apply {
+        text=value;contentDescription=description;textSize=14f;isAllCaps=false;setTextColor(cyan);typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL);minWidth=0;minimumWidth=0;minHeight=dp(48);minimumHeight=dp(48);setPadding(dp(14),dp(8),dp(14),dp(8));stateListAnimator=null
+        val symbol=mapOf("▶" to "play","Ⅱ" to "pause","✓" to "check","×" to "close","↓" to "save","✎" to "edit","‹" to "left","›" to "right","↺" to "reset")[value]
+        if(symbol!=null) {text="";setPadding(dp(13),dp(13),dp(13),dp(13));setCompoundDrawablesRelative(UiIcon(symbol,cyan).apply {setBounds(0,0,dp(22),dp(22))},null,null,null)}
+        background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Color.argb(40,173,218,173)),card(),null)
+        setOnClickListener {safe(action)}
+    }
     private fun line(parent:LinearLayout=root, build:(LinearLayout)->Unit) { val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }; parent.addView(row); build(row) }
+    private fun buildShell() {
+        val outer=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setBackgroundColor(bg)}
+        outer.setOnApplyWindowInsetsListener {view,insets->if(Build.VERSION.SDK_INT>=30){val bars=insets.getInsets(WindowInsets.Type.systemBars());view.setPadding(bars.left,bars.top,bars.right,bars.bottom)};insets}
+        val header=LinearLayout(this).apply {gravity=Gravity.CENTER_VERTICAL;setPadding(dp(24),dp(16),dp(24),dp(12))}
+        val titles=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL};pageSubtitle=text("FOCANOPY",10f,cyan).apply {letterSpacing=.18f};pageTitle=text("Make room to grow",25f).apply {typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)};titles.addView(pageSubtitle);titles.addView(pageTitle);header.addView(titles,LinearLayout.LayoutParams(0,-2,1f))
+        header.addView(ImageButton(this).apply {setImageResource(R.drawable.ic_account);contentDescription="Account / Sync";background=card();setPadding(dp(13),dp(13),dp(13),dp(13));setOnClickListener {safe {accountDialog()}}},LinearLayout.LayoutParams(dp(48),dp(48)))
+        outer.addView(header)
+        val scroll=ScrollView(this).apply {isFillViewport=true;clipToPadding=false;isVerticalScrollBarEnabled=false;setPadding(dp(20),0,dp(20),dp(20))};scroller=scroll
+        root=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL};scroll.addView(root);outer.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        val nav=LinearLayout(this).apply {setPadding(dp(12),dp(8),dp(12),dp(6));setBackgroundColor(surface)}
+        for((name,icon) in listOf("Timer" to "timer","Journal" to "calendar","Settings" to "settings")) {
+            val item=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;contentDescription=name;isFocusable=true;setPadding(dp(8),dp(4),dp(8),dp(4));setOnClickListener {if(tab!=name){tab=name;render()}}}
+            item.addView(ImageView(this).apply {setImageDrawable(UiIcon(icon,cyan));importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(dp(24),dp(24)))
+            item.addView(text(name,11f,cyan).apply {gravity=Gravity.CENTER;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO});navItems[name]=item;nav.addView(item,LinearLayout.LayoutParams(0,dp(64),1f))
+        }
+        outer.addView(nav);setContentView(outer);shellReady=true
+    }
     private fun render() {
-        val previousScroll=if(renderedTab==tab) scroller?.scrollY ?: 0 else 0
-        renderedTab=tab
-        phase=Repository.engine.phase;pomoStage=Repository.pomodoro.stage; timer=null;focusTime=null; cat=null; groveStatus=null; growthHint=null; growthBar=null
-        val outer=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(bg); setPadding(dp(20),dp(12),dp(20),dp(10)) }
-        outer.setOnApplyWindowInsetsListener { view,insets -> if(Build.VERSION.SDK_INT>=30) { val bars=insets.getInsets(WindowInsets.Type.systemBars()); view.setPadding(dp(20)+bars.left,dp(12)+bars.top,dp(20)+bars.right,dp(10)+bars.bottom) }; insets }
-        line(outer) { row ->
-            val title=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-            title.addView(text("Focanopy",27f).apply { typeface=Typeface.DEFAULT_BOLD; setPadding(0,0,0,0) })
-            title.addView(text("MAKE ROOM TO GROW",10f,cyan).apply { letterSpacing=.16f })
-            row.addView(title,LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_account); contentDescription="Account / Sync"; background=card(); setPadding(dp(12),dp(12),dp(12),dp(12)); setOnClickListener { safe { accountDialog() } } },LinearLayout.LayoutParams(dp(48),dp(48)))
-        }
-        val scroll=ScrollView(this).apply { isFillViewport=true; clipToPadding=false }; scroller=scroll
-        root=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(0,dp(16),0,dp(18)) }
-        scroll.addView(root); outer.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val nav=LinearLayout(this).apply { gravity=Gravity.CENTER; setPadding(0,dp(8),0,0) }
-        for((name,symbol) in listOf("Timer" to "◷","Journal" to "▦","Settings" to "⚙")) {
-            nav.addView(button("$symbol  $name",name) { tab=name; render() }.apply {
-                isSelected=tab==name; setTextColor(if(isSelected) bg else cyan)
-                background=card(if(isSelected) cyan else surface)
-            },LinearLayout.LayoutParams(0,dp(50),1f).apply { setMargins(dp(3),0,dp(3),0) })
-        }
-        outer.addView(nav); setContentView(outer)
-        when(tab) { "Timer" -> timerPage(); "Journal" -> journal(); else -> settings() }
-        Repository.error?.let { root.addView(text(it,13f,Color.rgb(255,170,130))) }
-        scroll.post { scroll.scrollTo(0,previousScroll) }
+        if(!shellReady)buildShell()
+        if(renderedTab.isNotEmpty())scrollPositions[renderedTab]=scroller?.scrollY ?: 0
+        val targetScroll=scrollPositions[tab] ?: 0;renderedTab=tab
+        phase=Repository.engine.phase;pomoStage=Repository.pomodoro.stage;timer=null;focusTime=null;cat=null;groveStatus=null;growthHint=null;growthBar=null
+        root.removeAllViews();pageTitle.text=when(tab){"Journal"->"Your focus, in bloom";"Settings"->"Make it yours";else->"Make room to grow"}
+        for((name,item) in navItems){item.isSelected=name==tab;item.background=if(name==tab)card(Color.rgb(47,70,53)) else null}
+        when(tab){"Timer"->timerPage();"Journal"->journal();else->settings()}
+        Repository.error?.let {root.addView(text(it,13f,Color.rgb(255,180,155)))}
+        scroller?.post {scroller?.scrollTo(0,targetScroll)}
     }
     private fun updateGrowth() {
         if(Repository.pomodoroEnabled) {
@@ -259,6 +278,12 @@ class MainActivity: Activity() {
         orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(18),dp(20),dp(18))
         background=GradientDrawable().apply { setColor(surface);cornerRadius=dp(24).toFloat();setStroke(dp(1),Color.rgb(55,76,61)) }
     }
+    private fun adaptFocusCard(hero:LinearLayout) {
+        if(resources.configuration.screenHeightDp>=700)return
+        cat?.let {tree->hero.removeView(tree);hero.addView(tree,LinearLayout.LayoutParams(-1,dp(96)))}
+        val controls=(0 until hero.childCount).map {hero.getChildAt(it)}.filterIsInstance<LinearLayout>().firstOrNull {row->(0 until row.childCount).any {row.getChildAt(it) is Button}}
+        if(controls!=null){hero.removeView(controls);val clock=focusTime ?: timer;hero.addView(controls,(hero.indexOfChild(clock)+1).coerceAtMost(hero.childCount))}
+    }
     private fun pomodoroPage() {
         val muted=Color.rgb(161,181,165);val cream=Color.rgb(238,240,220);val coral=Color.rgb(207,158,137)
         val dead=pomoStage=="dead";val rest=pomoStage=="break";val ready=pomoStage=="ready"
@@ -267,7 +292,7 @@ class MainActivity: Activity() {
         hero.addView(text(badge,10f,if(dead)coral else cyan).apply {letterSpacing=.16f;gravity=Gravity.CENTER})
         hero.addView(text(when {dead->"A fresh start awaits";rest->"A little room to breathe";ready->"Your next flower is waiting";else->"Grow one little flower"},22f,cream).apply {typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL);gravity=Gravity.CENTER})
         cat=TreeView(this);hero.addView(cat,LinearLayout.LayoutParams(-1,dp(142)));cat?.refresh()
-        timer=text(timerText(),52f,cream).apply {gravity=Gravity.CENTER;typeface=Typeface.create("monospace",Typeface.NORMAL);setPadding(0,0,0,0);tag="Pomodoro countdown"};hero.addView(timer)
+        timer=text(timerText(),52f,cream).apply {gravity=Gravity.CENTER;setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(28,52,1,android.util.TypedValue.COMPLEX_UNIT_SP);typeface=Typeface.create("monospace",Typeface.NORMAL);setPadding(0,0,0,0);tag="Pomodoro countdown"};hero.addView(timer)
         focusTime=text("Focus time  ·  "+clockText(Repository.engine.elapsed()),13f,cyan).apply {gravity=Gravity.CENTER;typeface=Typeface.create("monospace",Typeface.NORMAL);tag="Focus time"};hero.addView(focusTime)
         hero.addView(text(when {dead->"This tree died. Begin again when you’re ready.";rest->"Flower saved. Stretch, breathe, move a little.";ready->"Start when you’re ready. No rush.";phase=="paused"->"Your flower is resting. Resume to keep growing.";phase=="running"->"A little water. A little growth.";else->"25 minutes, one thing at a time."},12f,muted).apply {gravity=Gravity.CENTER})
         growthBar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {max=1000;progressTintList=android.content.res.ColorStateList.valueOf(if(dead)coral else cyan);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(46,65,51));contentDescription="Round progress"}
@@ -276,16 +301,17 @@ class MainActivity: Activity() {
         line(hero) {row ->
             row.gravity=Gravity.CENTER;row.setPadding(0,dp(12),0,0)
             if(rest || ready) {
-                row.addView(button("Start next round",if(rest)"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() }.apply {setTextColor(bg);background=card(cyan)},LinearLayout.LayoutParams(-2,dp(48)))
+                row.addView(button("Start next round",if(rest)"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() }.apply {setTextColor(cyan);background=card(Color.rgb(63,101,69))},LinearLayout.LayoutParams(-2,dp(48)))
             } else {
-                row.addView(button(if(phase=="running")"Ⅱ" else "▶",if(phase=="running")"Pause" else "Start or resume") {notifications();if(Repository.engine.phase=="running")Repository.pause() else Repository.start();service("SYNC");render()}.apply {textSize=21f;setTextColor(bg);background=card(cyan)},LinearLayout.LayoutParams(dp(54),dp(50)))
+                row.addView(button(if(phase=="running")"Ⅱ" else "▶",if(phase=="running")"Pause" else "Start or resume") {notifications();if(Repository.engine.phase=="running")Repository.pause() else Repository.start();service("SYNC");render()}.apply {textSize=21f;setTextColor(cyan);background=card(Color.rgb(63,101,69))},LinearLayout.LayoutParams(dp(54),dp(50)))
                 if(phase!="idle" && !dead)row.addView(button("×","Cancel round · tree will die") {cancelPomodoroDialog()}.apply {textSize=24f;setTextColor(coral)},LinearLayout.LayoutParams(dp(50),dp(50)).apply {setMargins(dp(10),0,0,0)})
             }
         }
+        adaptFocusCard(hero)
         if(phase=="idle") {
             val rhythm=focusCard();root.addView(rhythm,LinearLayout.LayoutParams(-1,-2).apply {setMargins(0,0,0,dp(12))})
             rhythm.addView(text("MAKE SPACE FOR A BREAK",10f,muted).apply {letterSpacing=.12f})
-            line(rhythm) {row ->for(minutes in listOf(5,10)) row.addView(button("$minutes min") {Repository.selectMode(true,minutes);render()}.apply {background=card(if(Repository.pomodoro.breakMinutes==minutes)Color.rgb(49,78,56) else surface)},LinearLayout.LayoutParams(0,dp(44),1f).apply {setMargins(dp(3),dp(5),dp(3),0)})}
+            line(rhythm) {row ->for(minutes in listOf(5,10)) row.addView(button("$minutes min") {Repository.selectMode(true,minutes);render()}.apply {background=card(if(Repository.pomodoro.breakMinutes==minutes)Color.rgb(49,78,56) else surface)},LinearLayout.LayoutParams(0,dp(48),1f).apply {setMargins(dp(3),dp(5),dp(3),0)})}
         }
         line {row ->
             for((label,value) in listOf("FOCUS TODAY" to focusText(total(recordsFor(LocalDate.now()))),"BLOOMS THIS SESSION" to (Repository.engine.elapsed()/Pomodoro.FOCUS).toString())) {
@@ -308,57 +334,32 @@ class MainActivity: Activity() {
             setTextColor(cyan);setOnCheckedChangeListener { _,on -> Repository.selectMode(on,Repository.pomodoro.breakMinutes);render() }
         })
         if(Repository.pomodoroEnabled) {pomodoroPage();return}
-        val on=Repository.prefs.getBoolean("focusBlocking",false)
-        val all=Repository.prefs.getBoolean("focusBlockAll",false)
-        val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
-        val allowed=(Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").split(':').any { it.equals(component,true) }
-        root.addView(button("App blocking · "+(if(!on) "Off" else if(!allowed) "Permission needed" else if(all) "All except allowed apps" else "Selected apps")) { focusApps() })
-        val today=total(recordsFor(LocalDate.now()))
-        line { row ->
-            for((title,value) in listOf("SAVED TODAY" to focusText(today),"TREES TODAY" to Forest.trees(today).toString())) {
-                val metric=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(16),dp(10),dp(16),dp(10)); background=card() }
-                metric.addView(text(title,10f,Color.rgb(161,181,165)).apply { letterSpacing=.08f })
-                metric.addView(text(value,23f,cyan).apply { typeface=Typeface.DEFAULT_BOLD })
-                row.addView(metric,LinearLayout.LayoutParams(0,-2,1f).apply { setMargins(dp(3),0,dp(3),dp(8)) })
-            }
+        val hero=focusCard();root.addView(hero,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(14);bottomMargin=dp(16)})
+        hero.addView(text(when(phase){"running"->"GROWING NOW";"paused"->"TAKE A BREATH";"finished"->"SESSION COMPLETE";else->"YOUR DAILY GROVE"},10f,cyan).apply {letterSpacing=.16f;gravity=Gravity.CENTER})
+        cat=TreeView(this);hero.addView(cat,LinearLayout.LayoutParams(-1,dp(172)));cat?.refresh()
+        timer=text(clockText(Repository.displayTime()),46f).apply {gravity=Gravity.CENTER;setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(24,46,1,android.util.TypedValue.COMPLEX_UNIT_SP);typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);fontFeatureSettings="tnum";setPadding(0,dp(8),0,dp(8))};hero.addView(timer)
+        hero.addView(text(when(phase){"running"->"A little water. A little growth.";"paused"->"Your tree is resting. Resume when you’re ready.";"finished"->"Lovely work. Give this session a name.";else->"One small start. Something beautiful grows."},13f,Color.rgb(161,181,165)).apply {gravity=Gravity.CENTER})
+        line(hero){row->row.gravity=Gravity.CENTER;row.setPadding(0,dp(14),0,dp(14))
+            row.addView(button(if(phase=="running")"Ⅱ" else if(phase=="finished")"↓" else "▶",if(phase=="running")"Pause" else if(phase=="finished")"Save session" else "Start or resume") {
+                if(phase=="finished")saveDialog() else {notifications();if(Repository.engine.phase=="running")Repository.pause() else Repository.start();service("SYNC");render()}
+            }.apply {background=card(Color.rgb(63,101,69))},LinearLayout.LayoutParams(dp(56),dp(56)))
+            if(phase!="finished")row.addView(button("✓","Finish session") {Repository.finish();service("SYNC");render();saveDialog()}.apply {isEnabled=phase!="idle";alpha=if(isEnabled)1f else .3f},LinearLayout.LayoutParams(dp(56),dp(56)).apply {leftMargin=dp(12)})
         }
-        cat=TreeView(this); root.addView(cat,LinearLayout.LayoutParams(-1,dp(150))); cat?.refresh()
-        timer=text(clockText(Repository.displayTime()),42f,cyan).apply { gravity=Gravity.CENTER; typeface=Typeface.create("monospace",Typeface.NORMAL) }; root.addView(timer)
-        root.addView(text(if(Repository.pomodoroEnabled && pomoStage=="dead") "This tree died. Start a new 25-minute round." else when(phase) { "running" -> "A little water. A little growth."; "paused" -> "Watering paused. Your tree is resting."; "finished" -> "Lovely work. Save your focus."; else -> "Your next tree starts here." },14f,Color.rgb(182,199,185)).apply { gravity=Gravity.CENTER })
-        line { row ->
-            row.gravity=Gravity.CENTER
-            row.addView(button(if(phase=="running") "Ⅱ" else if(phase=="finished") "↓" else "▶",if(phase=="running") "Pause" else if(phase=="finished") "Save session" else "Start or resume") {
-                if(phase=="finished") saveDialog() else { notifications(); if(Repository.engine.phase=="running") Repository.pause() else Repository.start(); service("SYNC"); render() }
-            }.apply { visibility=if(Repository.pomodoroEnabled && pomoStage!="focus" && pomoStage!="dead" && phase!="finished")View.GONE else View.VISIBLE;setTextColor(bg); background=card(cyan); textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
-            row.addView(button("✓","Finish session") { if(Repository.engine.phase!="idle") { Repository.finish(); service("SYNC"); render(); saveDialog() } }.apply { isEnabled=phase!="idle"; visibility=if(phase=="finished" || Repository.pomodoroEnabled)View.GONE else View.VISIBLE; alpha=if(isEnabled)1f else .35f; textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
-        }
-        if(Repository.pomodoroEnabled && phase!="idle" && pomoStage!="dead") {
-            root.addView(button(if(pomoStage=="focus")"Cancel round · tree will die" else "End Pomodoro · completed rounds saved") { cancelPomodoroDialog() })
-        }
-        if(Repository.pomodoroEnabled)root.addView(text("Completed 25-minute rounds save automatically.",12f,cyan))
-        if(phase=="finished") {
-            root.addView(text("Not ready to save? Continue this session or start fresh.",13f,Color.LTGRAY))
-            line { row ->
-                row.addView(button("▶","Resume timer") { Repository.resumeFinished();service("SYNC");render() },LinearLayout.LayoutParams(0,dp(48),1f))
-                row.addView(button("↺","Reset timer") { AlertDialog.Builder(this).setTitle("Reset this unsaved timer?").setMessage("Saved history stays in your journal.").setNegativeButton("Keep timer",null).setPositiveButton("Reset") { _,_-> safe { Repository.discard();service("SYNC");render() } }.show() },LinearLayout.LayoutParams(0,dp(48),1f))
-            }
-        }
-        groveStatus=text(if(Repository.pomodoroEnabled) "🌸 ${Repository.engine.elapsed()/Pomodoro.FOCUS} flowers completed · Focus time excludes breaks" else Forest.text(Repository.growthElapsed())+(if(Forest.garden(Repository.growthElapsed())) " · Garden grown" else " · One tree per focused hour"),14f,cyan).apply { gravity=Gravity.CENTER }; root.addView(groveStatus)
-        growthBar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply { max=1000; progressTintList=android.content.res.ColorStateList.valueOf(cyan); progressBackgroundTintList=android.content.res.ColorStateList.valueOf(surface); contentDescription="Progress to next tree" }
-        root.addView(growthBar,LinearLayout.LayoutParams(-1,dp(8)).apply { setMargins(dp(35),dp(8),dp(35),0) })
-        growthHint=text("",12f,Color.rgb(161,181,165)).apply { gravity=Gravity.CENTER }; root.addView(growthHint); updateGrowth()
-        root.addView(text(if(Repository.pomodoroEnabled)"25 min · Flower     ${Repository.pomodoro.breakMinutes} min · Break     Manual next round" else "Every minute · Growth     1h · Tree     8h · Garden",11f,Color.rgb(161,181,165)).apply { gravity=Gravity.CENTER })
-        if(phase=="idle") {
-            root.addView(text("Grow here, or take your tree with you.",13f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
-            root.addView(button("Floating tree options") { tab="Settings"; render() })
-        } else {
-            root.addView(text(if(pomoStage=="dead" && Repository.pomodoroEnabled) "Cancelled · No partial focus time saved" else if(phase=="finished") "Session stopped · Save, resume or reset when you’re ready." else "Your timer continues in the notification shade.",12f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
-            if(phase!="finished" && !Repository.pomodoroEnabled) root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { if(Repository.pomodoroEnabled)Repository.cancelPomodoro() else Repository.discard(); service("SYNC"); render() } }.show() })
-        }
+        adaptFocusCard(hero)
+        growthBar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {max=1000;progressTintList=android.content.res.ColorStateList.valueOf(cyan);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(bg);contentDescription="Progress to next tree"};hero.addView(growthBar,LinearLayout.LayoutParams(-1,dp(4)))
+        growthHint=text("",12f,Color.rgb(161,181,165)).apply {gravity=Gravity.CENTER};hero.addView(growthHint);updateGrowth()
+        if(phase=="finished")line {row->row.gravity=Gravity.CENTER;row.setPadding(0,0,0,dp(12));row.addView(button("▶","Resume timer") {Repository.resumeFinished();service("SYNC");render()},LinearLayout.LayoutParams(dp(56),dp(48)).apply {rightMargin=dp(8)});row.addView(button("↺","Reset timer") {AlertDialog.Builder(this).setTitle("Reset this unsaved timer?").setMessage("Saved history stays in your journal.").setNegativeButton("Keep timer",null).setPositiveButton("Reset") {_,_->safe {Repository.discard();service("SYNC");render()}}.show()},LinearLayout.LayoutParams(dp(56),dp(48)))}
+        line {row->for((label,value) in listOf("FOCUS TODAY" to focusText(total(recordsFor(LocalDate.now()))),"TREES GROWN" to Forest.trees(total(recordsFor(LocalDate.now()))).toString())) {
+            val metric=focusCard();metric.addView(text(label,10f,Color.rgb(161,181,165)).apply {letterSpacing=.08f});metric.addView(text(value,25f,cyan));row.addView(metric,LinearLayout.LayoutParams(0,-2,1f).apply {setMargins(dp(3),0,dp(3),dp(12))})
+        }}
+        section("Create a little space")
+        settingsRow("App blocking · "+if(Repository.prefs.getBoolean("focusBlocking",false))"On" else "Off","Choose what stays out while you focus") {focusApps()}
+        settingsRow("Floating tree options","Keep your growing companion nearby") {tab="Settings";render()}
+        if(phase=="running" || phase=="paused")root.addView(button("Cancel session…") {AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") {_,_->safe {Repository.discard();service("SYNC");render()}}.show()})
     }
     private fun treePreviewDialog() {
         val dialog=Dialog(this)
-        val content=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(22),dp(22),dp(22),dp(16));setBackgroundColor(bg)}
+        val content=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(22),dp(22),dp(22),dp(16));background=card(bg)}
         content.addView(text("The life of a little tree",23f,cyan))
         content.addView(text("Fast-forward preview · Your timer and history stay untouched",12f,Color.rgb(161,181,165)))
         val tree=TreeView(this);content.addView(tree,LinearLayout.LayoutParams(-1,dp(200)))
@@ -373,7 +374,7 @@ class MainActivity: Activity() {
             tree.previewMillis=frame.elapsed;tree.previewFlower=true;tree.previewDeath=frame.death;tree.previewMotionTime=position.toDouble()
             tree.previewPhase=if(frame.dead)"dead" else if(playing && (position<10 || position>=12 && position<20))"running" else "resting";tree.refresh()
             stage.text=frame.title;hint.text=if(frame.dead)"Water stops. Petals fall. The stem droops and dries." else "25 minutes of focus shown in 10 seconds."
-            slider.progress=(position*1000).toInt();play.text=if(playing)"Ⅱ" else "▶";play.contentDescription=if(playing)"Pause preview" else "Play preview"
+            slider.progress=(position*1000).toInt();play.text="";play.setCompoundDrawablesRelative(UiIcon(if(playing)"pause" else "play",cyan).apply {setBounds(0,0,dp(22),dp(22))},null,null,null);play.contentDescription=if(playing)"Pause preview" else "Play preview"
         }
         val previewHandler=Handler(Looper.getMainLooper())
         lateinit var tick:Runnable
@@ -386,7 +387,7 @@ class MainActivity: Activity() {
             override fun onStopTrackingTouch(bar:SeekBar?){}
         })
         content.addView(button("Close") {dialog.dismiss()});dialog.setContentView(ScrollView(this).apply {addView(content);isFillViewport=true});dialog.setOnDismissListener {previewHandler.removeCallbacksAndMessages(null)}
-        dialog.show();dialog.window?.setLayout(-1,(resources.displayMetrics.heightPixels*.88).toInt());draw();previewHandler.post(tick)
+        dialog.show();dialog.window?.setBackgroundDrawable(card(bg));dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),(resources.displayMetrics.heightPixels*.88).toInt());draw();previewHandler.post(tick)
     }
     private fun cancelPomodoroDialog() {
         AlertDialog.Builder(this).setTitle("Cancel Pomodoro?")
@@ -414,7 +415,7 @@ class MainActivity: Activity() {
         content.addView(text("Close to save later, resume, or reset from the timer screen.",12f,Color.LTGRAY))
         val dialog=AlertDialog.Builder(this).setIcon(R.mipmap.ic_launcher).setTitle("What did you work on?").setView(content).setNegativeButton("Close",null).setPositiveButton("Save",null).create()
         dialog.setOnDismissListener { naming=false; if(!isFinishing && !isDestroyed && Repository.engine.phase=="finished") render() }
-        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+        dialog.setOnShowListener { dialog.window?.decorView?.apply {background=card(surface);clipToOutline=true};dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             safe { val day=dayOf(Repository.started); Repository.save(name.text.toString()); service("SYNC"); dialog.dismiss(); tab="Journal"; selected=day; month=YearMonth.from(day); scope="Day"; render() }
         } }; dialog.show()
     }
@@ -422,30 +423,30 @@ class MainActivity: Activity() {
     private fun recordsFor(day:LocalDate)=Repository.sessions.filter { dayOf(it.getLong("start"))==day }
     private fun total(records:List<JSONObject>)=records.sumOf { it.getLong("duration") }
     private fun journal() {
-        root.addView(text("Focus journal",24f).apply { typeface=Typeface.DEFAULT_BOLD })
+        section("A little progress, every day")
         val today=LocalDate.now()
-        root.addView(text("Today ${focusText(total(recordsFor(today)))}   ·   Yesterday ${focusText(total(recordsFor(today.minusDays(1))))}",17f,cyan))
-        line { row -> row.addView(button("‹","Previous month") { month=month.minusMonths(1); render() }); row.addView(text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")),19f),LinearLayout.LayoutParams(0,-2,1f)); row.addView(button("›","Next month") { month=month.plusMonths(1); render() }) }
+        root.addView(text("Today ${focusText(total(recordsFor(today)))}   ·   Yesterday ${focusText(total(recordsFor(today.minusDays(1))))}",14f,cyan))
+        line { row -> row.addView(button("‹","Previous month") { month=month.minusMonths(1); render() }); row.addView(text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")),18f).apply {gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f)); row.addView(button("›","Next month") { month=month.plusMonths(1); render() }) }
         val monthRecords=Repository.sessions.filter { YearMonth.from(dayOf(it.getLong("start")))==month }
         root.addView(text("${focusText(total(monthRecords))} tracked this month",13f,Color.LTGRAY))
         val grid=GridLayout(this).apply { columnCount=7 }
-        for(day in listOf("M","T","W","T","F","S","S")) grid.addView(text(day,12f,Color.LTGRAY).apply { gravity=Gravity.CENTER },GridLayout.LayoutParams().apply { width=0; height=dp(30); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f) })
+        for(day in listOf("Mo","Tu","We","Th","Fr","Sa","Su")) grid.addView(text(day,12f,Color.LTGRAY).apply { gravity=Gravity.CENTER },GridLayout.LayoutParams().apply { width=0; height=dp(30); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f) })
         val start=month.atDay(1).minusDays((month.atDay(1).dayOfWeek.value-1).toLong())
         for(index in 0 until Forest.calendarCells(month.atDay(1).dayOfWeek.value-1,month.lengthOfMonth())) {
             val day=start.plusDays(index.toLong()); val sum=total(recordsFor(day))
             val cell=TextView(this).apply {
-                text="${day.dayOfMonth}\n${if(sum>0) focusText(sum) else "—"}\n${Forest.cell(sum)}"; textSize=10f; gravity=Gravity.CENTER; includeFontPadding=false
+                text=if(sum>0) "${day.dayOfMonth}\n${focusText(sum)}\n${Forest.cell(sum)}" else "${day.dayOfMonth}\n\n"; textSize=11f; gravity=Gravity.CENTER; includeFontPadding=false
                 setTextColor(if(YearMonth.from(day)!=month) Color.GRAY else if(Forest.garden(sum)) Color.rgb(238,212,151) else Color.WHITE)
-                background=card(if(day==selected) Color.rgb(57,91,61) else if(sum>0) Color.rgb(35,60,43) else surface)
+                background=GradientDrawable().apply {cornerRadius=dp(10).toFloat();setColor(if(day==selected) Color.rgb(57,91,61) else if(sum>0) Color.rgb(35,60,43) else surface);if(day==selected)setStroke(dp(1),cyan)}
                 contentDescription=day.toString()+", "+focusText(sum)+" tracked, "+Forest.text(sum)+(if(Forest.garden(sum))", garden" else "")
                 setOnClickListener { selected=day; month=YearMonth.from(day); scope="Day"; render() }
             }
-            grid.addView(cell,GridLayout.LayoutParams().apply { width=0; height=dp(68); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f); setMargins(dp(2),dp(2),dp(2),dp(2)) })
+            grid.addView(cell,GridLayout.LayoutParams().apply { width=0; height=dp(maxOf(64,(56*resources.configuration.fontScale).toInt())); columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f); setMargins(dp(2),dp(2),dp(2),dp(2)) })
         }; root.addView(grid)
-        line { row -> for(name in listOf("Day","Week","Month")) row.addView(button(name) { scope=name; render() }.apply { isSelected=scope==name; background=card(if(scope==name) cyan else surface); setTextColor(if(scope==name) bg else cyan) },LinearLayout.LayoutParams(0,dp(44),1f).apply { setMargins(dp(2),dp(12),dp(2),dp(8)) }) }
+        line { row -> for(name in listOf("Day","Week","Month")) row.addView(button(name) { scope=name; render() }.apply { isSelected=scope==name; background=card(if(scope==name) cyan else surface); setTextColor(if(scope==name) bg else cyan) },LinearLayout.LayoutParams(0,dp(48),1f).apply { setMargins(dp(2),dp(12),dp(2),dp(8)) }) }
         val weekStart=selected.minusDays((selected.dayOfWeek.value-1).toLong())
         val records=Repository.sessions.filter { val d=dayOf(it.getLong("start")); when(scope) { "Week"-> !d.isBefore(weekStart)&&d.isBefore(weekStart.plusDays(7)); "Month"->YearMonth.from(d)==YearMonth.from(selected); else->d==selected } }
-        root.addView(text("${selected.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · $scope",19f))
+        root.addView(text("${selected.format(DateTimeFormatter.ofPattern("EEE, MMM d"))} · $scope",16f))
         root.addView(text("${focusText(total(records))} · ${records.size} session${if(records.size==1) "" else "s"}",24f,cyan))
         root.addView(text(if(scope=="Day" && Forest.garden(total(records))) "Garden grown · "+Forest.text(total(records)) else Forest.summary(total(records),records.groupBy { dayOf(it.getLong("start")) }.values.map { total(it) }),18f,Color.rgb(169,218,177)))
         root.addView(text(records.groupBy { Repository.deviceLabel(it) }.toSortedMap().map { (name,items) -> "$name ${focusText(total(items))}" }.joinToString(" · "),13f,Color.LTGRAY))
@@ -457,13 +458,15 @@ class MainActivity: Activity() {
             box.addView(text(Repository.deviceLabel(record)+" · "+Forest.text(record.getLong("duration")),12f,Color.LTGRAY))
             box.addView(text("${Instant.ofEpochMilli(record.getLong("start")).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d · HH:mm"))}   ${focusText(record.getLong("duration"))}",13f,cyan))
             line(box) { row ->
-                row.addView(button("✎","Rename session") { val input=EditText(this).apply { contentDescription="Rename task"; setText(record.getString("name")); setSingleLine() }; AlertDialog.Builder(this).setTitle("Rename session").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Save") { _,_-> safe { Repository.rename(record.getString("id"),input.text.toString()); render() } }.show() })
-                row.addView(button("×","Delete session") { AlertDialog.Builder(this).setTitle("Delete session?").setMessage(record.getString("name")).setNegativeButton("Cancel",null).setPositiveButton("Delete") { _,_-> safe { deleted=Repository.delete(record.getString("id")); render() } }.show() })
+                row.addView(button("✎","Rename session") { val input=EditText(this).apply { contentDescription="Rename task"; setText(record.getString("name")); setSingleLine() }; AlertDialog.Builder(this).setTitle("Rename session").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Save") { _,_-> safe { Repository.rename(record.getString("id"),input.text.toString()); render() } }.show() },LinearLayout.LayoutParams(dp(48),dp(48)))
+                row.addView(button("×","Delete session") { AlertDialog.Builder(this).setTitle("Delete session?").setMessage(record.getString("name")).setNegativeButton("Cancel",null).setPositiveButton("Delete") { _,_-> safe { deleted=Repository.delete(record.getString("id")); render() } }.show() },LinearLayout.LayoutParams(dp(48),dp(48)))
             }
             root.addView(box,LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(8) })
         }
         root.addView(text("Totals exclude pauses. Sessions belong to their local start date.",11f,Color.LTGRAY))
     }
+    @Deprecated("Native Activity back callback")
+    override fun onBackPressed() {if(tab!="Timer"){tab="Timer";render()}else super.onBackPressed()}
     private fun exportHistory() {
         startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type="application/json"; putExtra(Intent.EXTRA_TITLE,"Focanopy-sessions-${LocalDate.now()}.json") },42)
     }
@@ -477,30 +480,30 @@ class MainActivity: Activity() {
         } }
     }
     private fun settings() {
-        root.addView(button("Fast-forward tree preview") {treePreviewDialog()})
-        root.addView(button("Account / Sync") { accountDialog() })
-        root.addView(text(if(Cloud.owner!=null) "${Cloud.username} · ${Cloud.status}" else "Local only · sign in to sync devices",13f,Color.LTGRAY))
-        root.addView(text("Your floating grove",24f))
-        root.addView(text("Notification controls work without floating-window permission. To use the tree above other apps, allow “Display over other apps”.",14f,Color.LTGRAY))
-        root.addView(button(if(Settings.canDrawOverlays(this)) "Show floating tree" else "Enable floating tree…") {
-            notifications()
-            if(Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); Toast.makeText(this,"Floating tree enabled",Toast.LENGTH_SHORT).show() }
-            else { requestOverlay=true; startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName"))) }
-        })
-        root.addView(button("Hide floating tree") { Repository.prefs.edit().putBoolean("showPet",false).apply(); service("HIDE") })
-        val opacity=text("Tree opacity ${(Repository.prefs.getFloat("opacity",1f)*100).toInt()}%",16f); root.addView(opacity)
-        root.addView(SeekBar(this).apply {
-            max=70; progress=(Repository.prefs.getFloat("opacity",1f)*100).toInt()-30
+        section("Your account")
+        settingsRow("Account / Sync",if(Cloud.owner!=null) "${Cloud.username} · ${Cloud.status}" else "Saved on this device · Sign in to sync") {accountDialog()}
+        section("Your floating grove","Keep a small tree above other apps, or use notification controls.")
+        val showing=Repository.prefs.getBoolean("showPet",false) && Settings.canDrawOverlays(this)
+        settingsRow(if(showing)"Hide floating tree" else if(Settings.canDrawOverlays(this))"Show floating tree" else "Enable floating tree…",if(showing)"Visible above other apps" else "Optional · Requires display-over-apps access") {
+            if(showing){Repository.prefs.edit().putBoolean("showPet",false).apply();service("HIDE");render()}
+            else {notifications();if(Settings.canDrawOverlays(this)){Repository.prefs.edit().putBoolean("showPet",true).apply();service("SHOW");render()}else{requestOverlay=true;startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")))}}
+        }
+        val appearance=focusCard();root.addView(appearance)
+        val opacity=text("Tree opacity ${(Repository.prefs.getFloat("opacity",1f)*100).toInt()}%",14f);appearance.addView(opacity)
+        appearance.addView(SeekBar(this).apply {max=70;progress=(Repository.prefs.getFloat("opacity",1f)*100).toInt()-30;contentDescription="Floating tree opacity";minimumHeight=dp(48)
             setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(bar:SeekBar?,progress:Int,fromUser:Boolean) { val value=(progress+30)/100f; Repository.prefs.edit().putFloat("opacity",value).apply(); opacity.text="Tree opacity ${progress+30}%" }
-                override fun onStartTrackingTouch(bar:SeekBar?) {}; override fun onStopTrackingTouch(bar:SeekBar?) {}
+                override fun onProgressChanged(bar:SeekBar?,progress:Int,fromUser:Boolean){if(fromUser){Repository.prefs.edit().putFloat("opacity",(progress+30)/100f).apply();opacity.text="Tree opacity ${progress+30}%"}}
+                override fun onStartTrackingTouch(bar:SeekBar?){};override fun onStopTrackingTouch(bar:SeekBar?){}
             })
         })
-        root.addView(Switch(this).apply { text="Animate tree and water"; isChecked=Repository.prefs.getBoolean("animate",true); setOnCheckedChangeListener { _,value->Repository.prefs.edit().putBoolean("animate",value).apply() } })
-        root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
-        root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
-        root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.10.0",12f,cyan))
-        root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
+        appearance.addView(Switch(this).apply {text="Animate tree and water";textSize=14f;setTextColor(cyan);minHeight=dp(56);isChecked=Repository.prefs.getBoolean("animate",true);setOnCheckedChangeListener {_,value->Repository.prefs.edit().putBoolean("animate",value).apply()}})
+        section("Focus & permissions")
+        settingsRow("Apps & permissions","Choose blocked apps and manage access") {focusApps()}
+        settingsRow("Notification settings",if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)"Enabled · Background controls ready" else "Not enabled · Tap to manage") {startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName))}
+        section("Explore & manage")
+        settingsRow("Fast-forward tree preview","Watch a little tree’s complete lifecycle") {treePreviewDialog()}
+        settingsRow("Export session history","Save your journal as a JSON file") {exportHistory()}
+        root.addView(text("Focanopy · 1.11.0",12f,cyan).apply {gravity=Gravity.CENTER;setPadding(0,dp(24),0,dp(8))})
+        root.addView(text("Made for small, steady progress. Your sessions stay on this device unless you choose to sync.",12f,Color.rgb(161,181,165)).apply {gravity=Gravity.CENTER})
     }
 }

@@ -1,5 +1,8 @@
 # Focanopy
 
+**Android 1.11:** redesigned focus cards, stable bottom navigation, grouped settings, adaptive timer text and consistent accessible icons. [Download the Android release](https://github.com/ashu-sa/cyber-cat/releases/tag/v1.11.0).
+
+
 <img src="docs/screenshots/app-icon.png" alt="Focanopy tree app icon" width="96" />
 
 **Make room to grow.** An Android-first focus stopwatch that turns your time into a living forest, with native companion apps for macOS, Windows and Ubuntu.
