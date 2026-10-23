@@ -36,10 +36,11 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DESKTOP_RUN" --jq '.conclusion' | grep -qx success
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MACOS_RUN" --jq '.conclusion' | grep -qx success
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DESKTOP_RUN/jobs" --jq '.jobs[] | select(.name | startswith("Desktop (")) | if .conclusion == "success" or (.conclusion == null and any(.steps[]; .name == "Complete job" and .conclusion == "success")) then "success" else .conclusion end' | tee /tmp/desktop-status
-          test "$(grep -c '^success$' /tmp/desktop-status)" -eq 2
+          test "$(grep -c '^success$' /tmp/desktop-status)" -eq 3
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MACOS_RUN/jobs" --jq '.jobs[] | select(.name == "macOS universal app") | .conclusion' | grep -qx success
           gh run download "$DESKTOP_RUN" --name release-windows --dir artifacts/windows
           gh run download "$DESKTOP_RUN" --name release-linux --dir artifacts/linux
+          gh run download "$DESKTOP_RUN" --name release-linux-arm64 --dir artifacts/linux-arm64
           gh run download "$MACOS_RUN" --name release-macos --dir artifacts/macos
           mkdir -p release docs/screenshots
           find artifacts -type f -name '*.png' -exec cp {} docs/screenshots/ \;
@@ -49,6 +50,7 @@ jobs:
           test -s release/Focanopy-Windows.zip
           test -s release/Focanopy-Linux.tar.gz
           test -s release/Focanopy-Linux-x86_64.AppImage
+          test -s release/Focanopy-Linux-aarch64.AppImage
           test -s release/Focanopy-macOS-universal.zip
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

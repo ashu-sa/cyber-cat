@@ -3,7 +3,7 @@
 set -euo pipefail
 dnf install -y glibc-langpack-en libglvnd-egl libglvnd-opengl mesa-dri-drivers libxkbcommon-x11 xcb-util-cursor libX11 libXrender libXext libSM libICE fontconfig dbus-x11 xorg-x11-server-Xvfb xorg-x11-xauth weston
 mkdir -p /tmp/focanopy-check
-cp /artifacts/Focanopy-Linux-x86_64.AppImage /tmp/focanopy-check/Focanopy.AppImage
+cp "/artifacts/${APPIMAGE_NAME:-Focanopy-Linux-x86_64.AppImage}" /tmp/focanopy-check/Focanopy.AppImage
 chmod +x /tmp/focanopy-check/Focanopy.AppImage
 export LANG=en_US.UTF-8
 cd /tmp/focanopy-check

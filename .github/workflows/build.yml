@@ -22,6 +22,8 @@ jobs:
             platform: windows
           - os: ubuntu-22.04
             platform: linux
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
     runs-on: ${{ matrix.os }}
     env:
       QT_QPA_PLATFORM: offscreen
@@ -36,7 +38,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-icccm4 libxcb-xinerama0 libxcb-xkb1 desktop-file-utils xvfb xauth
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-icccm4 libxcb-xinerama0 libxcb-xkb1 libxcb-shape0 libxcb-randr0 libxcb-xfixes0 libxcb-sync1 libxcb-render0 libxcb-shm0 libxcb1 libx11-xcb1 libxkbcommon0 libgl1 desktop-file-utils xvfb xauth
       - run: python -m pip install -r requirements-build.txt
       - run: python -m unittest discover -s tests -v
       - if: runner.os == 'Linux'
@@ -65,9 +67,9 @@ jobs:
           name: release-${{ matrix.platform }}
           path: |
             desktop/dist/Focanopy-Windows.zip
-            desktop/dist/Focanopy-Linux.tar.gz
-            desktop/dist/Focanopy-Linux-x86_64.AppImage
-            desktop/dist/SHA256SUMS-Linux.txt
+            desktop/dist/Focanopy-Linux*.tar.gz
+            desktop/dist/Focanopy-Linux-*.AppImage
+            desktop/dist/SHA256SUMS-Linux-*.txt
             docs/screenshots/${{ matrix.platform }}-*.png
           if-no-files-found: error
   android:
@@ -127,23 +129,39 @@ jobs:
             docs/screenshots/macos-*.png
 
   fedora:
-    name: Fedora ${{ matrix.version }} runtime
+    name: Fedora ${{ matrix.version }} ${{ matrix.arch }} runtime
     if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'desktop'
     needs: desktop
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        version: ['43', '44']
+        include:
+          - version: '43'
+            arch: x86_64
+            artifact: release-linux
+            os: ubuntu-24.04
+          - version: '44'
+            arch: x86_64
+            artifact: release-linux
+            os: ubuntu-24.04
+          - version: '43'
+            arch: aarch64
+            artifact: release-linux-arm64
+            os: ubuntu-24.04-arm
+          - version: '44'
+            arch: aarch64
+            artifact: release-linux-arm64
+            os: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: release-linux
+          name: ${{ matrix.artifact }}
           path: fedora-artifacts
       - name: Verify portable AppImage in Fedora
         run: |
           mkdir -p fedora-input
-          find fedora-artifacts -name 'Focanopy-Linux-x86_64.AppImage' -exec cp {} fedora-input/ \;
-          docker run --rm -v "$PWD/fedora-input:/artifacts:ro" -v "$PWD/desktop/packaging/linux:/checks:ro" fedora:${{ matrix.version }} bash /checks/fedora-smoke.sh
+          find fedora-artifacts -name 'Focanopy-Linux-${{ matrix.arch }}.AppImage' -exec cp {} fedora-input/ \;
+          docker run --rm -e APPIMAGE_NAME=Focanopy-Linux-${{ matrix.arch }}.AppImage -v "$PWD/fedora-input:/artifacts:ro" -v "$PWD/desktop/packaging/linux:/checks:ro" fedora:${{ matrix.version }} bash /checks/fedora-smoke.sh

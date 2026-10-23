@@ -7,5 +7,7 @@ if [ ! -d .venv ]; then python3 -m venv .venv; fi
 mkdir -p dist/Focanopy/licenses
 .venv/bin/python -m pip show PySide6_Essentials > dist/Focanopy/licenses/PySide6.txt
 cp README.md LICENSE THIRD_PARTY.md dist/Focanopy/
-tar -czf dist/Focanopy-Linux.tar.gz -C dist Focanopy
-printf 'Built dist/Focanopy-Linux.tar.gz\n'
+archive=Focanopy-Linux.tar.gz
+if [[ "$(uname -m)" == aarch64 ]]; then archive=Focanopy-Linux-aarch64.tar.gz; fi
+tar -czf "dist/$archive" -C dist Focanopy
+printf 'Built dist/%s\n' "$archive"

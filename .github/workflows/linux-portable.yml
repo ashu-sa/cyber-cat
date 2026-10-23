@@ -5,8 +5,16 @@ permissions:
   contents: read
 jobs:
   build:
-    name: Build portable x86-64 Linux
-    runs-on: ubuntu-22.04
+    name: Build portable ${{ matrix.arch }} Linux
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            os: ubuntu-22.04
+          - arch: aarch64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +24,7 @@ jobs:
       - name: Install native build requirements
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-icccm4 libxcb-xinerama0 libxcb-xkb1 desktop-file-utils xvfb xauth
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-icccm4 libxcb-xinerama0 libxcb-xkb1 libxcb-shape0 libxcb-randr0 libxcb-xfixes0 libxcb-sync1 libxcb-render0 libxcb-shm0 libxcb1 libx11-xcb1 libxkbcommon0 libgl1 desktop-file-utils xvfb xauth
       - name: Test and package
         working-directory: desktop
         env:
@@ -29,31 +37,43 @@ jobs:
         env:
           CYBERCAT_DATA_DIRECTORY: ${{ runner.temp }}/focanopy-ubuntu-smoke
         run: |
-          env -u QT_QPA_PLATFORM QT_DEBUG_PLUGINS=1 xvfb-run -a desktop/dist/Focanopy-Linux-x86_64.AppImage --appimage-extract-and-run --smoke-test
+          env -u QT_QPA_PLATFORM QT_DEBUG_PLUGINS=1 xvfb-run -a desktop/dist/Focanopy-Linux-${{ matrix.arch }}.AppImage --appimage-extract-and-run --smoke-test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: portable-linux
+          name: portable-linux-${{ matrix.arch }}
           path: |
-            desktop/dist/Focanopy-Linux-x86_64.AppImage
-            desktop/dist/Focanopy-Linux.tar.gz
-            desktop/dist/SHA256SUMS-Linux.txt
+            desktop/dist/Focanopy-Linux-${{ matrix.arch }}.AppImage
+            desktop/dist/Focanopy-Linux*.tar.gz
+            desktop/dist/SHA256SUMS-Linux-${{ matrix.arch }}.txt
           if-no-files-found: error
   fedora:
-    name: Fedora ${{ matrix.version }} runtime
+    name: Fedora ${{ matrix.version }} ${{ matrix.arch }} runtime
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        version: ['43', '44']
+        include:
+          - version: '43'
+            arch: x86_64
+            os: ubuntu-24.04
+          - version: '44'
+            arch: x86_64
+            os: ubuntu-24.04
+          - version: '43'
+            arch: aarch64
+            os: ubuntu-24.04-arm
+          - version: '44'
+            arch: aarch64
+            os: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: portable-linux
+          name: portable-linux-${{ matrix.arch }}
           path: portable-linux
       - name: Test X11 and Wayland backends in Fedora
         run: |
-          docker run --rm -v "$PWD/portable-linux:/artifacts:ro" -v "$PWD/desktop/packaging/linux:/checks:ro" fedora:${{ matrix.version }} bash /checks/fedora-smoke.sh
+          docker run --rm -e APPIMAGE_NAME=Focanopy-Linux-${{ matrix.arch }}.AppImage -v "$PWD/portable-linux:/artifacts:ro" -v "$PWD/desktop/packaging/linux:/checks:ro" fedora:${{ matrix.version }} bash /checks/fedora-smoke.sh
