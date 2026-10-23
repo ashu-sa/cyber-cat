@@ -104,7 +104,26 @@ Screenshots come from the native apps using sample sessions, not personal activi
 
 Android packages are debug-signed personal/testing builds, not Play Store releases. The signing identity is preserved for upgrades. macOS builds are ad-hoc signed; platform installation details are in the guides below.
 
-For Fedora GNOME, make the AppImage executable and launch it. If FUSE is unavailable, use `--appimage-extract-and-run`. Both architecture builds are runtime-tested on Fedora 43/44 and Ubuntu; see [Linux setup](desktop/LINUX.md).
+### Fedora GNOME · ARM64 quick start
+
+**[Download the ARM64 AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-aarch64.AppImage)** for a Fedora machine where `uname -m` prints `aarch64`. Python and Qt are bundled; no host Python installation is required.
+
+From the download folder:
+
+```bash
+chmod +x Focanopy-Linux-aarch64.AppImage
+./Focanopy-Linux-aarch64.AppImage
+```
+
+If FUSE is unavailable, launch without it:
+
+```bash
+./Focanopy-Linux-aarch64.AppImage --appimage-extract-and-run
+```
+
+For Intel/AMD machines (`uname -m` → `x86_64`), use the [x86-64 AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) instead. Each CPU architecture has its own portable build.
+
+Both builds passed packaged X11 and native Wayland runtime checks on Fedora 43 and 44, plus Ubuntu launch checks. These are runtime checks, not full GNOME desktop certification. ARM64 requires glibc 2.39+; x86-64 requires glibc 2.35+. See the [Fedora GNOME guide](desktop/LINUX.md) for shortcuts, floating-window behaviour, and tar archive alternatives.
 
 ## How the grove works
 
