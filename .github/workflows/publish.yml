@@ -45,7 +45,7 @@ jobs:
           mkdir -p release docs/screenshots
           find artifacts -type f -name '*.png' -exec cp {} docs/screenshots/ \;
           find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.AppImage' \) -exec cp {} release/ \;
-          gh release download "$RELEASE_TAG" --pattern 'Focanopy-Android-debug.apk' --dir release
+          gh release download "$RELEASE_TAG" --pattern 'Focanopy-Android-*.apk' --dir release
           test -s release/Focanopy-Android-debug.apk
           test -s release/Focanopy-Windows.zip
           test -s release/Focanopy-Linux.tar.gz

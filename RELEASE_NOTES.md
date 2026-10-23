@@ -1,10 +1,11 @@
-# Focanopy 1.12.0 · A grove that grows together
+# Focanopy 1.12.1 · Android permission-reduced standard build
 
-- Replaced the abrupt completed-tree reset with a continuous 2.4-second handoff. The full tree eases back into the grove while the next seedling fades into the foreground.
-- Overlapping canopies use graduated scale and opacity for depth. Older trees settle behind newer trees; visible layers stay bounded as the total grows.
-- One stable soil island anchors the scene. Water now lands above the active seedling, and the large count label is removed from the artwork; session metrics keep the exact totals.
-- The fast-forward preview holds the handoff at real speed before accelerating growth, so the transition is easy to inspect.
-- The same native choreography runs on Android, macOS, Windows and Linux. Pausing freezes elapsed-time motion; disabled animations and reduced-motion settings show the settled layout.
-- Android includes the polished focus cards, stable navigation and compact-screen controls from 1.11.
+This update changes the Android packages. Desktop/Linux packages are carried forward unchanged from 1.12.0.
 
-Validation: native macOS timing/layout tests, Android unit tests/lint and isolated Pomodoro flow, desktop model/widget tests, and all-platform release builds.
+- The recommended **Focanopy-Android-standard.apk** contains no Accessibility service declaration, Accessibility service implementation, or installed-launcher-app inventory queries.
+- Stopwatch, tree animation, Pomodoro, session history, sync, notification controls and the optional floating tree remain available. Android app blocking is omitted from this build.
+- App blocking is available only in the separate **Focanopy-Android-app-blocking.apk**. Its sensitive Accessibility declaration can cause Internet-sideload installation restrictions; keep Play Protect enabled.
+- **Focanopy-Android-debug.apk** is a compatibility filename for the standard APK. Both builds retain the original application ID and signing identity, preserving in-place updates and local history.
+- Removing the sensitive capability does not constitute Google certification or guarantee a Play Protect verdict. Google's developer guidance: https://developers.google.com/android/play-protect/warning-dev-guidance.
+
+Validation: unit tests and lint for both packages; isolated standard-APK instrumentation verifies the absence of the service declaration and class, and exercises start/pause/resume/save plus Pomodoro automatic completion. Full app-blocking build remains separately buildable.

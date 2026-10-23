@@ -89,7 +89,7 @@ Screenshots come from the native apps using sample sessions, not personal activi
 
 | Platform | Package | Requirements |
 |---|---|---|
-| **Android** | [Download APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-debug.apk) | Android 8.0+ |
+| **Android** | [Download standard APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-standard.apk) | Android 8.0+ |
 | **macOS** | [Universal app](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-macOS-universal.zip) | macOS 14+ · Apple Silicon or Intel |
 | **Windows** | [Portable ZIP](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Windows.zip) | Windows x64 · extract the folder, then run `Focanopy.exe` |
 | **Linux ARM64 · Fedora / Ubuntu** | [ARM64 AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-aarch64.AppImage) | aarch64 · glibc 2.39+ · [Fedora GNOME guide](desktop/LINUX.md) |
@@ -143,7 +143,9 @@ Rewards are derived from session durations. Short sessions add up, and edits or 
 
 ## Optional focus tools & sync
 
-**App blocking:** block selected apps, or all apps except browsers and your exclusions. Blocking releases during pauses and breaks. Android requires explicit Accessibility access; desktop behaviour depends on the OS. See [Pomodoro & app blocking](POMODORO.md) for setup and platform limits.
+**Android package choice:** the standard APK omits the Accessibility service, app-blocking implementation, and installed-app inventory queries. Timing, Pomodoro, trees, history, sync, notification controls, and the optional floating tree remain available. The separate [app-blocking APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-app-blocking.apk) declares sensitive Accessibility access and may be blocked by Play Protect when sideloaded. Do not disable Play Protect to install it. The app-blocking screenshots show this optional build.
+
+**App blocking (optional Android build / desktop):** block selected apps, or all apps except browsers and your exclusions. Blocking releases during pauses and breaks. Android requires explicit Accessibility access; desktop behaviour depends on the OS. See [Pomodoro & app blocking](POMODORO.md) for setup and platform limits.
 
 **Cross-device history:** sign in once with the same username and four-digit PIN on each device. Completed sessions sync with their source-device labels; active timers stay on their own devices. Offline edits are retained, and conflicting edits have explicit resolution choices. Existing local history uploads only when you choose to include it. See [accounts & sync](backend/README.md).
 

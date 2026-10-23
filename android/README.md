@@ -4,7 +4,15 @@ A native **Kotlin Android app**, with a native growing-tree companion. Optional 
 
 ## Install
 
-Copy `Focanopy-Android-debug.apk` to your phone, open it, and permit installation from that source if Android asks. This is a locally debug-signed build for personal testing, not a Play Store release. A production release should be signed with your own release key.
+Copy `Focanopy-Android-standard.apk` to your phone, open it, and permit installation from that source if Android asks. This is a locally debug-signed build for personal testing, not a Play Store release. A production release should be signed with your own release key.
+
+The **standard APK** is the recommended download. It contains no Accessibility service or app-blocking implementation, and does not query the installed launcher-app inventory. Stopwatch, Pomodoro, history, sync, notification controls, and the optional floating tree still work. `Focanopy-Android-debug.apk` is a compatibility filename for the same standard build.
+
+### Play Protect and the optional app-blocking build
+
+The separate `Focanopy-Android-app-blocking.apk` includes the Accessibility service used to detect the foreground app and return to Home when a blocked app opens. It declares window-state events, not screen-content retrieval. Even so, Google treats Accessibility as sensitive access and can block Internet-sideloaded apps declaring it. See [Google's developer guidance](https://developers.google.com/android/play-protect/warning-dev-guidance).
+
+Use the standard APK if you do not need app blocking. Keep Play Protect enabled. Removing a sensitive capability does not certify an APK or guarantee Google's current verdict; a developer appeal may still be needed if the standard build is flagged. Both packages retain the original application ID and signing key for in-place updates. Switching to standard does not erase session history.
 
 1. Launch Focanopy and allow notifications when asked.
 2. Tap ▶ to start. Tap Ⅱ to pause and ▶ to resume.
@@ -99,3 +107,14 @@ Settings → **Export session history** opens Android’s document picker to sav
 Floating controls support dragging from the tree, timer, button surfaces and empty space. Movement beyond the drag threshold suppresses the click action; a regular click/tap still controls the stopwatch. Pausing never removes earned trees or saved focus time.
 
 Closing the save popup preserves the unsaved session. Use **Resume Timer** to continue it without counting the waiting/naming gap, or **Reset Timer** to clear only that unsaved timer. Save remains available.
+
+## Build variants
+
+```bash
+# Recommended standard package, without Accessibility/app blocking
+./gradlew :app:assembleStandard :app:testStandardUnitTest :app:lintStandard
+# Separate optional app-blocking package
+./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+```
+
+`-PstandardQa :app:assembleStandardQa :app:assembleStandardQaAndroidTest` creates the isolated permission-reduced QA app. Its instrumentation verifies that the Accessibility declaration and implementation are absent and checks core timing, saving, and Pomodoro completion.

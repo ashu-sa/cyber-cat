@@ -92,14 +92,16 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
-      - run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+      - run: ./gradlew --no-daemon :app:assembleStandard :app:assembleDebug :app:testStandardUnitTest :app:testDebugUnitTest :app:lintStandard :app:lintDebug
       - run: |
           mkdir -p ../release
-          cp app/build/outputs/apk/debug/app-debug.apk ../release/Focanopy-Android-debug.apk
+          cp app/build/outputs/apk/standard/app-standard.apk ../release/Focanopy-Android-debug.apk
+          cp app/build/outputs/apk/standard/app-standard.apk ../release/Focanopy-Android-standard.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../release/Focanopy-Android-app-blocking.apk
       - uses: actions/upload-artifact@v4
         with:
           name: release-android
-          path: release/Focanopy-Android-debug.apk
+          path: release/Focanopy-Android-*.apk
   macos:
     timeout-minutes: 25
     if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'macos'

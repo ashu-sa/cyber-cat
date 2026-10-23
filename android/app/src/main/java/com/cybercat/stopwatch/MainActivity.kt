@@ -58,7 +58,7 @@ class MainActivity: Activity() {
         syncTicks++; if(syncTicks%30==0 && Cloud.owner!=null) Cloud.run({ Cloud.sync() })
         handler.postDelayed(this,1000)
     } }
-    override fun onCreate(state:Bundle?) { super.onCreate(state); Repository.init(this); if(state!=null) { tab=state.getString("tab","Timer"); selected=LocalDate.parse(state.getString("selected",LocalDate.now().toString())); month=YearMonth.parse(state.getString("month",YearMonth.now().toString())); scope=state.getString("scope","Day"); requestOverlay=state.getBoolean("requestOverlay") }; window.statusBarColor=bg; window.navigationBarColor=bg; window.decorView.systemUiVisibility=window.decorView.systemUiVisibility and (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR).inv(); render(); handle(intent); if(Repository.engine.phase!="idle" || Repository.prefs.getBoolean("showPet",false)) safe { service("SYNC") } }
+    override fun onCreate(state:Bundle?) { super.onCreate(state); Repository.init(this); if(!BuildConfig.APP_BLOCKING_AVAILABLE)Repository.prefs.edit().putBoolean("focusBlocking",false).apply(); if(state!=null) { tab=state.getString("tab","Timer"); selected=LocalDate.parse(state.getString("selected",LocalDate.now().toString())); month=YearMonth.parse(state.getString("month",YearMonth.now().toString())); scope=state.getString("scope","Day"); requestOverlay=state.getBoolean("requestOverlay") }; window.statusBarColor=bg; window.navigationBarColor=bg; window.decorView.systemUiVisibility=window.decorView.systemUiVisibility and (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR).inv(); render(); handle(intent); if(Repository.engine.phase!="idle" || Repository.prefs.getBoolean("showPet",false)) safe { service("SYNC") } }
     override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); handle(intent) }
     private fun handle(intent:Intent?) {
         val callback=intent?.dataString
@@ -153,6 +153,7 @@ class MainActivity: Activity() {
         content.addView(button("Close") { dialog.dismiss() }); dialog.show(); dialog.window?.setBackgroundDrawable(card(bg)); dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(32),-2);dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     }
     private fun focusApps() {
+        if(!BuildConfig.APP_BLOCKING_AVAILABLE)return
         val prefs=Repository.prefs
         val packages=packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),0)
             .filter {it.activityInfo.packageName!=packageName && it.activityInfo.packageName !in setOf("com.android.settings","com.google.android.dialer","com.android.dialer","com.android.phone")}
@@ -174,7 +175,7 @@ class MainActivity: Activity() {
         val access=text("",12f,Color.rgb(161,181,165));panel.addView(access)
         val permission=button("Enable access") {startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))};panel.addView(permission)
         refreshFocusPermissions={
-            val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
+            val component=ComponentName(packageName,"$packageName.FocusAccessibilityService").flattenToString()
             val granted=(Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").split(':').any {it.equals(component,true)}
             access.text=if(granted)"Accessibility access is enabled · Pauses and breaks allow apps" else "Accessibility access is needed to block apps. No screen contents or typing are read."
             permission.text=if(granted)"Manage access" else "Enable access"
@@ -320,9 +321,9 @@ class MainActivity: Activity() {
             }
         }
         val on=Repository.prefs.getBoolean("focusBlocking",false)
-        val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
+        val component=ComponentName(packageName,"$packageName.FocusAccessibilityService").flattenToString()
         val allowed=(Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").split(':').any {it.equals(component,true)}
-        root.addView(button("App blocking · "+(if(!on)"Off" else if(!allowed)"Permission needed" else "On")) {focusApps()}.apply {gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(18),0,dp(18),0)})
+        if(BuildConfig.APP_BLOCKING_AVAILABLE)root.addView(button("App blocking · "+(if(!on)"Off" else if(!allowed)"Permission needed" else "On")) {focusApps()}.apply {gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(18),0,dp(18),0)})
         root.addView(text("25-minute rounds save automatically · Next round is always your choice",11f,muted).apply {gravity=Gravity.CENTER;setPadding(dp(8),dp(12),dp(8),dp(4))})
         if(rest || ready)root.addView(button("End Pomodoro","End Pomodoro · completed rounds saved") {cancelPomodoroDialog()}.apply {setTextColor(muted)})
         root.addView(button("Fast-forward tree preview") {treePreviewDialog()})
@@ -353,7 +354,7 @@ class MainActivity: Activity() {
             val metric=focusCard();metric.addView(text(label,10f,Color.rgb(161,181,165)).apply {letterSpacing=.08f});metric.addView(text(value,25f,cyan));row.addView(metric,LinearLayout.LayoutParams(0,-2,1f).apply {setMargins(dp(3),0,dp(3),dp(12))})
         }}
         section("Create a little space")
-        settingsRow("App blocking · "+if(Repository.prefs.getBoolean("focusBlocking",false))"On" else "Off","Choose what stays out while you focus") {focusApps()}
+        if(BuildConfig.APP_BLOCKING_AVAILABLE)settingsRow("App blocking · "+if(Repository.prefs.getBoolean("focusBlocking",false))"On" else "Off","Choose what stays out while you focus") {focusApps()}
         settingsRow("Floating tree options","Keep your growing companion nearby") {tab="Settings";render()}
         if(phase=="running" || phase=="paused")root.addView(button("Cancel session…") {AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") {_,_->safe {Repository.discard();service("SYNC");render()}}.show()})
     }
@@ -498,12 +499,12 @@ class MainActivity: Activity() {
         })
         appearance.addView(Switch(this).apply {text="Animate tree and water";textSize=14f;setTextColor(cyan);minHeight=dp(56);isChecked=Repository.prefs.getBoolean("animate",true);setOnCheckedChangeListener {_,value->Repository.prefs.edit().putBoolean("animate",value).apply()}})
         section("Focus & permissions")
-        settingsRow("Apps & permissions","Choose blocked apps and manage access") {focusApps()}
+        if(BuildConfig.APP_BLOCKING_AVAILABLE)settingsRow("Apps & permissions","Choose blocked apps and manage access") {focusApps()}
         settingsRow("Notification settings",if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)"Enabled · Background controls ready" else "Not enabled · Tap to manage") {startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName))}
         section("Explore & manage")
         settingsRow("Fast-forward tree preview","Watch a little tree’s complete lifecycle") {treePreviewDialog()}
         settingsRow("Export session history","Save your journal as a JSON file") {exportHistory()}
-        root.addView(text("Focanopy · 1.12.0",12f,cyan).apply {gravity=Gravity.CENTER;setPadding(0,dp(24),0,dp(8))})
+        root.addView(text("Focanopy · ${BuildConfig.VERSION_NAME}"+(if(BuildConfig.APP_BLOCKING_AVAILABLE)" · App blocking" else " · Standard"),12f,cyan).apply {gravity=Gravity.CENTER;setPadding(0,dp(24),0,dp(8))})
         root.addView(text("Made for small, steady progress. Your sessions stay on this device unless you choose to sync.",12f,Color.rgb(161,181,165)).apply {gravity=Gravity.CENTER})
     }
 }

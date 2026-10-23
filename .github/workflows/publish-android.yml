@@ -1,0 +1,53 @@
+name: Publish verified Android update
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Android build run
+        required: true
+      tag:
+        description: Draft release with locally signed standard and app-blocking APKs
+        default: v1.12.1
+        required: true
+      base_tag:
+        description: Release carrying unchanged desktop packages
+        default: v1.12.0
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and publish Android packages with existing desktop packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          BASE_TAG: ${{ inputs.base_tag }}
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$BASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs" > jobs.json
+          python3 - <<'PY'
+          import json
+          assert json.load(open('run.json'))['conclusion']=='success'
+          assert any(j['name']=='Android APK' and j['conclusion']=='success' for j in json.load(open('jobs.json'))['jobs'])
+          PY
+          mkdir -p release
+          gh release download "$RELEASE_TAG" --pattern 'Focanopy-Android-*.apk' --dir release
+          test -s release/Focanopy-Android-standard.apk
+          test -s release/Focanopy-Android-app-blocking.apk
+          cmp release/Focanopy-Android-standard.apk release/Focanopy-Android-debug.apk
+          gh release download "$BASE_TAG" --dir release --skip-existing
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          files=sorted(p for p in Path('release').iterdir() if not p.name.startswith('SHA256SUMS'))
+          Path('release/SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files))
+          PY
+          gh release upload "$RELEASE_TAG" release/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file RELEASE_NOTES.md
