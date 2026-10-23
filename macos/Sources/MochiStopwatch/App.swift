@@ -17,6 +17,7 @@ final class FloatingPanel: NSPanel {
     var focusShield:NSPanel?
     var blockingShields:[NSPanel]=[]
     var blockingWatchdog:Timer?
+    var resolvedAppPaths:[String:String]=[:]
     lazy var browserIDs:Set<String> = Set(NSWorkspace.shared.urlsForApplications(toOpen:URL(string:"https://example.com")!).compactMap { Bundle(url:$0)?.bundleIdentifier })
     var appObserver:NSObjectProtocol?
     var historyWindow: NSWindow?
@@ -92,6 +93,15 @@ final class FloatingPanel: NSPanel {
         model.phase == .running && (!model.pomodoroEnabled || model.pomodoro.stage=="focus") && UserDefaults.standard.bool(forKey:"focusBlocking")
     }
     func clearBlockingShields() { blockingShields.forEach { $0.orderOut(nil) };blockingShields=[];focusShield?.orderOut(nil) }
+    func blockingPaths(_ key:String)->[String] {
+        let prefs=UserDefaults.standard
+        let resolved=(prefs.stringArray(forKey:key) ?? []).compactMap { id -> String? in
+            if let path=resolvedAppPaths[id] { return path.isEmpty ? nil : path }
+            let path=NSWorkspace.shared.urlForApplication(withBundleIdentifier:id)?.path ?? ""
+            resolvedAppPaths[id]=path;return path.isEmpty ? nil : path
+        }
+        return (prefs.stringArray(forKey:key+"Paths") ?? [])+resolved
+    }
     func blockIfSelected(_ app:NSRunningApplication) {
         model.advancePomodoro()
         guard blockingActive else { clearBlockingShields();return }
@@ -100,7 +110,7 @@ final class FloatingPanel: NSPanel {
         let path=app.executableURL?.path ?? app.bundleURL?.path ?? ""
         let protected=["com.apple.finder","com.apple.dock","com.apple.systempreferences","com.apple.loginwindow","com.apple.SecurityAgent","com.apple.controlcenter","com.apple.notificationcenterui","com.apple.systemuiserver"]
         guard app.processIdentifier != ProcessInfo.processInfo.processIdentifier,app.activationPolicy == .regular,!protected.contains(id) else { clearBlockingShields();return }
-        let blocked=FocusAppPolicy.blocks(id:id,path:path,all:prefs.bool(forKey:"focusBlockAll"),selected:prefs.stringArray(forKey:"focusBlockedApps") ?? [],selectedPaths:prefs.stringArray(forKey:"focusBlockedAppsPaths") ?? [],excluded:prefs.stringArray(forKey:"focusExcludedApps") ?? [],excludedPaths:prefs.stringArray(forKey:"focusExcludedAppsPaths") ?? [],browsers:browserIDs)
+        let blocked=FocusAppPolicy.blocks(id:id,path:path,all:prefs.bool(forKey:"focusBlockAll"),selected:prefs.stringArray(forKey:"focusBlockedApps") ?? [],selectedPaths:blockingPaths("focusBlockedApps"),excluded:prefs.stringArray(forKey:"focusExcludedApps") ?? [],excludedPaths:blockingPaths("focusExcludedApps"),browsers:browserIDs)
         guard blocked else { clearBlockingShields();return }
         // AX minimization covers Java/JetBrains windows that may resist application hiding.
         if AXIsProcessTrusted() {
