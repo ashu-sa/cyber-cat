@@ -92,7 +92,8 @@ Screenshots come from the native apps using sample sessions, not personal activi
 | **Android** | [Download APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-debug.apk) | Android 8.0+ |
 | **macOS** | [Universal app](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-macOS-universal.zip) | macOS 14+ · Apple Silicon or Intel |
 | **Windows** | [Portable ZIP](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Windows.zip) | Windows x64 · extract the folder, then run `Focanopy.exe` |
-| **Linux · Fedora / Ubuntu** | [Portable AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) | x86-64 · glibc 2.35+ · [Fedora GNOME guide](desktop/LINUX.md) |
+| **Linux ARM64 · Fedora / Ubuntu** | [ARM64 AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-aarch64.AppImage) | aarch64 · glibc 2.39+ · [Fedora GNOME guide](desktop/LINUX.md) |
+| **Linux Intel/AMD · Fedora / Ubuntu** | [x86-64 AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) | x86-64 · glibc 2.35+ · [Linux guide](desktop/LINUX.md) |
 
 [Release notes & checksums](https://github.com/ashu-sa/cyber-cat/releases/latest) · [Build checks](https://github.com/ashu-sa/cyber-cat/actions/workflows/build.yml)
 
@@ -103,7 +104,7 @@ Screenshots come from the native apps using sample sessions, not personal activi
 
 Android packages are debug-signed personal/testing builds, not Play Store releases. The signing identity is preserved for upgrades. macOS builds are ad-hoc signed; platform installation details are in the guides below.
 
-For Fedora GNOME, make the AppImage executable and launch it. If FUSE is unavailable, use `--appimage-extract-and-run`. The same package is runtime-tested on Fedora 43/44 and Ubuntu; see [Linux setup](desktop/LINUX.md).
+For Fedora GNOME, make the AppImage executable and launch it. If FUSE is unavailable, use `--appimage-extract-and-run`. Both architecture builds are runtime-tested on Fedora 43/44 and Ubuntu; see [Linux setup](desktop/LINUX.md).
 
 ## How the grove works
 
@@ -167,7 +168,7 @@ Clone the repository, then use the command for your platform. Toolchain prerequi
 | Android | `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` | [Android setup](android/README.md) |
 | macOS | `cd macos && ./test.sh && ./build.sh` | [macOS setup](macos/README.md) |
 | Windows | `desktop\build-windows.cmd` | [Desktop setup](desktop/README.md) |
-| Portable Linux | `cd desktop && ./build-appimage.sh` on Ubuntu 22.04 x86-64 | [Linux packaging & Fedora setup](desktop/LINUX.md) |
+| Portable Linux | `cd desktop && ./build-appimage.sh` on Ubuntu 22.04 x86-64 / Ubuntu 24.04 ARM64 | [Linux packaging & Fedora setup](desktop/LINUX.md) |
 
 For a universal macOS package, run the build with `CYBERCAT_UNIVERSAL=1`.
 

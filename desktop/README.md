@@ -4,7 +4,7 @@ A real desktop app made with Python + **Qt Widgets (PySide6 Essentials)**. No El
 
 ## Fedora GNOME / portable Linux
 
-Use the [portable AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) for Fedora and other modern x86-64 Linux desktops. It bundles Python and Qt, includes a no-FUSE fallback, and is built on a glibc 2.35 baseline. See the [Fedora GNOME installation guide](LINUX.md) for permissions, shortcuts, XWayland/native Wayland behaviour, and package requirements.
+Use the [ARM64 AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-aarch64.AppImage) or [Intel/AMD AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) for Fedora and other modern Linux desktops. Both bundle Python and Qt and include a no-FUSE fallback. ARM64 requires glibc 2.39+; Intel/AMD requires glibc 2.35+. See the [Fedora GNOME installation guide](LINUX.md) for permissions, shortcuts, XWayland/native Wayland behaviour, and package requirements.
 
 ## What is implemented
 
