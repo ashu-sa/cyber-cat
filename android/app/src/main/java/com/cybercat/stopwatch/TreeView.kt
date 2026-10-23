@@ -75,12 +75,12 @@ class TreeView(c:Context):View(c) {
             }; c.restoreToCount(layer)
         }
         if(n>0) {
-            val centers=if(n==1L)listOf(25f) else if(n==2L)listOf(15f,33f) else listOf(12f,27f,42f)
+            val centers=if(n==1L)listOf(40f) else if(n==2L)listOf(26f,44f) else listOf(19f,35f,51f)
             centers.forEachIndexed { i,x -> tree(1f,.95f,x,if(n==1L).62f else if(i==1).52f else .44f) }
         }
-        val active=if(n>0)74f else 55f
+        val active=if(n==1L)66f else if(n==2L)70f else if(n>2)77f else 55f
         tree(remainder/3600,1f,active,1f,dry)
-        ellipse(active-25,50f,51f,7f,Color.rgb(73,60,50)); ellipse(active-24,49f,49f,4f,if(dry)Color.rgb(141,119,88) else Color.rgb(106,156,112))
+        ellipse(if(n>0)10f else active-25,50f,if(n>0)94f else 51f,7f,Color.rgb(73,60,50)); ellipse(if(n>0)11f else active-24,49f,if(n>0)92f else 49f,4f,if(dry)Color.rgb(141,119,88) else Color.rgb(106,156,112))
         if(motion && phase=="running") {
             c.saveLayerAlpha(0f,0f,110f,58f,255)
             val u=(t%3.6/3.6).toFloat(); val fall=(u/.78f).coerceAtMost(1f); val y=3+44*fall*fall

@@ -74,13 +74,13 @@ struct GrowingTree: View {
                     }
                 }
                 if n>0 {
-                    let centers:[Double]=n==1 ? [25] : n==2 ? [15,33] : [12,27,42]
+                    let centers:[Double]=n==1 ? [40] : n==2 ? [26,44] : [19,35,51]
                     for (i,x) in centers.enumerated() { tree(1,0.95,x,n==1 ? 0.62 : i==1 ? 0.52 : 0.44) }
                 }
-                let activeX:Double=n>0 ? 74 : 55
+                let activeX:Double=n==1 ? 66 : n==2 ? 70 : n>2 ? 77 : 55
                 tree(remainder/3600,1,activeX,1,dry)
-                ellipse(CGRect(x:activeX-25,y:50,width:51,height:7),Color(red:0.29,green:0.24,blue:0.20))
-                ellipse(CGRect(x:activeX-24,y:49,width:49,height:4),(dry ? Color(red:0.55,green:0.47,blue:0.35) : Color(red:0.42,green:0.61,blue:0.44)))
+                ellipse(CGRect(x:n>0 ? 10:activeX-25,y:50,width:n>0 ? 94:51,height:7),Color(red:0.29,green:0.24,blue:0.20))
+                ellipse(CGRect(x:n>0 ? 11:activeX-24,y:49,width:n>0 ? 92:49,height:4),(dry ? Color(red:0.55,green:0.47,blue:0.35) : Color(red:0.42,green:0.61,blue:0.44)))
                 if motion && phase == .running {
                     let u=t.truncatingRemainder(dividingBy:3.6)/3.6, fall=min(1,u/0.78), y=3+44*fall*fall
                     let water=ctx

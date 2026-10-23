@@ -55,12 +55,12 @@ def paint_tree(p, seconds, phase, animated=True, flower=False, death_progress=1.
             p.setBrush(QColor(22,80,57,45)); p.drawEllipse(QRectF(47,top+1,22,9)); p.restore()
         p.restore()
     if n:
-        centers=[25] if n==1 else [15,33] if n==2 else [12,27,42]
+        centers=[40] if n==1 else [26,44] if n==2 else [19,35,51]
         for i,x in enumerate(centers): tree(1,.95,x,.62 if n==1 else .52 if i==1 else .44)
-    active=74 if n else 55
+    active=66 if n==1 else 70 if n==2 else 77 if n else 55
     tree(progress,1,active,1,dry)
-    p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#493c32')); p.drawEllipse(QRectF(active-25,50,51,7))
-    p.setBrush(QColor('#8d7758' if dry else '#6a9c70')); p.drawEllipse(QRectF(active-24,49,49,4))
+    p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#493c32')); p.drawEllipse(QRectF(10 if n else active-25,50,94 if n else 51,7))
+    p.setBrush(QColor('#8d7758' if dry else '#6a9c70')); p.drawEllipse(QRectF(11 if n else active-24,49,92 if n else 49,4))
     if phase=='dead':
         g=progress;top=51-(5+23*g)-9*g
         for i in range(15):
