@@ -55,7 +55,7 @@ def app_inventory(extra=()):
     if sys.platform=='win32':
         script="""[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); $shell=New-Object -ComObject WScript.Shell; $roots=@([Environment]::GetFolderPath('StartMenu'),[Environment]::GetFolderPath('CommonStartMenu')); @($roots | ForEach-Object {Get-ChildItem -LiteralPath $_ -Filter *.lnk -Recurse -ErrorAction SilentlyContinue} | ForEach-Object {$s=$shell.CreateShortcut($_.FullName); if($s.TargetPath -like '*.exe'){[pscustomobject]@{id=$s.TargetPath;name=$_.BaseName}}}) | ConvertTo-Json -Compress"""
         try:
-            result=subprocess.run(['powershell','-NoProfile','-NonInteractive','-Command',script],capture_output=True,encoding='utf-8-sig',timeout=8,check=True)
+            result=subprocess.run(['powershell','-NoProfile','-NonInteractive','-Command',script],capture_output=True,encoding='utf-8-sig',timeout=8,check=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
             entries=json.loads(result.stdout or '[]');entries=[entries] if isinstance(entries,dict) else entries
             for entry in entries:
                 path=entry['id'];base=ntpath.basename(path).lower()
