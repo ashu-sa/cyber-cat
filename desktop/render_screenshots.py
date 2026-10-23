@@ -22,6 +22,10 @@ def main():
         controller=Controller(app,model);controller.show_history();app.processEvents()
         assert controller.history.grab().save(str(out/f'{args.platform}-journal.png'))
         assert controller.pet.grab().save(str(out/f'{args.platform}-pet.png'))
+        model.select_mode(True);model.start();model.accumulated=750;model.anchor=model.clock()
+        focus=controller.focus_settings(preview=True);focus.show();app.processEvents()
+        assert focus.grab().save(str(out/f'{args.platform}-pomodoro.png'))
+        focus.close()
         controller.tick.stop();controller.persist.stop();controller.shortcuts.close();controller.tray.hide();controller.pet.cat.animation.stop()
 
 if __name__=='__main__':main()

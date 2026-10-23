@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSize, QS
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPalette, QPen, QPixmap, QPolygonF, QShortcut, QKeySequence
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QDialog, QComboBox, QDialogButtonBox, QSlider, QCheckBox, QScrollArea, QCalendarWidget,
-    QListWidget, QListWidgetItem, QAbstractItemView, QSystemTrayIcon, QMenu, QMessageBox, QInputDialog, QFileDialog, QFrame)
+    QListWidget, QListWidgetItem, QAbstractItemView, QSystemTrayIcon, QMenu, QMessageBox, QInputDialog, QFileDialog, QFrame, QProgressBar)
 from .model import Store, clock_text, duration_text, device_label
 from .forest import tree_text, cell_text, summary as forest_summary, garden
 from .tree import paint_tree
@@ -503,18 +503,35 @@ class Controller:
         self.popup.move(max(screen.left(), min(pos.x(), screen.right()-350)), max(screen.top(), min(pos.y(), screen.bottom()-self.popup.height())))
         self.popup.show()
 
-    def focus_settings(self):
-        dialog=QDialog(self.pet);dialog.setWindowTitle('Focanopy · Flower focus');dialog.setMinimumWidth(450)
-        layout=QVBoxLayout(dialog);layout.setSpacing(12)
-        layout.addWidget(label('Choose your rhythm','title'))
-        mode=QCheckBox('Pomodoro effect · 25-minute flower');mode.setChecked(self.store.pomodoro_enabled);layout.addWidget(mode)
-        minutes=QComboBox();minutes.addItems(['5-minute break','10-minute break']);minutes.setCurrentIndex(int(self.store.pomodoro.break_minutes==10));layout.addWidget(minutes)
-        status=label('');status.setWordWrap(True);layout.addWidget(status)
+    def focus_settings(self,preview=False):
+        dialog=QDialog(self.pet);dialog.setWindowTitle('Focanopy · Focus garden');dialog.resize(470,690)
+        dialog.setStyleSheet('QScrollBar:vertical{background:#17231b;width:8px;margin:0;} QScrollBar::handle:vertical{background:#3a4e3e;border-radius:4px;min-height:30px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}')
+        shell=QVBoxLayout(dialog);shell.setContentsMargins(4,4,4,4)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);container=QWidget();scroll.setWidget(container);shell.addWidget(scroll)
+        layout=QVBoxLayout(container);layout.setContentsMargins(20,20,20,20);layout.setSpacing(16)
+        layout.addWidget(label('Your focus garden','title'));layout.addWidget(label('A little time. A little growth.','subtitle'))
+        mode=QCheckBox('Pomodoro effect · One flower, 25 minutes');mode.setChecked(self.store.pomodoro_enabled)
+        mode.setStyleSheet('padding:14px; background:#1e2c24; border-radius:12px;');layout.addWidget(mode)
+        hero=QFrame();hero.setObjectName('focusHero');hero.setStyleSheet('QFrame#focusHero {background:#1e2c24;border:1px solid #374c3d;border-radius:22px;} QFrame#focusHero QLabel {background:transparent;}')
+        box=QVBoxLayout(hero);box.setContentsMargins(22,20,22,20);box.setSpacing(12)
+        badge=label('FLOWER FOCUS');badge.setAlignment(Qt.AlignmentFlag.AlignCenter);badge.setStyleSheet('color:#addaad;font-size:10px;font-weight:600;');box.addWidget(badge)
+        heading=label('Grow one little flower');heading.setAlignment(Qt.AlignmentFlag.AlignCenter);heading.setStyleSheet('font-size:21px;color:#eef0dc;');box.addWidget(heading)
+        tree=GrowingTree(self);tree.setFixedSize(245,129);tree.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents);tree.setStyleSheet('background:transparent;');box.addWidget(tree,0,Qt.AlignmentFlag.AlignHCenter)
+        status=label('');status.setAlignment(Qt.AlignmentFlag.AlignCenter);status.setFont(QFont('Noto Sans Mono',35));status.setStyleSheet("color:#eef0dc;font-family:'Noto Sans Mono';font-size:46px;");box.addWidget(status)
+        hint=label('');hint.setWordWrap(True);hint.setAlignment(Qt.AlignmentFlag.AlignCenter);hint.setStyleSheet('color:#a1b5a5;font-size:11px;');box.addWidget(hint)
+        progress=QProgressBar();progress.setRange(0,1000);progress.setTextVisible(False);progress.setFixedHeight(5);progress.setStyleSheet('QProgressBar{background:#2e4133;border:0;border-radius:2px;} QProgressBar::chunk{background:#addaad;border-radius:2px;}');box.addWidget(progress)
+        controls=QHBoxLayout();controls.addStretch()
+        play=button('▶',lambda:(self.primary(),update()),'Start or pause focus');play.setFixedSize(48,44);play.setStyleSheet('background:#395b3d;border:1px solid #567e58;border-radius:12px;');controls.addWidget(play)
+        cancel_round=button('×',lambda:(self.cancel(),update()),'Cancel round · tree will die');cancel_round.setFixedSize(44,44);cancel_round.setStyleSheet('color:#cf9e89;background:#17231b;border-radius:12px;');controls.addWidget(cancel_round)
+        next_round=button('Start next round',lambda:(self.safe(self.store.start),self.refresh(),update()));controls.addWidget(next_round);controls.addStretch();box.addLayout(controls)
+        minutes=QComboBox();minutes.addItems(['5-minute break','10-minute break']);minutes.setCurrentIndex(int(self.store.pomodoro.break_minutes==10));box.addWidget(minutes)
+        foot=label('Completed rounds save automatically.\nThe next round is always your choice.','subtitle');foot.setAlignment(Qt.AlignmentFlag.AlignCenter);box.addWidget(foot)
+        end_cycle=button('End Pomodoro',lambda:(self.safe(self.store.cancel_pomodoro),self.refresh(),update()));box.addWidget(end_cycle)
+        layout.addWidget(hero)
         def apply_mode():
-            self.safe(lambda:self.store.select_mode(mode.isChecked(),10 if minutes.currentIndex() else 5));self.refresh()
+            self.safe(lambda:self.store.select_mode(mode.isChecked(),10 if minutes.currentIndex() else 5));self.refresh();update()
         mode.toggled.connect(apply_mode);minutes.currentIndexChanged.connect(apply_mode)
-        mode.setEnabled(self.store.phase=='idle' or self.store.pomodoro.stage=='dead');minutes.setEnabled(self.store.phase=='idle')
-        next_round=button('Start next focus / skip remaining break',lambda:(self.safe(self.store.start),self.refresh()));layout.addWidget(next_round)
+        layout.addWidget(label('A little room for what matters','subtitle'))
         blocking=QCheckBox('Block apps while the timer runs');blocking.setChecked(self.store.settings.get('focus_blocking',False));layout.addWidget(blocking)
         blocking.toggled.connect(lambda value:self.safe(lambda:self.store.setting('focus_blocking',value)))
         note=label('Apps stay open and keep their data. Pauses and Pomodoro breaks allow apps. You can turn blocking off at any time.');note.setWordWrap(True);layout.addWidget(note)
@@ -547,12 +564,24 @@ class Controller:
                 except Exception as error:QMessageBox.warning(dialog,'GNOME setup',str(error))
             layout.addWidget(button('Install optional GNOME focus extension',install))
         def update():
-            s=self.store
-            status.setText((('Tree died · start a fresh round' if s.pomodoro.stage=='dead' else '🌸 '+clock_text(s.display_time))+' · '+s.pomodoro.stage.capitalize()+'\n'+('Stop watering, stretch and move a little.' if s.pomodoro.stage=='break' else 'Come back when you’re ready — your next flower needs water.' if s.pomodoro.stage=='ready' else 'A flower blooms after 25 minutes of focus.')) if s.pomodoro_enabled else '🌳 Stopwatch · No scheduled breaks')
-            next_round.setVisible(s.pomodoro_enabled and s.pomodoro.stage not in ('focus','dead') and s.phase!='finished')
-            mode.setEnabled(s.phase=='idle' or s.pomodoro.stage=='dead');minutes.setEnabled(s.phase=='idle')
+            s=self.store;stage=s.pomodoro.stage
+            hero.setVisible(s.pomodoro_enabled)
+            badge.setText({'break':'REST & RESET','ready':'READY TO GROW','dead':'ROUND CANCELLED'}.get(stage,'WATERING PAUSED' if s.phase=='paused' else 'FLOWER FOCUS'))
+            heading.setText({'break':'A little room to breathe','ready':'Your next flower is waiting','dead':'A fresh start awaits'}.get(stage,'Grow one little flower'))
+            seconds=max(0,int(s.display_time));status.setText(f'{seconds//60:02}:{seconds%60:02}')
+            hint.setText({'break':'Flower saved. Stretch, breathe, move a little.','ready':'Start when you’re ready. No rush.','dead':'This tree died. Begin again when you’re ready.'}.get(stage,'Your flower is resting.' if s.phase=='paused' else 'A little water. A little growth.'))
+            progress.setValue(0 if stage=='dead' else 1000 if stage!='focus' else int(max(0,min(1,1-s.display_time/1500))*1000))
+            next_round.setVisible(stage in ('break','ready'));end_cycle.setVisible(stage in ('break','ready'))
+            play.setVisible(stage not in ('break','ready'));play.setIcon(action_icon('Ⅱ' if s.phase=='running' else '▶'))
+            cancel_round.setVisible(s.phase!='idle' and stage=='focus')
+            mode.setEnabled(s.phase=='idle' or stage=='dead');minutes.setVisible(s.phase=='idle')
+            tree.update()
+            if dialog.isVisible() and not dialog.isMinimized() and s.phase=='running' and s.settings.get('animation',True):tree.animation.start(50)
+            else:tree.animation.stop()
         timer=QTimer(dialog);timer.timeout.connect(update);timer.start(500);update()
-        layout.addWidget(button('Close',dialog.accept));dialog.exec();timer.stop()
+        shell.addWidget(button('Close',dialog.accept));dialog.finished.connect(lambda: (timer.stop(),tree.animation.stop()))
+        if preview:return dialog
+        dialog.exec();timer.stop();tree.animation.stop();dialog.deleteLater()
 
     def enable_gnome(self):
         if self.safe(install_gnome):

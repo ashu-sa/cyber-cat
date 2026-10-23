@@ -83,8 +83,8 @@ final class FloatingPanel: NSPanel {
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
     func showFocusSettings() {
         if focusWindow == nil {
-            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:570),styleMask:[.titled,.closable],backing:.buffered,defer:false)
-            w.title="Focanopy · Flower focus";w.isReleasedWhenClosed=false
+            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:650),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            w.title="Focanopy · Focus garden";w.isReleasedWhenClosed=false
             w.contentView=NSHostingView(rootView:FocusPreferences(model:model));w.center();focusWindow=w
         }
         NSApp.activate(ignoringOtherApps:true);focusWindow?.makeKeyAndOrderFront(nil)
@@ -395,44 +395,103 @@ struct MenuContents: View {
 
 struct FocusPreferences:View {
     @ObservedObject var model:Stopwatch
+    @State private var confirmCancel=false
     @AppStorage("focusBlocking") private var blocking=false
     @AppStorage("focusBlockAll") private var blockAll=false
     @State private var excludedIDs:[String] = UserDefaults.standard.stringArray(forKey:"focusExcludedApps") ?? []
     @State private var appIDs: [String] = UserDefaults.standard.stringArray(forKey:"focusBlockedApps") ?? []
+    private let forest=Color(red:17/255,green:27/255,blue:23/255)
+    private let surface=Color(red:30/255,green:44/255,blue:36/255)
+    private var stageTitle:String {
+        switch model.pomodoro.stage {case "dead":return "ROUND CANCELLED";case "break":return "REST & RESET";case "ready":return "READY TO GROW";default:return model.phase == .paused ? "WATERING PAUSED":"FLOWER FOCUS"}
+    }
+    private var headline:String {
+        switch model.pomodoro.stage {case "dead":return "A fresh start awaits";case "break":return "A little room to breathe";case "ready":return "Your next flower is waiting";default:return "Grow one little flower"}
+    }
+    private var countdown:String { let value=Int(max(0,model.displayTime));return String(format:"%02d:%02d",value/60,value%60) }
+    private var progress:Double {
+        if model.pomodoro.stage=="dead" { return 0 }
+        return model.pomodoro.stage=="focus" ? min(1,max(0,1-model.displayTime/1500)):1
+    }
+    private func card<Content:View>(@ViewBuilder _ content:()->Content)->some View {
+        VStack(alignment:.leading,spacing:14,content:content).padding(20).frame(maxWidth:.infinity)
+            .background(surface,in:RoundedRectangle(cornerRadius:22)).overlay(RoundedRectangle(cornerRadius:22).stroke(Color.cyber.opacity(0.13),lineWidth:1))
+    }
     var body:some View {
         ScrollView { VStack(alignment:.leading,spacing:16) {
-            Text("Choose your rhythm").font(.title2.bold())
-            Toggle("Pomodoro effect · 25-minute flower",isOn:Binding(get:{model.pomodoroEnabled},set:{ enabled in
-                model.selectMode(enabled,minutes:model.pomodoro.breakMinutes)
-                if enabled { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in } }
-            })).disabled(model.phase != .idle && model.pomodoro.stage != "dead")
-            Text(model.pomodoroEnabled ? "🌸 Flower focus · "+model.pomodoro.stage.capitalized : "🌳 Stopwatch · Grow at your own pace").foregroundStyle(Color.cyber)
+            VStack(alignment:.leading,spacing:5) {
+                Text("Your focus garden").font(.system(size:26,weight:.semibold,design:.rounded))
+                Text("A little time. A little growth.").font(.callout).foregroundStyle(.secondary)
+            }.padding(.bottom,3)
+            card {
+                Toggle(isOn:Binding(get:{model.pomodoroEnabled},set:{ enabled in
+                    model.selectMode(enabled,minutes:model.pomodoro.breakMinutes)
+                    if enabled { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in } }
+                })) {
+                    VStack(alignment:.leading,spacing:4) {
+                        Text("Pomodoro effect").font(.headline)
+                        Text("One flower · 25 minutes of focus").font(.caption).foregroundStyle(.secondary)
+                    }
+                }.toggleStyle(.switch).tint(.cyber).disabled(model.phase != .idle && model.pomodoro.stage != "dead")
+            }
             if model.pomodoroEnabled {
-                Picker("Break",selection:Binding(get:{model.pomodoro.breakMinutes},set:{model.selectMode(true,minutes:$0)})) { Text("5 minutes").tag(5);Text("10 minutes").tag(10) }.disabled(model.phase != .idle)
-                Text(model.menuTime).font(.system(size:32,design:.monospaced))
-                Text(model.pomodoro.stage=="dead" ? "This tree died. Start a new 25-minute round to grow a fresh tree." : model.pomodoro.stage=="focus" ? "Water your flower for 25 minutes. Breaks never count as focus time." : model.pomodoro.stage=="break" ? "Your flower bloomed! Stop watering, stretch and move a little." : "Come back when you’re ready — your next flower needs water.")
-                if model.pomodoro.stage != "focus" && model.phase != .finished {
-                    Button(model.pomodoro.stage=="break" ? "Skip break & start next focus" : "Start next 25-minute focus") { model.start() }
+                card {
+                    VStack(spacing:10) {
+                        Text(stageTitle).font(.system(size:10,weight:.semibold)).tracking(2).foregroundStyle(model.pomodoro.stage=="dead" ? Color.orange.opacity(0.7):.cyber)
+                        Text(headline).font(.system(size:22,weight:.medium,design:.rounded))
+                        GrowingTree(phase:["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase,animated:model.petVisible,flower:true,dead:model.pomodoro.stage=="dead",elapsed:{model.elapsed}).scaleEffect(1.6).frame(height:90)
+                        TimelineView(.periodic(from:.now,by:1)) { _ in
+                            Text(countdown).font(.system(size:48,weight:.medium,design:.monospaced)).monospacedDigit().foregroundStyle(Color(red:0.93,green:0.94,blue:0.86))
+                            ProgressView(value:progress).tint(.cyber)
+                        }
+                        Text(model.pomodoro.stage=="dead" ? "This tree died. Start a fresh round when you’re ready." : model.pomodoro.stage=="break" ? "Flower saved. Stretch, breathe, move a little." : model.pomodoro.stage=="ready" ? "Start when you’re ready. No rush." : "A little water. A little growth.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        HStack(spacing:12) {
+                            if ["break","ready"].contains(model.pomodoro.stage) {
+                                Button(model.pomodoro.stage=="break" ? "Skip break & start next round":"Start next round") { model.start() }.buttonStyle(.borderedProminent).tint(.cyber).foregroundStyle(forest)
+                            } else {
+                                Button { if model.phase == .running { model.pause() } else { model.start() } } label: {
+                                    Image(systemName:model.phase == .running ? "pause.fill":"play.fill").frame(width:46,height:42)
+                                }.buttonStyle(.plain).background(Color.cyber,in:RoundedRectangle(cornerRadius:12)).foregroundStyle(forest).help(model.phase == .running ? "Pause":"Start a 25-minute round")
+                                if model.phase != .idle && model.pomodoro.stage != "dead" {
+                                    Button { confirmCancel=true } label:{Image(systemName:"xmark").frame(width:42,height:42)}.buttonStyle(.plain).background(forest,in:RoundedRectangle(cornerRadius:12)).foregroundStyle(Color.orange.opacity(0.7)).help("Cancel round · tree will die")
+                                }
+                            }
+                        }.padding(.top,5)
+                    }.frame(maxWidth:.infinity)
+                    if model.phase == .idle {
+                        Divider().overlay(Color.cyber.opacity(0.15))
+                        Picker("Break after focus",selection:Binding(get:{model.pomodoro.breakMinutes},set:{model.selectMode(true,minutes:$0)})) { Text("5 min").tag(5);Text("10 min").tag(10) }.pickerStyle(.segmented)
+                    }
+                    Text("Completed rounds save automatically. The next round is always your choice.").font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth:.infinity)
+                    if ["break","ready"].contains(model.pomodoro.stage) { Button("End Pomodoro") { model.cancelPomodoro() }.font(.caption).foregroundStyle(.secondary) }
                 }
             }
-            Divider()
-            Toggle("Block apps while the timer runs",isOn:$blocking)
-            Picker("Block",selection:$blockAll) { Text("Selected apps").tag(false);Text("All except browsers & exclusions").tag(true) }
-            Text("Pauses and Pomodoro breaks allow apps. System essentials and Focanopy stay available. Your work is never quit.").font(.caption).foregroundStyle(.secondary)
-            Button(blockAll ? "Choose allowed exclusions…" : "Choose apps to block…") { chooseApps() }
-            Text((blockAll ? excludedIDs : appIDs).isEmpty ? "No apps selected" : (blockAll ? excludedIDs : appIDs).joined(separator:"\n")).font(.caption)
-            Button("Clear this list") {
-                let key=blockAll ? "focusExcludedApps" : "focusBlockedApps"
-                UserDefaults.standard.set([String](),forKey:key);UserDefaults.standard.set([String](),forKey:key+"Paths")
-                if blockAll { excludedIDs=[] } else { appIDs=[] }
+            card {
+                Toggle("App blocking",isOn:$blocking).font(.headline).toggleStyle(.switch).tint(.cyber)
+                Text("Make a little room for what matters.").font(.caption).foregroundStyle(.secondary)
+                DisclosureGroup("Apps & permissions") {
+                    VStack(alignment:.leading,spacing:12) {
+                        Picker("Block",selection:$blockAll) { Text("Selected apps").tag(false);Text("All except browsers & exclusions").tag(true) }
+                        Button(blockAll ? "Choose allowed exclusions…":"Choose apps to block…") { chooseApps() }
+                        Text((blockAll ? excludedIDs:appIDs).isEmpty ? "No apps selected":(blockAll ? excludedIDs:appIDs).joined(separator:"\n")).font(.caption).foregroundStyle(.secondary)
+                        Button("Clear this list") {
+                            let key=blockAll ? "focusExcludedApps":"focusBlockedApps"
+                            UserDefaults.standard.set([String](),forKey:key);UserDefaults.standard.set([String](),forKey:key+"Paths")
+                            if blockAll {excludedIDs=[]} else {appIDs=[]}
+                        }
+                        Button("Enable stronger window minimization…") {
+                            let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary
+                            _=AXIsProcessTrustedWithOptions(options)
+                        }
+                        Text("Pauses and breaks allow apps. System essentials stay available. Accessibility permission enables stronger window minimization.").font(.caption2).foregroundStyle(.secondary)
+                    }.padding(.top,12)
+                }.font(.callout)
             }
-            Button("Enable stronger window minimization…") {
-                let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary
-                _=AXIsProcessTrustedWithOptions(options)
-            }
-            Text("Optional Accessibility permission helps minimize resistant app windows, including Java apps. A blocking screen also prevents clicking through.").font(.caption).foregroundStyle(.secondary)
-            Text("The next round always waits for you. Completed rounds save automatically. Cancel an unfinished round and its tree dies.").font(.caption).foregroundStyle(.secondary)
-        }.padding(24).frame(maxWidth:.infinity) }.frame(width:478,height:580).preferredColorScheme(.dark)
+        }.padding(22) }.frame(width:478,height:650).background(forest).foregroundStyle(Color(red:0.93,green:0.94,blue:0.89)).preferredColorScheme(.dark)
+            .alert("Cancel this round?",isPresented:$confirmCancel) {
+                Button("Keep growing",role:.cancel) {}
+                Button("Cancel round",role:.destructive) { model.cancelPomodoro() }
+            } message:{Text("An unfinished tree will die. Completed 25-minute rounds stay saved.")}
     }
     func chooseApps() {
         let panel=NSOpenPanel();panel.title="Choose distracting apps";panel.allowedContentTypes=[.applicationBundle];panel.allowsMultipleSelection=true;panel.canChooseDirectories=false

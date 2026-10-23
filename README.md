@@ -33,6 +33,8 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 ### Stopwatch with an optional Flower Pomodoro
 
+Pomodoro shares Focanopy’s forest-green surfaces, warm cream countdown, rounded cards and soft flower accents. Focus, break and cancelled states each have a clear title, with compact controls and quieter app-blocking settings.
+
 Start with the default stopwatch, or enable the optional **Pomodoro effect**: 25 minutes of focus grows a pink flowering tree, followed by a 5- or 10-minute break. Watering stops for the break, a gentle reminder asks you to move, and another invites you back. **You start every next round yourself.** Completed 25-minute rounds save automatically. Pomodoro has no Finish button: cancelling an unfinished round kills its tree and discards that partial round; previously completed rounds stay saved. Breaks never count toward focus time.
 
 ![Native Pomodoro flower growth](docs/screenshots/pomodoro-flower-milestones.png)

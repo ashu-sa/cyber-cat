@@ -42,7 +42,7 @@ class MainActivity: Activity() {
     private val handler=Handler(Looper.getMainLooper())
     private val tick=object:Runnable { override fun run() {
         Repository.advancePomodoro()
-        timer?.text=clockText(Repository.displayTime())
+        timer?.text=timerText()
         cat?.invalidate()
         updateGrowth()
         groveStatus?.text=if(Repository.pomodoroEnabled) "🌸 ${Repository.engine.elapsed()/Pomodoro.FOCUS} flowers completed · Focus time excludes breaks" else Forest.text(Repository.growthElapsed())+(if(Forest.garden(Repository.growthElapsed())) " · Garden grown" else " · One tree per focused hour")
@@ -214,16 +214,61 @@ class MainActivity: Activity() {
             val elapsed=Repository.growthElapsed();growthHint?.text=Forest.nextTreeText(elapsed);growthBar?.progress=((elapsed%Forest.HOUR)*1000/Forest.HOUR).toInt()
         }
     }
+    private fun timerText():String {
+        val ms=Repository.displayTime()
+        return if(Repository.pomodoroEnabled) String.format(java.util.Locale.ROOT,"%02d:%02d",(ms/60000).coerceAtLeast(0),(ms/1000%60).coerceAtLeast(0)) else clockText(ms)
+    }
+    private fun focusCard():LinearLayout = LinearLayout(this).apply {
+        orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(18),dp(20),dp(18))
+        background=GradientDrawable().apply { setColor(surface);cornerRadius=dp(24).toFloat();setStroke(dp(1),Color.rgb(55,76,61)) }
+    }
+    private fun pomodoroPage() {
+        val muted=Color.rgb(161,181,165);val cream=Color.rgb(238,240,220);val coral=Color.rgb(207,158,137)
+        val dead=pomoStage=="dead";val rest=pomoStage=="break";val ready=pomoStage=="ready"
+        val hero=focusCard();root.addView(hero,LinearLayout.LayoutParams(-1,-2).apply {setMargins(0,dp(12),0,dp(14))})
+        val badge=when {dead->"ROUND CANCELLED";rest->"REST & RESET";ready->"READY TO GROW";phase=="paused"->"WATERING PAUSED";else->"FLOWER FOCUS"}
+        hero.addView(text(badge,10f,if(dead)coral else cyan).apply {letterSpacing=.16f;gravity=Gravity.CENTER})
+        hero.addView(text(when {dead->"A fresh start awaits";rest->"A little room to breathe";ready->"Your next flower is waiting";else->"Grow one little flower"},22f,cream).apply {typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL);gravity=Gravity.CENTER})
+        cat=TreeView(this);hero.addView(cat,LinearLayout.LayoutParams(-1,dp(142)));cat?.refresh()
+        timer=text(timerText(),52f,cream).apply {gravity=Gravity.CENTER;typeface=Typeface.create("monospace",Typeface.NORMAL);setPadding(0,0,0,0);contentDescription="Pomodoro countdown"};hero.addView(timer)
+        hero.addView(text(when {dead->"This tree died. Begin again when you’re ready.";rest->"Flower saved. Stretch, breathe, move a little.";ready->"Start when you’re ready. No rush.";phase=="paused"->"Your flower is resting. Resume to keep growing.";phase=="running"->"A little water. A little growth.";else->"25 minutes, one thing at a time."},12f,muted).apply {gravity=Gravity.CENTER})
+        growthBar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {max=1000;progressTintList=android.content.res.ColorStateList.valueOf(if(dead)coral else cyan);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(46,65,51));contentDescription="Round progress"}
+        hero.addView(growthBar,LinearLayout.LayoutParams(-1,dp(5)).apply {setMargins(dp(12),dp(16),dp(12),dp(6))})
+        growthHint=text("",11f,muted).apply {gravity=Gravity.CENTER};hero.addView(growthHint)
+        line(hero) {row ->
+            row.gravity=Gravity.CENTER;row.setPadding(0,dp(12),0,0)
+            if(rest || ready) {
+                row.addView(button("Start next round",if(rest)"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() }.apply {setTextColor(bg);background=card(cyan)},LinearLayout.LayoutParams(-2,dp(48)))
+            } else {
+                row.addView(button(if(phase=="running")"Ⅱ" else "▶",if(phase=="running")"Pause" else "Start or resume") {notifications();if(Repository.engine.phase=="running")Repository.pause() else Repository.start();service("SYNC");render()}.apply {textSize=21f;setTextColor(bg);background=card(cyan)},LinearLayout.LayoutParams(dp(54),dp(50)))
+                if(phase!="idle" && !dead)row.addView(button("×","Cancel round · tree will die") {cancelPomodoroDialog()}.apply {textSize=24f;setTextColor(coral)},LinearLayout.LayoutParams(dp(50),dp(50)).apply {setMargins(dp(10),0,0,0)})
+            }
+        }
+        if(phase=="idle") {
+            val rhythm=focusCard();root.addView(rhythm,LinearLayout.LayoutParams(-1,-2).apply {setMargins(0,0,0,dp(12))})
+            rhythm.addView(text("MAKE SPACE FOR A BREAK",10f,muted).apply {letterSpacing=.12f})
+            line(rhythm) {row ->for(minutes in listOf(5,10)) row.addView(button("$minutes min") {Repository.selectMode(true,minutes);render()}.apply {background=card(if(Repository.pomodoro.breakMinutes==minutes)Color.rgb(49,78,56) else surface)},LinearLayout.LayoutParams(0,dp(44),1f).apply {setMargins(dp(3),dp(5),dp(3),0)})}
+        }
+        line {row ->
+            for((label,value) in listOf("FOCUS TODAY" to focusText(total(recordsFor(LocalDate.now()))),"BLOOMS THIS SESSION" to (Repository.engine.elapsed()/Pomodoro.FOCUS).toString())) {
+                val metric=focusCard();metric.setPadding(dp(15),dp(12),dp(15),dp(12));metric.addView(text(label,9f,muted).apply {letterSpacing=.08f});metric.addView(text(value,23f,cream))
+                row.addView(metric,LinearLayout.LayoutParams(0,-2,1f).apply {setMargins(dp(3),0,dp(3),dp(12))})
+            }
+        }
+        val on=Repository.prefs.getBoolean("focusBlocking",false)
+        val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
+        val allowed=(Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").split(':').any {it.equals(component,true)}
+        root.addView(button("App blocking · "+(if(!on)"Off" else if(!allowed)"Permission needed" else "On")) {focusApps()}.apply {gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(18),0,dp(18),0)})
+        root.addView(text("25-minute rounds save automatically · Next round is always your choice",11f,muted).apply {gravity=Gravity.CENTER;setPadding(dp(8),dp(12),dp(8),dp(4))})
+        if(rest || ready)root.addView(button("End Pomodoro","End Pomodoro · completed rounds saved") {cancelPomodoroDialog()}.apply {setTextColor(muted)})
+        updateGrowth()
+    }
     private fun timerPage() {
         root.addView(android.widget.Switch(this).apply {
-            text="Pomodoro effect · 25-minute flower";isChecked=Repository.pomodoroEnabled;isEnabled=phase=="idle" || pomoStage=="dead"
+            text="Pomodoro effect";contentDescription="Pomodoro effect · 25-minute flower";textSize=14f;setPadding(dp(14),dp(3),dp(10),dp(3));background=card();minHeight=dp(50);isChecked=Repository.pomodoroEnabled;isEnabled=phase=="idle" || pomoStage=="dead"
             setTextColor(cyan);setOnCheckedChangeListener { _,on -> Repository.selectMode(on,Repository.pomodoro.breakMinutes);render() }
         })
-        if(Repository.pomodoroEnabled) {
-            root.addView(text(when(pomoStage) { "dead" -> "Your tree withered · A fresh tree needs a new round"; "break" -> "Your flower bloomed! Stop watering, stretch and move a little."; "ready" -> "Come back when you’re ready — your next flower needs water."; else -> "25 minutes of focus · A flower blooms after 25 minutes" },15f,cyan))
-            if(phase=="idle")line { row -> for(minutes in listOf(5,10)) row.addView(button("$minutes min break") { Repository.selectMode(true,minutes);render() }.apply { alpha=if(Repository.pomodoro.breakMinutes==minutes)1f else .5f },LinearLayout.LayoutParams(0,dp(44),1f)) }
-            if(pomoStage!="focus" && pomoStage!="dead" && phase!="finished")root.addView(button(if(pomoStage=="break")"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() })
-        }
+        if(Repository.pomodoroEnabled) {pomodoroPage();return}
         val on=Repository.prefs.getBoolean("focusBlocking",false)
         val all=Repository.prefs.getBoolean("focusBlockAll",false)
         val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
@@ -383,7 +428,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.8.0",12f,cyan))
+        root.addView(text("Focanopy · 1.8.1",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }
