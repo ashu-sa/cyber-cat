@@ -17,6 +17,7 @@ class Pomodoro:
         if self.stage in ('break','ready'):
             self.stage='focus'; self.target=elapsed+FOCUS; self.deadline=self.end=None
     def remaining(self,elapsed):
+        if self.stage=='dead': return FOCUS
         if self.stage=='break': return max(0,(self.end or self.clock())-self.clock())
         if self.stage=='ready': return 0
         return max(0,self.target-elapsed)

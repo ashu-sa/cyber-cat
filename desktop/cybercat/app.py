@@ -103,7 +103,7 @@ class GrowingTree(QWidget):
         p=QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.scale(self.width()/110, self.height()/58)
         paint_tree(p,self.c.store.elapsed if self.c.store.pomodoro_enabled else self.c.store.growth_elapsed,
-            "resting" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage!="focus" else self.c.store.phase,self.c.store.settings.get("animation",True),self.c.store.pomodoro_enabled)
+            "dead" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage=="dead" else "resting" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage!="focus" else self.c.store.phase,self.c.store.settings.get("animation",True),self.c.store.pomodoro_enabled)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
@@ -193,9 +193,10 @@ class Pet(QWidget):
         self.play.setIcon(action_icon('Ⅱ' if phase == 'running' else '↓' if phase == 'finished' else '▶'))
         self.play.setToolTip({'running':'Pause · Ctrl+P', 'paused':'Resume · Ctrl+S', 'finished':'Name and save session', 'idle':'Start · Ctrl+S'}[phase])
         if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage!='focus' and phase!='finished':self.play.setToolTip('Skip break & start next focus' if self.c.store.pomodoro.stage=='break' else 'Start next 25-minute focus')
+        if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage=='dead':self.play.setToolTip('Dead tree · Start a new 25-minute round')
         self.play.setAccessibleName(self.play.toolTip())
         self.finish.setEnabled(phase in ('running', 'paused'))
-        self.finish.setVisible(phase!='finished');self.resume_finished.setVisible(phase=='finished');self.reset_finished.setVisible(phase=='finished')
+        self.finish.setVisible(phase!='finished' and not self.c.store.pomodoro_enabled);self.resume_finished.setVisible(phase=='finished');self.reset_finished.setVisible(phase=='finished')
         self.finish.setAccessibleName('Finish session')
         self.setWindowOpacity(max(.3, min(1, self.c.store.settings.get('opacity', 1))))
         self.cat.setToolTip(('Flower focus · '+self.c.store.pomodoro.stage+' · '+clock_text(self.c.store.display_time)) if self.c.store.pomodoro_enabled else tree_text(self.c.store.growth_elapsed) + (' · Garden grown' if garden(self.c.store.growth_elapsed) else '') + ' · Drag to move; click for controls')
@@ -374,7 +375,7 @@ class Controller:
         print('Focanopy:', message, file=sys.stderr)
 
     def scope(self):
-        self.shortcuts.scope(self.pet.isVisible(), self.modal)
+        self.shortcuts.scope(self.pet.isVisible(), self.modal,finish_allowed=not self.store.pomodoro_enabled)
 
     def focus_notice(self,title,message):
         self.tray.showMessage(title,message)
@@ -387,7 +388,7 @@ class Controller:
         notice=self.store.advance_pomodoro()
         if notice:self.focus_notice('Focanopy · Flower focus',notice);self.show_pet()
         if hasattr(self,'blocker'):self.blocker.tick()
-        self.pet.sync()
+        self.pet.sync();self.scope()
         self.tray.setToolTip('Focanopy · ' + clock_text(self.store.display_time) + ' · ' + (self.store.pomodoro.stage if self.store.pomodoro_enabled else self.store.phase))
         # Windows/Linux trays have icon + tooltip, not macOS-style variable-width text labels.
 
@@ -436,7 +437,7 @@ class Controller:
         self.safe((self.store.resume_finished if self.store.phase=="finished" else self.store.start)); self.show_pet(); self.refresh()
 
     def finish(self, reveal=True):
-        if self.modal or self.store.phase == 'idle': return False
+        if self.modal or self.store.phase == 'idle' or (self.store.pomodoro_enabled and self.store.phase!='finished'): return False
         if not self.safe(self.store.finish): return False
         self.refresh(); self.modal = True; self.scope()
         dialog = QDialog(self.pet); dialog.setWindowTitle('Save session'); dialog.setMinimumWidth(350)
@@ -462,9 +463,9 @@ class Controller:
     def cancel(self):
         if self.store.phase == 'idle': return
         self.modal = True; self.scope()
-        answer = QMessageBox.question(self.pet, 'Discard session?', 'Discard this unsaved session?', QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
+        answer = QMessageBox.question(self.pet, 'Discard session?', 'An unfinished tree will die. Completed 25-minute rounds stay saved.' if self.store.pomodoro_enabled else 'Discard this unsaved session?', QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
         self.modal = False; self.scope()
-        if answer == QMessageBox.StandardButton.Yes: self.safe(self.store.discard); self.refresh()
+        if answer == QMessageBox.StandardButton.Yes: self.safe(self.store.cancel_pomodoro if self.store.pomodoro_enabled else self.store.discard); self.refresh()
 
     def show_history(self, selected=None):
         if not self.history: self.history = History(self)
@@ -479,6 +480,7 @@ class Controller:
         layout = QVBoxLayout(container); layout.setContentsMargins(16,16,16,16); layout.setSpacing(8)
         header = QHBoxLayout(); header.addWidget(label('Pet controls', 'title')); header.addWidget(button('×', self.popup.close)); layout.addLayout(header)
         for text, action in [('Start / Resume · Ctrl+S', self.start), ('Pause · Ctrl+P', lambda:self.safe(self.store.pause)), ('Finish · Ctrl+F', self.finish), ('Cancel session…', self.cancel), ('Hide / Close pet · Ctrl+R', self.hide_pet), ('Pomodoro & App Blocking', self.focus_settings), ('Session history', self.show_history), ('Account / Sync', self.accounts.show)]:
+            if self.store.pomodoro_enabled and action==self.finish:continue
             def invoke(fn=action): self.popup.close(); QTimer.singleShot(0, fn)
             layout.addWidget(button(text, invoke))
         opacity_text = label('Pet opacity'); layout.addWidget(opacity_text)
@@ -511,7 +513,7 @@ class Controller:
         def apply_mode():
             self.safe(lambda:self.store.select_mode(mode.isChecked(),10 if minutes.currentIndex() else 5));self.refresh()
         mode.toggled.connect(apply_mode);minutes.currentIndexChanged.connect(apply_mode)
-        mode.setEnabled(self.store.phase=='idle');minutes.setEnabled(self.store.phase=='idle')
+        mode.setEnabled(self.store.phase=='idle' or self.store.pomodoro.stage=='dead');minutes.setEnabled(self.store.phase=='idle')
         next_round=button('Start next focus / skip remaining break',lambda:(self.safe(self.store.start),self.refresh()));layout.addWidget(next_round)
         blocking=QCheckBox('Block apps while the timer runs');blocking.setChecked(self.store.settings.get('focus_blocking',False));layout.addWidget(blocking)
         blocking.toggled.connect(lambda value:self.safe(lambda:self.store.setting('focus_blocking',value)))
@@ -546,9 +548,9 @@ class Controller:
             layout.addWidget(button('Install optional GNOME focus extension',install))
         def update():
             s=self.store
-            status.setText(('🌸 '+clock_text(s.display_time)+' · '+s.pomodoro.stage.capitalize()+'\n'+('Stop watering, stretch and move a little.' if s.pomodoro.stage=='break' else 'Come back when you’re ready — your next flower needs water.' if s.pomodoro.stage=='ready' else 'A flower blooms after 25 minutes of focus.')) if s.pomodoro_enabled else '🌳 Stopwatch · No scheduled breaks')
-            next_round.setVisible(s.pomodoro_enabled and s.pomodoro.stage!='focus' and s.phase!='finished')
-            mode.setEnabled(s.phase=='idle');minutes.setEnabled(s.phase=='idle')
+            status.setText((('Tree died · start a fresh round' if s.pomodoro.stage=='dead' else '🌸 '+clock_text(s.display_time))+' · '+s.pomodoro.stage.capitalize()+'\n'+('Stop watering, stretch and move a little.' if s.pomodoro.stage=='break' else 'Come back when you’re ready — your next flower needs water.' if s.pomodoro.stage=='ready' else 'A flower blooms after 25 minutes of focus.')) if s.pomodoro_enabled else '🌳 Stopwatch · No scheduled breaks')
+            next_round.setVisible(s.pomodoro_enabled and s.pomodoro.stage not in ('focus','dead') and s.phase!='finished')
+            mode.setEnabled(s.phase=='idle' or s.pomodoro.stage=='dead');minutes.setEnabled(s.phase=='idle')
         timer=QTimer(dialog);timer.timeout.connect(update);timer.start(500);update()
         layout.addWidget(button('Close',dialog.accept));dialog.exec();timer.stop()
 
@@ -566,10 +568,16 @@ class Controller:
         self.menu.clear()
         self.menu.addAction('Focanopy · ' + clock_text(self.store.elapsed)).setEnabled(False)
         for text, action in [('Start / Resume',self.start),('Pause',lambda:self.safe(self.store.pause)),('Finish Session',self.finish),('Show Pet',self.show_pet),('Hide Pet',self.hide_pet),('Pomodoro & App Blocking',self.focus_settings),('Session History',self.show_history),('Account / Sync',self.accounts.show),('Quit App…',self.quit)]:
+            if self.store.pomodoro_enabled and action==self.finish:continue
             self.menu.addAction(text, action)
 
     def quit(self):
         if self.modal: return
+        if self.store.pomodoro_enabled and self.store.phase!='idle':
+            answer=QMessageBox.question(self.pet,'Quit Pomodoro?','Keep timer across relaunch? Choose No to cancel the round; its unfinished tree dies. Completed rounds stay saved.',QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
+            if answer==QMessageBox.StandardButton.Cancel:return
+            if answer==QMessageBox.StandardButton.No:self.store.cancel_pomodoro()
+            self.store.checkpoint();self.remember_position();self.shortcuts.close();self.tray.hide();self.app.quit();return
         if self.store.phase != 'idle':
             self.modal = True; self.scope()
             box = QMessageBox(self.pet); box.setWindowTitle('Quit Focanopy?'); box.setText('Save or discard your active session before quitting.')

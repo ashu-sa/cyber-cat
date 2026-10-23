@@ -16,6 +16,7 @@ class TimerService: Service() {
     private var cat: TreeView? = null
     private var timeLabel: TextView? = null
     private var play: Button? = null
+    private var finishControl: Button? = null
     private var params: WindowManager.LayoutParams? = null
     private var lastNotice = ""
     private val tick = object: Runnable { override fun run() {
@@ -35,7 +36,7 @@ class TimerService: Service() {
             when (intent?.action) {
                 "START" -> Repository.start()
                 "PAUSE" -> Repository.pause()
-                "FINISH" -> Repository.finish()
+                "FINISH" -> if(!Repository.pomodoroEnabled)Repository.finish()
                 "HIDE" -> Repository.prefs.edit().putBoolean("showPet",false).apply()
                 "SHOW" -> Repository.prefs.edit().putBoolean("showPet",true).apply()
             }
@@ -55,14 +56,15 @@ class TimerService: Service() {
         val builder = Notification.Builder(this,"timer").setSmallIcon(com.cybercat.stopwatch.R.drawable.ic_cat).setContentTitle("Focanopy · " + when(phase) { "running" -> "Locked in"; "paused" -> "Paused"; "finished" -> "Ready to save"; else -> "Floating companion" })
             .setContentIntent(open).setOnlyAlertOnce(true).setOngoing(true).setShowWhen(false).setCategory(if(Build.VERSION.SDK_INT>=31) Notification.CATEGORY_STOPWATCH else Notification.CATEGORY_SERVICE)
         if(Repository.pomodoroEnabled && phase!="finished") {
-            builder.setContentTitle("Focanopy · "+when(Repository.pomodoro.stage) { "break" -> "Take a break · move a little"; "ready" -> "Your flower needs water · ready?"; else -> "Flower focus · 25 minutes" })
+            builder.setContentTitle("Focanopy · "+when(Repository.pomodoro.stage) { "dead" -> "Tree died · start a new round"; "break" -> "Take a break · move a little"; "ready" -> "Your flower needs water · ready?"; else -> "Flower focus · 25 minutes" })
             builder.setContentText(clockText(Repository.displayTime())+" · "+(if(Repository.pomodoro.stage=="ready")"Start the next round when ready" else "Focus excludes breaks"))
             if(phase=="running" || Repository.pomodoro.stage=="break")builder.setWhen(System.currentTimeMillis()+Repository.displayTime()).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
         } else if (phase == "running") builder.setWhen(System.currentTimeMillis()-Repository.engine.elapsed()).setShowWhen(true).setUsesChronometer(true)
         else builder.setContentText(clockText(Repository.engine.elapsed()) + if (phase == "finished") " · Tap to name and save" else " · Tap for controls")
         val action = if (phase == "running") "PAUSE" else "START"
         if (phase != "finished") builder.addAction(Notification.Action.Builder(null, if (phase == "running") "Pause" else if(Repository.pomodoroEnabled && Repository.pomodoro.stage!="focus") (if(Repository.pomodoro.stage=="break") "Skip break" else "Start next focus") else if (phase == "paused") "Resume" else "Start", PendingIntent.getService(this,12,Intent(this,TimerService::class.java).setAction(action),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
-        if (phase != "idle") builder.addAction(Notification.Action.Builder(null,if (phase == "finished") "Save" else "Finish",finish).build())
+        if (phase != "idle" && !Repository.pomodoroEnabled) builder.addAction(Notification.Action.Builder(null,if (phase == "finished") "Save" else "Finish",finish).build())
+        if(Repository.pomodoroEnabled && phase!="idle" && Repository.pomodoro.stage!="dead") builder.addAction(Notification.Action.Builder(null,"Cancel round",PendingIntent.getActivity(this,21,Intent(this,MainActivity::class.java).setAction("CANCEL_POMODORO"),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
         return builder.build()
     }
     private fun notifyState() { getSystemService(NotificationManager::class.java).notify(7,notification()); lastNotice = Repository.engine.phase+if(Repository.pomodoroEnabled)Repository.pomodoro.stage else "" }
@@ -74,6 +76,7 @@ class TimerService: Service() {
         play?.text = when (Repository.engine.phase) { "running" -> "Ⅱ"; "finished" -> "↓"; else -> "▶" }
         play?.contentDescription = when(Repository.engine.phase) { "running" -> "Pause"; "finished" -> "Save session"; else -> "Start or resume" }
         pet?.alpha = Repository.prefs.getFloat("opacity",1f).coerceIn(.3f,1f)
+        finishControl?.visibility=if(Repository.pomodoroEnabled)View.GONE else View.VISIBLE
         cat?.refresh()
     }
     private fun createOverlay() {
@@ -92,7 +95,7 @@ class TimerService: Service() {
             }
         }
         row.addView(play,LinearLayout.LayoutParams(dp(40),dp(38)))
-        row.addView(control("✓","Finish session") { if (Repository.engine.phase != "idle") openApp("FINISH") },LinearLayout.LayoutParams(dp(40),dp(38)))
+        finishControl=control("✓","Finish session") { if (!Repository.pomodoroEnabled && Repository.engine.phase != "idle") openApp("FINISH") };row.addView(finishControl,LinearLayout.LayoutParams(dp(40),dp(38)))
         row.addView(control("×","Hide tree; stopwatch continues") { Repository.prefs.edit().putBoolean("showPet",false).apply(); removeOverlay(); if (Repository.engine.phase == "idle") { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() } },LinearLayout.LayoutParams(dp(36),dp(38)))
         root.addView(row)
         val p = WindowManager.LayoutParams(dp(144),dp(126),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT)
@@ -118,7 +121,7 @@ class TimerService: Service() {
         pet=root; params=p
         try { windows.addView(root,p) } catch(e:Exception) { pet=null; Toast.makeText(this,"Floating tree unavailable; use notification controls.",Toast.LENGTH_LONG).show() }
     }
-    private fun openApp(action:String) { if(action=="FINISH") { Repository.finish(); notifyState(); syncOverlay() }; try { startActivity(Intent(this,MainActivity::class.java).setAction(if(action=="FINISH") "SAVE" else action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } catch (_:Exception) { if(action=="FINISH") Repository.finish(); notifyState() } }
+    private fun openApp(action:String) { if(action=="FINISH" && Repository.pomodoroEnabled)return; if(action=="FINISH") { Repository.finish(); notifyState(); syncOverlay() }; try { startActivity(Intent(this,MainActivity::class.java).setAction(if(action=="FINISH") "SAVE" else action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } catch (_:Exception) { if(action=="FINISH") Repository.finish(); notifyState() } }
     private fun removeOverlay() { pet?.let { try { windows.removeView(it) } catch (_:Exception) {} }; pet=null; cat=null; timeLabel=null; play=null }
     override fun onDestroy() { try { Repository.checkpoint() } catch (_:Exception) {}; handler.removeCallbacksAndMessages(null); removeOverlay(); super.onDestroy() }
     override fun onBind(intent:Intent?) = null

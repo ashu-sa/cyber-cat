@@ -12,7 +12,7 @@ def paint_tree(p, seconds, phase, animated=True, flower=False):
     seconds=seconds*2.4 if flower else seconds
     if flower and seconds>0 and seconds%3600<0.0001: seconds-=0.0001
     n=trees(seconds); progress=growth(seconds)
-    dry=phase=="paused"
+    dry=phase in ("paused","dead")
     t=actual if animated and not dry else 0
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QColor(91,165,123,24)); p.drawEllipse(QRectF(25,45,60,12))
@@ -34,7 +34,7 @@ def paint_tree(p, seconds, phase, animated=True, flower=False):
             p.save(); p.translate(55,top+2); p.scale(canopy,canopy); p.translate(-55,-(top+2))
             gradient=QLinearGradient(40,top-20,65,top+12); gradient.setColorAt(0,QColor('#d5bf8c' if dormant else ('#ffc9d5' if flower else '#b2e2ad'))); gradient.setColorAt(.5,QColor('#b29c6e' if dormant else ('#f07aa6' if flower else '#65b58b'))); gradient.setColorAt(1,QColor('#7b735a' if dormant else ('#a6457d' if flower else '#2c795d')))
             p.setPen(Qt.PenStyle.NoPen); p.setBrush(gradient); p.drawEllipse(QRectF(30,top-14,30,29)); p.drawEllipse(QRectF(52,top-14,29,29)); p.drawEllipse(QRectF(39,top-21,32,31))
-            if flower:
+            if flower and not dormant:
                 for x,y in [(44,top-5),(63,top-4),(54,top-14)]:
                     p.setBrush(QColor('#ffe3eb'))
                     for a in range(5):
@@ -50,6 +50,9 @@ def paint_tree(p, seconds, phase, animated=True, flower=False):
     tree(progress,1,active,1,dry)
     p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#493c32')); p.drawEllipse(QRectF(active-25,50,51,7))
     p.setBrush(QColor('#8d7758' if dry else '#6a9c70')); p.drawEllipse(QRectF(active-24,49,49,4))
+    if phase=='dead':
+        p.setPen(QColor('#bd8f66'));p.drawText(QRectF(active-7,25,14,14),Qt.AlignmentFlag.AlignCenter,'×')
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#a3754d'));p.drawEllipse(QRectF(active-15,47,7,3));p.drawEllipse(QRectF(active+10,47,7,3))
     if animated and phase=='running':
         u=(t%3.6)/3.6; fall=min(1,u/.78); y=3+44*fall*fall
         p.save(); p.setOpacity(1)

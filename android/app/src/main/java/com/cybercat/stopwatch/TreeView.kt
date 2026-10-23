@@ -19,9 +19,9 @@ class TreeView(c:Context):View(c) {
     override fun onVisibilityChanged(changedView:View,visibility:Int) { super.onVisibilityChanged(changedView,visibility); removeCallbacks(tick); if(visibility==VISIBLE && moving()) post(tick) }
     override fun onWindowVisibilityChanged(visibility:Int) { super.onWindowVisibilityChanged(visibility); removeCallbacks(tick); if(visibility==VISIBLE && isShown && moving()) post(tick) }
     fun refresh() {
-        phase=if(Repository.pomodoroEnabled && Repository.pomodoro.stage!="focus") "resting" else Repository.engine.phase; animate=Repository.prefs.getBoolean("animate",true)
+        phase=if(Repository.pomodoroEnabled && Repository.pomodoro.stage=="dead") "dead" else if(Repository.pomodoroEnabled && Repository.pomodoro.stage!="focus") "resting" else Repository.engine.phase; animate=Repository.prefs.getBoolean("animate",true)
         motionEnabled=android.provider.Settings.Global.getFloat(context.contentResolver,android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)>0
-        contentDescription=Forest.text(Repository.growthElapsed())+if(Forest.garden(Repository.growthElapsed()))", garden grown" else if(phase=="paused") ", dry tree, watering paused" else ", growing tree"
+        contentDescription=(if(phase=="dead")"Dead tree. Cancelled round. " else "")+Forest.text(Repository.growthElapsed())+if(Forest.garden(Repository.growthElapsed()))", garden grown" else if(phase=="paused") ", dry tree, watering paused" else ", growing tree"
         removeCallbacks(tick); if(isShown && moving()) post(tick); invalidate()
     }
     override fun performClick():Boolean { super.performClick(); return true }
@@ -34,7 +34,7 @@ class TreeView(c:Context):View(c) {
         val scaled=if(flower)actual*12/5 else actual
         val ms=if(flower && scaled>0 && scaled%Forest.HOUR==0L)scaled-1 else scaled
         val seconds=actual/1000.0; val n=Forest.trees(ms); val remainder=(ms%Forest.HOUR)/1000f
-        val dry=phase=="paused"; val motion=animate && motionEnabled && !dry; val t=if(motion)seconds else 0.0
+        val dry=phase=="paused" || phase=="dead"; val motion=animate && motionEnabled && !dry; val t=if(motion)seconds else 0.0
         fun ellipse(x:Float,y:Float,w:Float,h:Float,color:Int) { paint.shader=null; paint.style=Paint.Style.FILL; paint.color=color; c.drawOval(x,y,x+w,y+h,paint) }
         ellipse(25f,45f,60f,12f,Color.argb(24,91,165,123))
         fun tree(g:Float,alpha:Float,center:Float=55f,scale:Float=1f,dormant:Boolean=false) {
@@ -53,7 +53,7 @@ class TreeView(c:Context):View(c) {
                 c.save(); c.scale(canopy,canopy,55f,top+2)
                 paint.shader=LinearGradient(40f,top-20,65f,top+12,if(dormant)intArrayOf(Color.rgb(213,191,140),Color.rgb(178,156,110),Color.rgb(123,115,90)) else if(flower)intArrayOf(Color.rgb(255,201,213),Color.rgb(240,122,166),Color.rgb(166,69,125)) else intArrayOf(Color.rgb(178,226,173),Color.rgb(101,181,139),Color.rgb(44,121,93)),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP)
                 c.drawOval(30f,top-14,60f,top+15,paint); c.drawOval(52f,top-14,81f,top+15,paint); c.drawOval(39f,top-21,71f,top+10,paint)
-                if(flower) for((x,y) in listOf(44f to top-5,63f to top-4,54f to top-14)) {
+                if(flower && !dormant) for((x,y) in listOf(44f to top-5,63f to top-4,54f to top-14)) {
                     for(a in 0..4) { val angle=a*Math.PI*2/5;ellipse(x+kotlin.math.cos(angle).toFloat()*3-2.8f,y+kotlin.math.sin(angle).toFloat()*3-2.8f,5.6f,5.6f,Color.rgb(255,227,235)) }
                     ellipse(x-1.7f,y-1.7f,3.4f,3.4f,Color.rgb(255,224,129))
                 }
@@ -79,6 +79,7 @@ class TreeView(c:Context):View(c) {
                 c.drawOval(84-10*r,51-2*r,84+10*r,51+2*r,paint)
             }; c.restore()
         }
+        if(phase=="dead") { paint.shader=null;paint.style=Paint.Style.FILL;paint.color=Color.rgb(189,143,102);paint.textSize=16f;c.drawText("×",active-4,37f,paint);ellipse(active-15,47f,7f,3f,Color.rgb(163,117,77));ellipse(active+10,47f,7f,3f,Color.rgb(163,117,77)) }
         if(n>0) { paint.shader=null; paint.style=Paint.Style.FILL; paint.color=Color.rgb(168,217,180); paint.textSize=8f; paint.typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL); c.drawText("${n}×",12f,57f,paint) }
         c.restore()
     }

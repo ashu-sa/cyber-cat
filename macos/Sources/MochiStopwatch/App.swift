@@ -53,7 +53,7 @@ final class FloatingPanel: NSPanel {
         Task { await model.cloud.sync() }
         displayTimer = Timer.scheduledTimer(withTimeInterval:1,repeats:true) { [weak self] _ in
             Task { @MainActor in
-                guard let self else { return }; self.model.advancePomodoro();self.model.refreshMenu(); self.ticks += 1
+                guard let self else { return }; self.model.advancePomodoro();self.model.refreshMenu(); self.updateSessionShortcuts();self.ticks += 1
                 if let notice=self.model.focusNotice {
                     self.model.focusNotice=nil
                     let content=UNMutableNotificationContent();content.title="Focanopy · Flower focus";content.body=notice;content.sound = .default
@@ -166,7 +166,8 @@ final class FloatingPanel: NSPanel {
             sessionHotKeys.removeAll()
             return
         }
-        let shortcuts: [(UInt32, Int, String)] = [(2, kVK_ANSI_S, "S"), (3, kVK_ANSI_P, "P"), (4, kVK_ANSI_F, "F")]
+        if model.pomodoroEnabled,let ref=sessionHotKeys.removeValue(forKey:4) { UnregisterEventHotKey(ref) }
+        let shortcuts: [(UInt32, Int, String)] = [(2, kVK_ANSI_S, "S"), (3, kVK_ANSI_P, "P")]+(model.pomodoroEnabled ? []:[(4,kVK_ANSI_F,"F")])
         for (id, key, label) in shortcuts where sessionHotKeys[id] == nil {
             var reference: EventHotKeyRef?
             let result = RegisterEventHotKey(UInt32(key), UInt32(cmdKey), EventHotKeyID(signature: 0x43595054, id: id), GetApplicationEventTarget(), 0, &reference)
@@ -217,7 +218,7 @@ final class FloatingPanel: NSPanel {
     @objc func start() { if model.phase == .finished { model.resumeFinished() } else { model.start() }; showPet() }
     @objc func pause() { model.pause() }
     @objc func resume() { model.start() }
-    @objc func finish() { model.finish(); nameSession() }
+    @objc func finish() { guard !model.pomodoroEnabled || model.phase == .finished else { return };model.finish(); nameSession() }
     @discardableResult func nameSession(revealHistory: Bool = true) -> Bool {
         guard model.phase == .finished, !dialogOpen else { return false }
         dialogOpen = true; updateSessionShortcuts()
@@ -271,15 +272,23 @@ final class FloatingPanel: NSPanel {
         guard model.phase != .idle, !dialogOpen else { return }
         dialogOpen = true; updateSessionShortcuts()
         defer { dialogOpen = false; updateSessionShortcuts() }
-        let alert = NSAlert(); alert.messageText = "Discard this session?"; alert.informativeText = "This session won’t be added to history."
+        let alert = NSAlert(); alert.messageText = model.pomodoroEnabled ? "Cancel this Pomodoro round?" : "Discard this session?"; alert.informativeText = model.pomodoroEnabled ? "An unfinished tree will die. Completed 25-minute rounds stay saved." : "This session won’t be added to history."
         alert.addButton(withTitle:"Keep Session"); alert.addButton(withTitle:"Discard Session")
         NSApp.activate(ignoringOtherApps:true)
-        if alert.runModal() == .alertSecondButtonReturn { if model.discard() { pendingTaskName="" }; showError() }
+        if alert.runModal() == .alertSecondButtonReturn { if model.pomodoroEnabled { model.cancelPomodoro() } else if model.discard() { pendingTaskName="" }; showError() }
     }
     @objc func quit() { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !dialogOpen else { return .terminateCancel }
         guard model.phase != .idle else { return .terminateNow }
+        if model.pomodoroEnabled {
+            let alert=NSAlert();alert.messageText="Quit Pomodoro?";alert.informativeText="Keep the timer running across relaunch, or cancel the round. An unfinished tree dies when cancelled; completed rounds stay saved."
+            alert.addButton(withTitle:"Keep timer & quit");alert.addButton(withTitle:"Cancel round & quit");alert.addButton(withTitle:"Keep working")
+            let result=alert.runModal()
+            if result == .alertFirstButtonReturn { return model.checkpoint() ? .terminateNow : .terminateCancel }
+            if result == .alertSecondButtonReturn { model.cancelPomodoro();return model.checkpoint() ? .terminateNow : .terminateCancel }
+            return .terminateCancel
+        }
         let alert = NSAlert(); alert.messageText = "End your active session and quit?"
         alert.informativeText = "Save it to history, discard it, or keep working. The timer continues until you choose."
         alert.addButton(withTitle:"Save & Quit"); alert.addButton(withTitle:"Discard & Quit"); alert.addButton(withTitle:"Cancel")
@@ -341,7 +350,7 @@ final class FloatingPanel: NSPanel {
                 Divider()
                 Button("Start / Resume",action:{ delegate.handleSessionShortcut(2) }).keyboardShortcut("s").disabled(!delegate.model.petVisible)
                 Button("Pause",action:{ delegate.handleSessionShortcut(3) }).keyboardShortcut("p").disabled(!delegate.model.petVisible)
-                Button("Finish Session…",action:{ delegate.handleSessionShortcut(4) }).keyboardShortcut("f").disabled(!delegate.model.petVisible)
+                if !delegate.model.pomodoroEnabled { Button("Finish Session…",action:{ delegate.handleSessionShortcut(4) }).keyboardShortcut("f").disabled(!delegate.model.petVisible) }
                 Divider()
                 Button("Show Pet",action:delegate.showPet).keyboardShortcut("p",modifiers:[.command,.shift])
                 Button("Hide Pet",action:delegate.hidePet)
@@ -367,8 +376,8 @@ struct MenuContents: View {
         Text("Focanopy · \(model.menuTime)")
         switch model.phase {
         case .idle: Button(model.pomodoroEnabled ? "Start 25-minute focus" : "Start Stopwatch",action:delegate.start)
-        case .running: Button("Pause",action:delegate.pause); Button("Finish Session…",action:delegate.finish)
-        case .paused: Button(model.pomodoroEnabled && model.pomodoro.stage != "focus" ? (model.pomodoro.stage=="break" ? "Skip break & start next focus" : "Start next 25-minute focus") : "Resume",action:delegate.resume); Button("Finish Session…",action:delegate.finish)
+        case .running: Button("Pause",action:delegate.pause); if !model.pomodoroEnabled { Button("Finish Session…",action:delegate.finish) }
+        case .paused: Button(model.pomodoroEnabled && model.pomodoro.stage != "focus" ? (model.pomodoro.stage=="break" ? "Skip break & start next focus" : "Start next 25-minute focus") : "Resume",action:delegate.resume); if !model.pomodoroEnabled { Button("Finish Session…",action:delegate.finish) }
         case .finished: Button("Name & Save Session…",action:delegate.finish);Button("Resume Timer",action:delegate.start);Button("Reset Timer…",action:delegate.cancelSession)
         }
         if model.phase != .idle && model.phase != .finished { Button("Cancel Session…",action:delegate.cancelSession) }
@@ -396,12 +405,12 @@ struct FocusPreferences:View {
             Toggle("Pomodoro effect · 25-minute flower",isOn:Binding(get:{model.pomodoroEnabled},set:{ enabled in
                 model.selectMode(enabled,minutes:model.pomodoro.breakMinutes)
                 if enabled { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in } }
-            })).disabled(model.phase != .idle)
+            })).disabled(model.phase != .idle && model.pomodoro.stage != "dead")
             Text(model.pomodoroEnabled ? "🌸 Flower focus · "+model.pomodoro.stage.capitalized : "🌳 Stopwatch · Grow at your own pace").foregroundStyle(Color.cyber)
             if model.pomodoroEnabled {
                 Picker("Break",selection:Binding(get:{model.pomodoro.breakMinutes},set:{model.selectMode(true,minutes:$0)})) { Text("5 minutes").tag(5);Text("10 minutes").tag(10) }.disabled(model.phase != .idle)
                 Text(model.menuTime).font(.system(size:32,design:.monospaced))
-                Text(model.pomodoro.stage=="focus" ? "Water your flower for 25 minutes. Breaks never count as focus time." : model.pomodoro.stage=="break" ? "Your flower bloomed! Stop watering, stretch and move a little." : "Come back when you’re ready — your next flower needs water.")
+                Text(model.pomodoro.stage=="dead" ? "This tree died. Start a new 25-minute round to grow a fresh tree." : model.pomodoro.stage=="focus" ? "Water your flower for 25 minutes. Breaks never count as focus time." : model.pomodoro.stage=="break" ? "Your flower bloomed! Stop watering, stretch and move a little." : "Come back when you’re ready — your next flower needs water.")
                 if model.pomodoro.stage != "focus" && model.phase != .finished {
                     Button(model.pomodoro.stage=="break" ? "Skip break & start next focus" : "Start next 25-minute focus") { model.start() }
                 }
@@ -422,7 +431,7 @@ struct FocusPreferences:View {
                 _=AXIsProcessTrustedWithOptions(options)
             }
             Text("Optional Accessibility permission helps minimize resistant app windows, including Java apps. A blocking screen also prevents clicking through.").font(.caption).foregroundStyle(.secondary)
-            Text("The next round always waits for you. Finish or reset the current timer to switch modes.").font(.caption).foregroundStyle(.secondary)
+            Text("The next round always waits for you. Completed rounds save automatically. Cancel an unfinished round and its tree dies.").font(.caption).foregroundStyle(.secondary)
         }.padding(24).frame(maxWidth:.infinity) }.frame(width:478,height:580).preferredColorScheme(.dark)
     }
     func chooseApps() {

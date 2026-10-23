@@ -1,19 +1,19 @@
 # Flower Pomodoro
 
-The stopwatch is the default. Enable the optional **Pomodoro effect** for a 25-minute focus round. Existing sessions keep their original mode; finish/save or reset before changing the effect.
+The stopwatch is the default. Enable the optional **Pomodoro effect** for a 25-minute focus round. Existing sessions keep their original mode; cancel/reset the current round before changing the effect.
 
 - **Android:** Timer → Pomodoro effect. Choose a 5- or 10-minute break before starting. App blocking is available with the effect off, too.
 - **macOS / Windows / Ubuntu:** click the floating tree → Pomodoro & App Blocking. The same option is in the menu bar / tray.
 
 The pink flowering tree grows continuously during 25 minutes of focus. At 25 minutes it blooms fully, watering stops, and a reminder asks you to stretch and move a little. The chosen break counts down separately. When it ends, another reminder says your next flower needs water. **The next focus round never starts automatically.** Press Start next focus when ready; an explicit Skip break action can start it earlier.
 
-Manual pauses freeze growth and stop watering. Breaks preserve the healthy completed flower. During the next round a completed flower remains beside the next growing one. Finish and name a session whenever you want; the saved duration contains only focused time across its rounds. Existing journal/calendar hourly tree and garden totals continue to use actual focused time, without treating breaks as work. Flower counts shown on the timer describe the current Pomodoro session.
+Manual pauses freeze growth and stop watering. Breaks preserve the healthy completed flower. During the next round a completed flower remains beside the next growing one. Pomodoro has no Finish action. Each completed 25-minute round saves automatically under **Pomodoro focus**, adding to the same session across rounds; you can rename it in the journal. Cancel during an unfinished round and its tree dies: watering stops, foliage turns brown, petals fall, and that partial round is not saved. Earlier completed rounds stay saved. The dead tree remains after relaunch until you start a fresh 25-minute round. Cancelling during a break simply exits the completed cycle. Pausing rests the tree without killing it. Existing journal/calendar hourly tree and garden totals continue to use actual focused time, without treating breaks as work. Flower counts shown on the timer describe the current Pomodoro session.
 
 Focus time is capped at the 25-minute boundary even if the app wakes late or restores after process exit. A late wake cannot silently run additional rounds. Drafts preserve the mode, target, break choice and break deadline. Runtime intervals use monotonic clocks; restoring a break after process exit uses the saved wall-clock deadline, so changing the system clock while the app is closed can affect the restored break countdown.
 
 ## Optional app blocking
 
-Blocking is **off by default**. When enabled, it applies while the ordinary stopwatch runs or during a running Pomodoro focus round. Pauses, breaks, waiting for the next round and finished sessions release blocking. Apps are never terminated or suspended; their documents stay open.
+Blocking is **off by default**. When enabled, it applies while the ordinary stopwatch runs or during a running Pomodoro focus round. Pauses, breaks, waiting for the next round and finished sessions and cancelled trees release blocking. Apps are never terminated or suspended; their documents stay open.
 
 Choose **Block selected apps**, or **Block all except browsers & exclusions**. In all-app mode, choose apps you want to keep available as exclusions. Browsers are automatically allowed in this mode; a browser can still be explicitly blocked in selected-app mode. Device-local exclusions take priority over selected apps. Focanopy and essential system controls remain available.
 

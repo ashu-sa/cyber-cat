@@ -17,7 +17,7 @@ class PomodoroTests(unittest.TestCase):
         self.advance(300);self.assertIn('needs water',s.advance_pomodoro());self.assertEqual(s.pomodoro.stage,'ready')
         self.advance(1000);s.advance_pomodoro();self.assertEqual(s.phase,'paused');self.assertEqual(s.elapsed,1500)
         s.start();self.assertEqual(s.pomodoro.target,3000);self.advance(120);s.pause();self.advance(200);s.start();self.advance(1380);s.advance_pomodoro()
-        self.assertEqual(s.elapsed,3000);s.finish();record=s.save('Two flowers');self.assertEqual(record['duration'],3000)
+        self.assertEqual(s.elapsed,3000);s.finish();self.assertEqual(s.phase,'paused');self.assertEqual(s.sessions[0]['duration'],3000);self.assertEqual(len(s.sessions),1)
     def test_long_sleep_caps_focus_and_does_not_run_more_rounds(self):
         s=self.s;s.select_mode(True,10);s.start();self.advance(7200)
         notice=s.advance_pomodoro();self.assertIn('needs water',notice);self.assertEqual(s.elapsed,1500);self.assertEqual(s.pomodoro.stage,'ready');self.assertEqual(s.phase,'paused')
@@ -50,3 +50,14 @@ class PomodoroTests(unittest.TestCase):
             blocker=FocusBlocker(s,lambda *_:None);blocker.tick();policy=json.loads(blocker.policy.read_text())
             self.assertTrue(policy['active']);self.assertTrue(policy['all']);self.assertEqual(policy['excluded'],['music.desktop'])
             self.assertEqual(policy['expires'],self.wall+10);s.pause();blocker.tick();self.assertFalse(json.loads(blocker.policy.read_text())['active'])
+
+    def test_cancel_kills_partial_tree_and_restart_grows_a_new_one(self):
+        s=self.s;s.select_mode(True);s.start();self.advance(600);s.finish();self.assertEqual(s.phase,'running');self.assertEqual(s.sessions,[])
+        s.cancel_pomodoro();self.assertEqual(s.pomodoro.stage,'dead');self.assertEqual(s.phase,'paused');self.assertEqual(s.display_time,1500);self.assertEqual(s.sessions,[])
+        self.advance(500);recovered=Store(self.tmp.name,lambda:self.now,lambda:self.wall);self.assertEqual(recovered.pomodoro.stage,'dead');self.assertEqual(recovered.elapsed,600)
+        recovered.start();self.assertEqual(recovered.elapsed,0);self.assertEqual(recovered.pomodoro.target,1500);self.assertEqual(recovered.pomodoro.stage,'focus')
+    def test_completed_round_saved_once_and_survives_next_tree_death(self):
+        s=self.s;s.select_mode(True);s.start();self.advance(1500);s.advance_pomodoro();self.assertEqual(s.sessions[0]['duration'],1500)
+        identifier=s.sessions[0]['id'];s.advance_pomodoro();self.assertEqual(len(s.sessions),1)
+        s.start();self.advance(400);s.cancel_pomodoro();self.assertEqual(s.pomodoro.stage,'dead');self.assertEqual(s.sessions[0]['duration'],1500);self.assertEqual(s.sessions[0]['id'],identifier)
+        recovered=Store(self.tmp.name,lambda:self.now,lambda:self.wall);self.assertEqual(len(recovered.sessions),1);self.assertEqual(recovered.sessions[0]['duration'],1500)

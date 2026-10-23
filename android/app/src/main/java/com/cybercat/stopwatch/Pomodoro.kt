@@ -13,7 +13,7 @@ class Pomodoro(private val clock:()->Long,private val wall:()->Long) {
         end=clock()+(deadline-wall()).coerceAtLeast(0)
     }
     fun start(elapsed:Long) { if(stage=="break" || stage=="ready") { stage="focus";target=elapsed+FOCUS;deadline=0;end=0 } }
-    fun remaining(elapsed:Long):Long = when(stage) { "break" -> (end-clock()).coerceAtLeast(0); "ready" -> 0; else -> (target-elapsed).coerceAtLeast(0) }
+    fun remaining(elapsed:Long):Long = when(stage) { "dead" -> FOCUS; "break" -> (end-clock()).coerceAtLeast(0); "ready" -> 0; else -> (target-elapsed).coerceAtLeast(0) }
     fun advance(elapsed:Long,running:Boolean):Pair<Long?,String?> {
         var cap:Long?=null;var notice:String?=null
         if(stage=="focus" && running && elapsed>=target) {

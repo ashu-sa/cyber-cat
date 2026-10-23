@@ -27,6 +27,7 @@ struct Session: Codable, Identifiable {
     struct FocusSettings:Codable { var enabled:Bool;var breakMinutes:Int }
     var displayTime:TimeInterval {
         guard pomodoroEnabled,phase != .finished else { return elapsed }
+        if pomodoro.stage=="dead" { return 1500 }
         if pomodoro.stage=="ready" { return 0 }
         if pomodoro.stage=="break" {
             guard let breakAnchor else { return max(0,pomodoro.deadline?.timeIntervalSinceNow ?? 0) }
@@ -36,6 +37,7 @@ struct Session: Codable, Identifiable {
         return max(0,pomodoro.target-elapsed)
     }
     func selectMode(_ enabled:Bool,minutes:Int=5) {
+        if pomodoro.stage=="dead" { guard discard() else { return } }
         guard phase == .idle else { error="Finish or reset your session before changing modes."; return }
         let minutes=minutes==10 ? 10:5
         do { try JSONEncoder().encode(FocusSettings(enabled:enabled,breakMinutes:minutes)).write(to:focusSettingsURL,options:.atomic)
@@ -46,6 +48,7 @@ struct Session: Codable, Identifiable {
         guard pomodoroEnabled,phase != .idle,phase != .finished else { return }
         var changed=false
         if pomodoro.stage=="focus",phase == .running,elapsed>=pomodoro.target {
+            guard creditPomodoro() else { return }
             let remaining=Double(pomodoro.breakMinutes*60)-(elapsed-pomodoro.target)
             accumulated=pomodoro.target;anchor=nil;phase = .paused;pomodoro.stage="break"
             pomodoro.deadline=Date().addingTimeInterval(remaining);breakAnchor=clock.now;breakRemaining=remaining
@@ -55,6 +58,22 @@ struct Session: Codable, Identifiable {
             pomodoro.stage="ready";focusNotice="Come back when you’re ready — your next flower needs water.";changed=true
         }
         if changed { checkpoint() }
+    }
+    private func creditPomodoro()->Bool {
+        guard let id=sessionId,let start=started else { return false }
+        if sessions.contains(where:{$0.id==id && $0.duration>=pomodoro.target}) { return true }
+        guard checkpoint() else { return false }
+        let defaults=UserDefaults.standard
+        let device=defaults.string(forKey:"cybercat.deviceId") ?? UUID().uuidString
+        defaults.set(device,forKey:"cybercat.deviceId")
+        let entry=Session(id:id,name:sessions.first(where:{$0.id==id})?.name ?? "Pomodoro focus",start:start,end:Date().addingTimeInterval(-max(0,elapsed-pomodoro.target)),duration:pomodoro.target,platform:"macos",deviceId:device,deviceName:"Mac")
+        return replaceHistory([entry]+sessions.filter{$0.id != id})
+    }
+    func cancelPomodoro() {
+        guard pomodoroEnabled,phase != .idle else { return }
+        advancePomodoro()
+        if pomodoro.stage=="focus" { accumulated=elapsed;anchor=nil;phase = .paused;pomodoro.stage="dead";pomodoro.deadline=nil;breakAnchor=nil;focusNotice="This tree died. Start a new 25-minute round when you’re ready.";refreshMenu();checkpoint() }
+        else if pomodoro.stage != "dead" { _=discard() }
     }
     private func startRoundIfNeeded() {
         if pomodoroEnabled && (pomodoro.stage=="break" || pomodoro.stage=="ready") {
@@ -119,6 +138,7 @@ struct Session: Codable, Identifiable {
     }
     func start() {
         guard !cloud.authenticating else { return }
+        if pomodoroEnabled && pomodoro.stage=="dead" { guard discard() else { return } }
         if phase == .idle { accumulated = 0; started = Date(); ended = nil; sessionId = UUID() }
         guard phase == .idle || phase == .paused else { return }
         startRoundIfNeeded();anchor = clock.now; phase = .running; saved = false; refreshMenu(); checkpoint()
@@ -128,7 +148,7 @@ struct Session: Codable, Identifiable {
         if pomodoroEnabled && elapsed>=pomodoro.target { pomodoro.stage="ready" };startRoundIfNeeded();ended=nil;anchor=clock.now;phase = .running;saved=false;refreshMenu();checkpoint()
     }
     func pause() { advancePomodoro();guard phase == .running else { return }; accumulated = elapsed; anchor = nil; phase = .paused; refreshMenu(); checkpoint() }
-    func finish() { advancePomodoro();guard phase == .running || phase == .paused else { return }; accumulated = elapsed; anchor = nil; ended = Date(); phase = .finished; refreshMenu(); checkpoint() }
+    func finish() { guard !pomodoroEnabled else { return };advancePomodoro();guard phase == .running || phase == .paused else { return }; accumulated = elapsed; anchor = nil; ended = Date(); phase = .finished; refreshMenu(); checkpoint() }
     @discardableResult func checkpoint() -> Bool {
         guard let started, phase != .idle else { return true }
         do { try JSONEncoder().encode(Draft(phase: phase, elapsed: elapsed, start: started, end: ended, checkpoint: Date(), sessionId: sessionId,pomodoroEnabled:pomodoroEnabled,pomodoro:pomodoro)).write(to: draftURL, options: .atomic); return true }

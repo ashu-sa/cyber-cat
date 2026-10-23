@@ -48,8 +48,8 @@ object Repository {
                 engine.accumulated += passed.coerceAtLeast(0); engine.anchor = SystemClock.elapsedRealtime()
             }
         } catch (e: Exception) { error = "Could not read saved data: ${e.localizedMessage}" }
-        advancePomodoro()
         Cloud.init(context); if(Cloud.owner!=null) sessions=Cloud.visible()
+        advancePomodoro()
     }
     fun checkpoint() {
         check(prefs.edit().putString("phase", engine.phase).putLong("elapsed", engine.elapsed())
@@ -66,21 +66,37 @@ object Repository {
         if(growthKey!=key) { growthBase=sessions.filter { day(it.getLong("start"))==date && it.getString("id")!=active }.sumOf { it.getLong("duration") }; growthKey=key }
         return growthBase+engine.elapsed()
     }
-    fun start() { if((Cloud.busy.get() && Cloud.owner==null) || Cloud.googlePending) return; if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; if(pomodoroEnabled)pomodoro.start(engine.elapsed());engine.start(); checkpoint() }
+    fun start() { if(pomodoroEnabled && pomodoro.stage=="dead")discard(); if((Cloud.busy.get() && Cloud.owner==null) || Cloud.googlePending) return; if (engine.phase == "idle") { started = System.currentTimeMillis(); ended = 0; sessionId = UUID.randomUUID().toString() }; if(pomodoroEnabled)pomodoro.start(engine.elapsed());engine.start(); checkpoint() }
     fun resumeFinished() { if(engine.phase=="finished") { if(pomodoroEnabled) { if(engine.elapsed()>=pomodoro.target)pomodoro.stage="ready";pomodoro.start(engine.elapsed()) };ended=0;engine.resumeFinished();checkpoint() } }
     fun pause() { advancePomodoro();engine.pause(); checkpoint() }
-    fun finish() { advancePomodoro(); if (engine.phase == "running" || engine.phase == "paused") ended = System.currentTimeMillis(); engine.finish(); checkpoint() }
+    fun finish() { if(pomodoroEnabled)return;advancePomodoro(); if (engine.phase == "running" || engine.phase == "paused") ended = System.currentTimeMillis(); engine.finish(); checkpoint() }
     fun selectMode(enabled:Boolean,minutes:Int=5) {
+        if(pomodoro.stage=="dead")discard()
         check(engine.phase=="idle") { "Finish or reset the current session before changing modes." }
         pomodoroEnabled=enabled;pomodoro=Pomodoro({SystemClock.elapsedRealtime()},{System.currentTimeMillis()}).apply { breakMinutes=if(minutes==10)10 else 5 };checkpoint()
     }
     fun displayTime():Long = if(pomodoroEnabled && engine.phase!="finished")pomodoro.remaining(engine.elapsed()) else engine.elapsed()
     fun advancePomodoro():String? {
         if(!pomodoroEnabled || engine.phase=="idle" || engine.phase=="finished")return null
+        if(engine.phase=="running" && pomodoro.stage=="focus" && engine.elapsed()>=pomodoro.target)creditPomodoro()
         val (cap,notice)=pomodoro.advance(engine.elapsed(),engine.phase=="running")
         if(cap!=null) { engine.accumulated=cap;engine.phase="paused" }
         if(notice!=null) { focusNotice=notice;checkpoint() }
         return notice
+    }
+    private fun creditPomodoro() {
+        if(sessions.any { it.getString("id")==sessionId && it.getLong("duration")>=pomodoro.target })return
+        checkpoint()
+        val device=prefs.getString("deviceId",null) ?: UUID.randomUUID().toString().also { check(prefs.edit().putString("deviceId",it).commit()) }
+        val name=sessions.firstOrNull { it.getString("id")==sessionId }?.getString("name") ?: "Pomodoro focus"
+        val item=JSONObject().put("id",sessionId).put("name",name).put("start",started).put("end",System.currentTimeMillis()-(engine.elapsed()-pomodoro.target).coerceAtLeast(0)).put("duration",pomodoro.target).put("platform","android").put("device_id",device).put("device_name","Phone")
+        replace(listOf(item)+sessions.filter {it.getString("id")!=sessionId})
+    }
+    fun cancelPomodoro() {
+        if(!pomodoroEnabled || engine.phase=="idle")return
+        advancePomodoro()
+        if(pomodoro.stage=="focus") { engine.pause();pomodoro.stage="dead";pomodoro.deadline=0;focusNotice="This tree died. Start a new 25-minute round when you’re ready.";checkpoint() }
+        else if(pomodoro.stage!="dead")discard()
     }
     private fun resetPomodoro() { focusNotice=null;pomodoro=Pomodoro({SystemClock.elapsedRealtime()},{System.currentTimeMillis()}).apply { breakMinutes=prefs.getInt("breakMinutes",5) } }
     fun replace(records: List<JSONObject>) {

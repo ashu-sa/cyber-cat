@@ -65,7 +65,8 @@ class MainActivity: Activity() {
             }
             return
         }
-        if(intent?.action=="FINISH") safe { Repository.finish(); service("SYNC"); saveDialog() }
+        if(intent?.action=="CANCEL_POMODORO") cancelPomodoroDialog()
+        else if(intent?.action=="FINISH" && !Repository.pomodoroEnabled) safe { Repository.finish(); service("SYNC"); saveDialog() }
         else if(intent?.action=="SAVE" || Repository.engine.phase=="finished") saveDialog()
         intent?.action=null
     }
@@ -207,21 +208,21 @@ class MainActivity: Activity() {
     private fun updateGrowth() {
         if(Repository.pomodoroEnabled) {
             val remaining=Repository.pomodoro.remaining(Repository.engine.elapsed())
-            growthHint?.text=if(Repository.pomodoro.stage=="focus") "${focusText(remaining)} until your flower blooms" else if(Repository.pomodoro.stage=="break") "Watering stopped · Enjoy your break" else "Ready when you are · Start the next flower"
-            growthBar?.progress=if(Repository.pomodoro.stage!="focus")1000 else ((Pomodoro.FOCUS-remaining).coerceIn(0,Pomodoro.FOCUS)*1000/Pomodoro.FOCUS).toInt()
+            growthHint?.text=if(Repository.pomodoro.stage=="dead") "Cancelled round · Start a fresh tree" else if(Repository.pomodoro.stage=="focus") "${focusText(remaining)} until your flower blooms" else if(Repository.pomodoro.stage=="break") "Watering stopped · Enjoy your break" else "Ready when you are · Start the next flower"
+            growthBar?.progress=if(Repository.pomodoro.stage=="dead")0 else if(Repository.pomodoro.stage!="focus")1000 else ((Pomodoro.FOCUS-remaining).coerceIn(0,Pomodoro.FOCUS)*1000/Pomodoro.FOCUS).toInt()
         } else {
             val elapsed=Repository.growthElapsed();growthHint?.text=Forest.nextTreeText(elapsed);growthBar?.progress=((elapsed%Forest.HOUR)*1000/Forest.HOUR).toInt()
         }
     }
     private fun timerPage() {
         root.addView(android.widget.Switch(this).apply {
-            text="Pomodoro effect · 25-minute flower";isChecked=Repository.pomodoroEnabled;isEnabled=phase=="idle"
+            text="Pomodoro effect · 25-minute flower";isChecked=Repository.pomodoroEnabled;isEnabled=phase=="idle" || pomoStage=="dead"
             setTextColor(cyan);setOnCheckedChangeListener { _,on -> Repository.selectMode(on,Repository.pomodoro.breakMinutes);render() }
         })
         if(Repository.pomodoroEnabled) {
-            root.addView(text(when(pomoStage) { "break" -> "Your flower bloomed! Stop watering, stretch and move a little."; "ready" -> "Come back when you’re ready — your next flower needs water."; else -> "25 minutes of focus · A flower blooms when you finish" },15f,cyan))
+            root.addView(text(when(pomoStage) { "dead" -> "Your tree withered · A fresh tree needs a new round"; "break" -> "Your flower bloomed! Stop watering, stretch and move a little."; "ready" -> "Come back when you’re ready — your next flower needs water."; else -> "25 minutes of focus · A flower blooms after 25 minutes" },15f,cyan))
             if(phase=="idle")line { row -> for(minutes in listOf(5,10)) row.addView(button("$minutes min break") { Repository.selectMode(true,minutes);render() }.apply { alpha=if(Repository.pomodoro.breakMinutes==minutes)1f else .5f },LinearLayout.LayoutParams(0,dp(44),1f)) }
-            if(pomoStage!="focus" && phase!="finished")root.addView(button(if(pomoStage=="break")"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() })
+            if(pomoStage!="focus" && pomoStage!="dead" && phase!="finished")root.addView(button(if(pomoStage=="break")"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() })
         }
         val on=Repository.prefs.getBoolean("focusBlocking",false)
         val all=Repository.prefs.getBoolean("focusBlockAll",false)
@@ -239,14 +240,18 @@ class MainActivity: Activity() {
         }
         cat=TreeView(this); root.addView(cat,LinearLayout.LayoutParams(-1,dp(150))); cat?.refresh()
         timer=text(clockText(Repository.displayTime()),42f,cyan).apply { gravity=Gravity.CENTER; typeface=Typeface.create("monospace",Typeface.NORMAL) }; root.addView(timer)
-        root.addView(text(when(phase) { "running" -> "A little water. A little growth."; "paused" -> "Watering paused. Your tree is resting."; "finished" -> "Lovely work. Save your focus."; else -> "Your next tree starts here." },14f,Color.rgb(182,199,185)).apply { gravity=Gravity.CENTER })
+        root.addView(text(if(Repository.pomodoroEnabled && pomoStage=="dead") "This tree died. Start a new 25-minute round." else when(phase) { "running" -> "A little water. A little growth."; "paused" -> "Watering paused. Your tree is resting."; "finished" -> "Lovely work. Save your focus."; else -> "Your next tree starts here." },14f,Color.rgb(182,199,185)).apply { gravity=Gravity.CENTER })
         line { row ->
             row.gravity=Gravity.CENTER
             row.addView(button(if(phase=="running") "Ⅱ" else if(phase=="finished") "↓" else "▶",if(phase=="running") "Pause" else if(phase=="finished") "Save session" else "Start or resume") {
                 if(phase=="finished") saveDialog() else { notifications(); if(Repository.engine.phase=="running") Repository.pause() else Repository.start(); service("SYNC"); render() }
-            }.apply { visibility=if(Repository.pomodoroEnabled && pomoStage!="focus" && phase!="finished")View.GONE else View.VISIBLE;setTextColor(bg); background=card(cyan); textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
-            row.addView(button("✓","Finish session") { if(Repository.engine.phase!="idle") { Repository.finish(); service("SYNC"); render(); saveDialog() } }.apply { isEnabled=phase!="idle"; visibility=if(phase=="finished")View.GONE else View.VISIBLE; alpha=if(isEnabled)1f else .35f; textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
+            }.apply { visibility=if(Repository.pomodoroEnabled && pomoStage!="focus" && pomoStage!="dead" && phase!="finished")View.GONE else View.VISIBLE;setTextColor(bg); background=card(cyan); textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
+            row.addView(button("✓","Finish session") { if(Repository.engine.phase!="idle") { Repository.finish(); service("SYNC"); render(); saveDialog() } }.apply { isEnabled=phase!="idle"; visibility=if(phase=="finished" || Repository.pomodoroEnabled)View.GONE else View.VISIBLE; alpha=if(isEnabled)1f else .35f; textSize=20f },LinearLayout.LayoutParams(dp(56),dp(56)).apply { setMargins(dp(4),dp(10),dp(4),dp(10)) })
         }
+        if(Repository.pomodoroEnabled && phase!="idle" && pomoStage!="dead") {
+            root.addView(button(if(pomoStage=="focus")"Cancel round · tree will die" else "End Pomodoro · completed rounds saved") { cancelPomodoroDialog() })
+        }
+        if(Repository.pomodoroEnabled)root.addView(text("Completed 25-minute rounds save automatically.",12f,cyan))
         if(phase=="finished") {
             root.addView(text("Not ready to save? Continue this session or start fresh.",13f,Color.LTGRAY))
             line { row ->
@@ -263,9 +268,14 @@ class MainActivity: Activity() {
             root.addView(text("Grow here, or take your tree with you.",13f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
             root.addView(button("Floating tree options") { tab="Settings"; render() })
         } else {
-            root.addView(text(if(phase=="finished") "Session stopped · Save, resume or reset when you’re ready." else "Your timer continues in the notification shade.",12f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
-            if(phase!="finished") root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { Repository.discard(); service("SYNC"); render() } }.show() })
+            root.addView(text(if(pomoStage=="dead" && Repository.pomodoroEnabled) "Cancelled · No partial focus time saved" else if(phase=="finished") "Session stopped · Save, resume or reset when you’re ready." else "Your timer continues in the notification shade.",12f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
+            if(phase!="finished" && !Repository.pomodoroEnabled) root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { if(Repository.pomodoroEnabled)Repository.cancelPomodoro() else Repository.discard(); service("SYNC"); render() } }.show() })
         }
+    }
+    private fun cancelPomodoroDialog() {
+        AlertDialog.Builder(this).setTitle("Cancel Pomodoro?")
+            .setMessage("An unfinished tree will die and this partial round will not count. Completed 25-minute rounds stay saved.")
+            .setNegativeButton("Keep growing",null).setPositiveButton("Cancel round") { _,_->safe { Repository.cancelPomodoro();service("SYNC");render() } }.show()
     }
     private fun saveDialog() {
         if(naming || Repository.engine.phase!="finished") return
@@ -373,7 +383,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.7.0",12f,cyan))
+        root.addView(text("Focanopy · 1.8.0",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }

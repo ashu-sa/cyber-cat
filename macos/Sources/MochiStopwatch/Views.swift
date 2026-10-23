@@ -9,6 +9,7 @@ struct GrowingTree: View {
     var phase: Stopwatch.Phase
     var animated = true
     var flower = false
+    var dead = false
     var elapsed: () -> TimeInterval = { 0 }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -17,7 +18,7 @@ struct GrowingTree: View {
             let seconds=flower && raw>0 && raw.truncatingRemainder(dividingBy:3600)<0.0001 ? raw-0.0001:raw
             let n=grownTrees(seconds)
             let remainder=seconds.truncatingRemainder(dividingBy:3600)
-            let dry=phase == .paused
+            let dry=phase == .paused || dead
             let motion=animated && !reduceMotion && !dry
             let t=motion ? elapsed() : 0
             Canvas { context,size in
@@ -47,7 +48,7 @@ struct GrowingTree: View {
                         c.translateBy(x:55,y:top+2); c.scaleBy(x:canopy,y:canopy); c.translateBy(x:-55,y:-(top+2))
                         let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:dormant ? [Color(red:0.84,green:0.75,blue:0.55),Color(red:0.70,green:0.61,blue:0.43),Color(red:0.48,green:0.45,blue:0.35)] : (flower ? [Color(red:1,green:0.79,blue:0.83),Color(red:0.94,green:0.48,blue:0.65),Color(red:0.65,green:0.27,blue:0.49)] : [Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)])),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
                         for r in [CGRect(x:30,y:top-14,width:30,height:29),CGRect(x:52,y:top-14,width:29,height:29),CGRect(x:39,y:top-21,width:32,height:31)] { c.fill(Path(ellipseIn:r),with:fill) }
-                        if flower {
+                        if flower && !dormant {
                             for point in [CGPoint(x:44,y:top-5),CGPoint(x:63,y:top-4),CGPoint(x:54,y:top-14)] {
                                 for a in 0..<5 { let angle=Double(a)*Double.pi*2/5; c.fill(Path(ellipseIn:CGRect(x:point.x+cos(angle)*3-2.8,y:point.y+sin(angle)*3-2.8,width:5.6,height:5.6)),with:.color(Color(red:1,green:0.89,blue:0.92))) }
                                 c.fill(Path(ellipseIn:CGRect(x:point.x-1.7,y:point.y-1.7,width:3.4,height:3.4)),with:.color(.yellow.opacity(0.85)))
@@ -76,10 +77,14 @@ struct GrowingTree: View {
                         water.stroke(Path(ellipseIn:CGRect(x:84-10*r,y:51-2*r,width:20*r,height:4*r)),with:.color(Color.cyber.opacity((1-r)*0.65)),lineWidth:0.8)
                     }
                 }
+                if dead {
+                    for x in [activeX-14,activeX+12] { ellipse(CGRect(x:x,y:46,width:7,height:3),Color(red:0.64,green:0.46,blue:0.30)) }
+                    ctx.draw(Text("×").font(.system(size:14,weight:.bold)).foregroundStyle(Color(red:0.74,green:0.56,blue:0.40)),at:CGPoint(x:activeX,y:35))
+                }
                 if n>0 { ctx.draw(Text("\(n)×").font(.system(size:8,weight:.semibold)).foregroundStyle(Color(red:0.66,green:0.85,blue:0.71)),at:CGPoint(x:23,y:55)) }
             }
         }.frame(width:110,height:58)
-        .accessibilityLabel(treeText(elapsed()) + (phase == .paused ? ", dry tree, watering paused" : isGarden(elapsed()) ? ", garden grown" : ", growing your grove"))
+        .accessibilityLabel((dead ? "Dead tree. Cancelled round. " : "") + treeText(elapsed()) + (phase == .paused ? ", dry tree, watering paused" : isGarden(elapsed()) ? ", garden grown" : ", growing your grove"))
     }
 }
 struct PetControlStyle: ButtonStyle {
@@ -105,7 +110,7 @@ struct PetView: View {
     var reset: () -> Void = {}
     var body: some View {
         VStack(spacing: 3) {
-            GrowingTree(phase: model.pomodoroEnabled && model.pomodoro.stage != "focus" ? .finished:model.phase, animated: model.petVisible && petAnimations, flower:model.pomodoroEnabled, elapsed: { model.pomodoroEnabled ? model.elapsed:model.growthElapsed })
+            GrowingTree(phase: model.pomodoroEnabled && ["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase, animated: model.petVisible && petAnimations, flower:model.pomodoroEnabled, dead:model.pomodoro.stage=="dead", elapsed: { model.pomodoroEnabled ? model.elapsed:model.growthElapsed })
                 .scaleEffect(0.76).frame(width: 110, height: 42)
                 .overlay(PetInteraction(showOptions: showOptions))
             Text(model.menuTime)
@@ -121,14 +126,17 @@ struct PetView: View {
                 if model.phase == .finished {
                     FloatingAction(symbol:"play.fill",title:"Resume timer",enabled:true,accent:.cyber,action:resumeFinished).frame(width:26,height:26)
                     FloatingAction(symbol:"arrow.counterclockwise",title:"Reset timer",enabled:true,accent:.teal,action:reset).frame(width:26,height:26)
-                } else {
+                } else if !model.pomodoroEnabled {
                     FloatingAction(symbol:"checkmark",title:"Finish and name session",enabled:model.phase != .idle,accent:.teal,action:finish)
                         .frame(width:26,height:26)
+                } else if model.phase != .idle && model.pomodoro.stage=="focus" {
+                    FloatingAction(symbol:"xmark",title:"Cancel round · tree will die",enabled:true,accent:.orange,action:reset).frame(width:26,height:26)
                 }
             }.labelStyle(.iconOnly).fixedSize()
         }.frame(width: 150, height: 100).background(PetInteraction(showOptions: showOptions)).opacity(min(1, max(0.3, petOpacity)))
     }
     var primaryTitle: String {
+        if model.pomodoroEnabled && model.pomodoro.stage=="dead" { return "Start a new 25-minute tree" }
         if model.pomodoroEnabled && model.phase != .finished && model.pomodoro.stage != "focus" { return model.pomodoro.stage=="break" ? "Skip break and start next focus" : "Start next 25-minute focus" }
         switch model.phase { case .idle: return "Play"; case .running: return "Pause"; case .paused: return "Resume"; case .finished: return "Save Session" }
     }
@@ -463,8 +471,8 @@ struct PetOptionsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     switch model.phase {
                     case .idle: row("Play", "play.fill", start)
-                    case .running: row("Pause", "pause.fill", pause); row("Finish Session…", "checkmark", finish)
-                    case .paused: row("Resume", "play.fill", start); row("Finish Session…", "checkmark", finish)
+                    case .running: row("Pause", "pause.fill", pause); if !model.pomodoroEnabled { row("Finish Session…", "checkmark", finish) }
+                    case .paused: row(model.pomodoroEnabled && model.pomodoro.stage=="dead" ? "Start new 25-minute tree" : "Resume", "play.fill", start); if !model.pomodoroEnabled { row("Finish Session…", "checkmark", finish) }
                     case .finished: row("Name & Save Session…", "square.and.arrow.down", finish);row("Resume Timer", "play.fill", start);row("Reset Timer…", "arrow.counterclockwise", cancel)
                     }
                     if model.phase != .idle && model.phase != .finished { OptionsRow(title: "Cancel Session…", icon: "trash", destructive: true) { perform(cancel) } }
@@ -484,7 +492,7 @@ struct PetOptionsView: View {
                     }.padding(12).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     Divider().padding(.vertical, 5)
                     row("Pomodoro & App Blocking", "leaf", focus)
-                    if model.pomodoroEnabled { Text(model.pomodoro.stage=="focus" ? "25-minute flower focus" : model.pomodoro.stage=="break" ? "Stop watering · stretch and move" : "Come back — your flower needs water").font(.caption).foregroundStyle(Color.cyber) }
+                    if model.pomodoroEnabled { Text(model.pomodoro.stage=="dead" ? "This tree died · Start a new 25-minute round" : model.pomodoro.stage=="focus" ? "25-minute flower focus" : model.pomodoro.stage=="break" ? "Stop watering · stretch and move" : "Come back — your flower needs water").font(.caption).foregroundStyle(Color.cyber) }
                     row("Session History", "clock.arrow.circlepath", history)
                     row("Quit App…", "power", quit)
                 }.padding(12)

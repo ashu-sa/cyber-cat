@@ -33,13 +33,15 @@ Screenshots are captured from the actual native Android app on an isolated Andro
 
 ### Stopwatch with an optional Flower Pomodoro
 
-Start with the default stopwatch, or enable the optional **Pomodoro effect**: 25 minutes of focus grows a pink flowering tree, followed by a 5- or 10-minute break. Watering stops for the break, a gentle reminder asks you to move, and another invites you back. **You start every next round yourself.** Breaks never count toward saved focus time.
+Start with the default stopwatch, or enable the optional **Pomodoro effect**: 25 minutes of focus grows a pink flowering tree, followed by a 5- or 10-minute break. Watering stops for the break, a gentle reminder asks you to move, and another invites you back. **You start every next round yourself.** Completed 25-minute rounds save automatically. Pomodoro has no Finish button: cancelling an unfinished round kills its tree and discards that partial round; previously completed rounds stay saved. Breaks never count toward focus time.
 
 ![Native Pomodoro flower growth](docs/screenshots/pomodoro-flower-milestones.png)
 
 <img src="docs/screenshots/android-pomodoro-focus.png" alt="Optional 25-minute Pomodoro with a growing flowering tree" width="260" /> <img src="docs/screenshots/android-pomodoro-break.png" alt="Fully bloomed tree resting during a five-minute break" width="260" /> <img src="docs/screenshots/android-pomodoro-ready.png" alt="Return reminder waiting for the user to start the next focus round" width="260" />
 
 Optional app blocking works with the default stopwatch and Pomodoro focus. Block selected apps, or all apps except browsers and your exclusions. Android uses an explicitly enabled Accessibility service; macOS adds a blocking shield plus optional window minimization; Windows minimizes windows; Ubuntu/GNOME uses an optional user-enabled shell extension. Apps stay open, and pauses/breaks release blocking. See [Pomodoro and app-blocking setup](POMODORO.md) for controls, permissions and platform limits.
+
+<img src="docs/screenshots/android-pomodoro-dead.png" alt="Cancelled Pomodoro round with a dead tree, saved completed focus and a fresh 25-minute countdown" width="260" />
 
 <img src="docs/screenshots/android-app-blocking.png" alt="Android app blocking: selected apps or all apps except browsers and exclusions" width="280" />
 

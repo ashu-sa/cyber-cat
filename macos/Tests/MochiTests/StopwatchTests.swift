@@ -43,7 +43,10 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         capped.pomodoro.deadline=Date().addingTimeInterval(-1);capped.checkpoint()
         let ready=Stopwatch(directory:dir);XCTAssertEqual(ready.pomodoro.stage,"ready");XCTAssertEqual(ready.phase,.paused);XCTAssertEqual(ready.elapsed,1500,accuracy:0.01)
         ready.start();XCTAssertEqual(ready.phase,.running);XCTAssertEqual(ready.pomodoro.target,3000,accuracy:0.01)
-        ready.pause();ready.finish();ready.save("A flower");XCTAssertEqual(ready.sessions.count,1);precondition(ready.sessions[0].duration<1501)
+        ready.pause();ready.finish();XCTAssertEqual(ready.phase,.paused)
+        ready.cancelPomodoro();XCTAssertEqual(ready.pomodoro.stage,"dead");XCTAssertEqual(ready.sessions.count,1);XCTAssertEqual(ready.sessions[0].duration,1500,accuracy:0.01)
+        let dead=Stopwatch(directory:dir);XCTAssertEqual(dead.pomodoro.stage,"dead");dead.start();XCTAssertEqual(dead.pomodoro.stage,"focus");precondition(dead.elapsed<1);XCTAssertEqual(dead.pomodoro.target,1500,accuracy:0.01)
+        dead.finish();XCTAssertEqual(dead.phase,.running);dead.cancelPomodoro();XCTAssertEqual(dead.sessions.count,1)
     }
     func testGooglePKCE() throws {
         let flow=try GooglePKCE(); let other=try GooglePKCE()

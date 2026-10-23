@@ -89,6 +89,7 @@ class ShortcutScopeTests(unittest.TestCase):
             shortcuts=Shortcuts(app,lambda key:None,lambda error:None)
             self.assertEqual(shortcuts.registered,{1})
             shortcuts.scope(True); self.assertEqual(shortcuts.registered,{1,2,3,4})
+            shortcuts.scope(True,finish_allowed=False);self.assertEqual(shortcuts.registered,{1,2,3})
             shortcuts.scope(True,modal=True); self.assertEqual(shortcuts.registered,{1})
             shortcuts.scope(True); shortcuts.scope(False)
             self.assertEqual(shortcuts.registered,{1}); shortcuts.close()

@@ -58,6 +58,7 @@ class Shortcuts(QAbstractNativeEventFilter):
         super().__init__()
         self.app, self.callback, self.report = app, callback, report
         self.registered, self.gnome_enabled, self.visible = set(), gnome_enabled, None
+        self.finish_allowed=True
         self.timer = QTimer()
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.apply_gnome)
@@ -76,23 +77,25 @@ class Shortcuts(QAbstractNativeEventFilter):
         else:
             self.report('Ctrl+' + KEYS[identifier] + ' is already in use. Pet buttons still work.')
 
-    def scope(self, visible, modal=False):
+    def scope(self, visible, modal=False, finish_allowed=True):
+        changed=finish_allowed != self.finish_allowed
+        self.finish_allowed=finish_allowed
         visible = visible and not modal
         if sys.platform == 'win32':
             for identifier in (2, 3, 4):
-                if visible:
+                if visible and (identifier!=4 or finish_allowed):
                     self.register(identifier)
                 elif identifier in self.registered:
                     self.user32.UnregisterHotKey(None, identifier)
                     self.registered.remove(identifier)
-        if self.gnome_enabled and visible != self.visible:
+        if self.gnome_enabled and (visible != self.visible or changed):
             self.visible = visible
             self.timer.start(0)
 
     def apply_gnome(self):
         try:
             for key in ('S', 'P', 'F'):
-                gsettings('set', SCHEMA + BASE + key.lower() + '/', 'binding', '<Control>' + key.lower() if self.visible else '')
+                gsettings('set', SCHEMA + BASE + key.lower() + '/', 'binding', '<Control>' + key.lower() if self.visible and (key!='F' or self.finish_allowed) else '')
         except Exception as error:
             self.report('GNOME shortcut setup: ' + str(error))
 
