@@ -2,7 +2,7 @@
   <img src="docs/screenshots/app-icon.png" alt="Focanopy app icon" width="80" />
   <h1>Focanopy</h1>
   <p><strong>Make room to grow.</strong></p>
-  <p>An Android-first focus companion that turns focused time into a living grove.<br />Native apps for Android, macOS, Windows, and Ubuntu. Offline by default.</p>
+  <p>An Android-first focus companion that turns focused time into a living grove.<br />Native apps for Android, macOS, Windows, and Linux. Offline by default.</p>
   <p>
     <a href="https://github.com/ashu-sa/cyber-cat/releases/latest">Download</a> ·
     <a href="#see-it-in-action">Demo</a> ·
@@ -92,7 +92,7 @@ Screenshots come from the native apps using sample sessions, not personal activi
 | **Android** | [Download APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-debug.apk) | Android 8.0+ |
 | **macOS** | [Universal app](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-macOS-universal.zip) | macOS 14+ · Apple Silicon or Intel |
 | **Windows** | [Portable ZIP](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Windows.zip) | Windows x64 · extract the folder, then run `Focanopy.exe` |
-| **Ubuntu** | [Linux archive](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux.tar.gz) | Ubuntu 24.04+ x86-64 / compatible Qt runtime libraries |
+| **Linux · Fedora / Ubuntu** | [Portable AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) | x86-64 · glibc 2.35+ · [Fedora GNOME guide](desktop/LINUX.md) |
 
 [Release notes & checksums](https://github.com/ashu-sa/cyber-cat/releases/latest) · [Build checks](https://github.com/ashu-sa/cyber-cat/actions/workflows/build.yml)
 
@@ -102,6 +102,8 @@ Screenshots come from the native apps using sample sessions, not personal activi
 4. Enable the floating tree or Pomodoro only if you want them. Neither is required for ordinary timing.
 
 Android packages are debug-signed personal/testing builds, not Play Store releases. The signing identity is preserved for upgrades. macOS builds are ad-hoc signed; platform installation details are in the guides below.
+
+For Fedora GNOME, make the AppImage executable and launch it. If FUSE is unavailable, use `--appimage-extract-and-run`. The same package is runtime-tested on Fedora 43/44 and Ubuntu; see [Linux setup](desktop/LINUX.md).
 
 ## How the grove works
 
@@ -165,7 +167,7 @@ Clone the repository, then use the command for your platform. Toolchain prerequi
 | Android | `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` | [Android setup](android/README.md) |
 | macOS | `cd macos && ./test.sh && ./build.sh` | [macOS setup](macos/README.md) |
 | Windows | `desktop\build-windows.cmd` | [Desktop setup](desktop/README.md) |
-| Ubuntu | `cd desktop && ./build-linux.sh` | [Desktop setup](desktop/README.md) |
+| Portable Linux | `cd desktop && ./build-appimage.sh` on Ubuntu 22.04 x86-64 | [Linux packaging & Fedora setup](desktop/LINUX.md) |
 
 For a universal macOS package, run the build with `CYBERCAT_UNIVERSAL=1`.
 

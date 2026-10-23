@@ -1,6 +1,10 @@
-# Focanopy — Windows and Ubuntu desktop version
+# Focanopy — Windows and Linux desktop version
 
 A real desktop app made with Python + **Qt Widgets (PySide6 Essentials)**. No Electron, browser or web view; account sync is optional. This is a portable implementation of the SwiftUI macOS companion; the existing SwiftUI app is unchanged.
+
+## Fedora GNOME / portable Linux
+
+Use the [portable AppImage](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux-x86_64.AppImage) for Fedora and other modern x86-64 Linux desktops. It bundles Python and Qt, includes a no-FUSE fallback, and is built on a glibc 2.35 baseline. See the [Fedora GNOME installation guide](LINUX.md) for permissions, shortcuts, XWayland/native Wayland behaviour, and package requirements.
 
 ## What is implemented
 

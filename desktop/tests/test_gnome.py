@@ -23,7 +23,6 @@ class GnomeTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):install_gnome()
             self.assertTrue(all(c.args[0]=='get' for c in mock.call_args_list))
 
-if __name__=='__main__':unittest.main()
 
 class PortableGnomeTests(unittest.TestCase):
     def test_appimage_shortcuts_use_persistent_image_not_temporary_mount(self):
@@ -44,3 +43,5 @@ class PortableGnomeTests(unittest.TestCase):
         with patch.object(sys,'frozen',True,create=True),patch('cybercat.host.sys.platform','linux'),patch.dict(os.environ,{'LD_LIBRARY_PATH':'/tmp/.mount_focus/_internal','LD_LIBRARY_PATH_ORIG':'/custom/host','QT_PLUGIN_PATH':'/tmp/.mount_focus/plugins'}):
             env=host_environment();self.assertEqual(env['LD_LIBRARY_PATH'],'/custom/host');self.assertNotIn('QT_PLUGIN_PATH',env)
             self.assertIn('.mount_focus',os.environ['LD_LIBRARY_PATH'])
+
+if __name__=='__main__':unittest.main()

@@ -29,8 +29,9 @@ jobs:
         env:
           CYBERCAT_DATA_DIRECTORY: ${{ runner.temp }}/focanopy-ubuntu-smoke
         run: |
-          env -u QT_QPA_PLATFORM xvfb-run -a desktop/dist/Focanopy-Linux-x86_64.AppImage --appimage-extract-and-run --smoke-test
+          env -u QT_QPA_PLATFORM QT_DEBUG_PLUGINS=1 xvfb-run -a desktop/dist/Focanopy-Linux-x86_64.AppImage --appimage-extract-and-run --smoke-test
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: portable-linux
           path: |
