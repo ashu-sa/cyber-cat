@@ -1,171 +1,185 @@
-# Focanopy
+<div align="center">
+  <img src="docs/screenshots/app-icon.png" alt="Focanopy app icon" width="80" />
+  <h1>Focanopy</h1>
+  <p><strong>Make room to grow.</strong></p>
+  <p>An Android-first focus companion that turns focused time into a living grove.<br />Native apps for Android, macOS, Windows, and Ubuntu. Offline by default.</p>
+  <p>
+    <a href="https://github.com/ashu-sa/cyber-cat/releases/latest">Download</a> ·
+    <a href="#see-it-in-action">Demo</a> ·
+    <a href="#screenshots">Screenshots</a> ·
+    <a href="#build-from-source">Build from source</a>
+  </p>
+</div>
 
-**A growing grove:** completed trees now ease into overlapping background layers while the next seedling fades in, preserving the tree across each hour or Pomodoro boundary. The fast-forward preview shows the complete handoff.
+## See it in action
 
+Start small. Watch a tree grow, settle into an overlapping grove, and make space for the next seedling.
 
-**Android UI:** redesigned focus cards, stable bottom navigation, grouped settings, adaptive timer text and consistent accessible icons. [Download the Android release](https://github.com/ashu-sa/cyber-cat/releases/tag/v1.12.0).
+[![Focanopy demo: seed growth, a completed flower, smooth grove handoff, and a cancelled tree withering](docs/screenshots/tree-lifecycle.gif)](https://github.com/ashu-sa/cyber-cat/releases/download/v1.12.0/focanopy-demo.mp4)
 
+**[Watch or download the video — MP4, 27 seconds](https://github.com/ashu-sa/cyber-cat/releases/download/v1.12.0/focanopy-demo.mp4)** · [Video source](docs/media/focanopy-demo.mp4)
 
-<img src="docs/screenshots/app-icon.png" alt="Focanopy tree app icon" width="96" />
+The preview uses the app’s native desktop tree renderer. Growth is accelerated; the 2.4-second handoff plays at real speed. Preview time never changes your timer or saved history.
 
-**Make room to grow.** An Android-first focus stopwatch that turns your time into a living forest, with native companion apps for macOS, Windows and Ubuntu.
+## Focus, without the clutter
 
-Focanopy combines **focus + canopy**: start a session, watch gentle water droplets nourish your tree, and build a garden from a day of focused work.
+- **A reliable timer.** Start, pause, resume, and finish. Elapsed time comes from monotonic clocks, so switching apps does not interrupt timing.
+- **A grove that grows with you.** Gradual trunk, leaf, and canopy growth; gentle watering; layered completed trees. Pausing stops watering and rests the plant.
+- **Optional Flower Pomodoro.** A 25-minute focus round grows a flowering tree, followed by a 5- or 10-minute break. Each next round starts when you choose.
+- **A useful journal.** A month calendar, Day/Week/Month totals, tree rewards, garden days, and per-device summaries. Rename, delete, or undo a deleted session.
+- **Your companion, nearby.** Android notification controls and optional floating tree; always-on-top desktop companions with draggable, compact controls.
+- **Local first, sync when you want.** Work without an account, export your history, or sign in to combine completed sessions across devices.
 
-[Download the Android APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-debug.apk) · [All releases](https://github.com/ashu-sa/cyber-cat/releases/latest) · [Build checks](https://github.com/ashu-sa/cyber-cat/actions/workflows/build.yml)
+## Screenshots
 
-## Android — the main MVP
+### Android · the primary app
 
-A complete native Kotlin experience: readable stopwatch, persistent background notification, optional floating tree, calendar journal and simple cross-device accounts. Everything needed for local focus works without an account.
+A focused timer, a readable journal, and optional Pomodoro—all in a consistent forest-green interface.
 
-<img src="docs/screenshots/android-timer.png" alt="Focanopy Android focus screen with live tree growth and daily progress" width="260" /> <img src="docs/screenshots/android-journal.png" alt="Focanopy Android calendar with daily time, tree counts and Garden badge" width="260" />
+<table>
+  <tr>
+    <th>Focus & grow</th>
+    <th>Your focus journal</th>
+    <th>Flower Pomodoro</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/android-timer.png" alt="Android focus screen with overlapping trees, elapsed time, and icon-only controls" width="250" /></td>
+    <td><img src="docs/screenshots/android-journal.png" alt="Android month calendar showing daily focus totals, trees, and a garden day" width="250" /></td>
+    <td><img src="docs/screenshots/android-pomodoro-focus.png" alt="Android Pomodoro countdown with flower growth and elapsed focus time" width="250" /></td>
+  </tr>
+</table>
 
-<img src="docs/screenshots/android-settings.png" alt="Android floating tree, opacity, animation and notification settings" width="260" /> <img src="docs/screenshots/android-account.png" alt="Simple optional Focanopy username and four-digit PIN account form" width="260" />
+<details>
+<summary><strong>More Android screens · settings, app blocking, and session saving</strong></summary>
 
-Screenshots are captured from the actual native Android app on an isolated Android 15 emulator using sample sessions. They are not mockups or personal activity records.
+<table>
+  <tr><th>Make it yours</th><th>Apps & permissions</th><th>Save your session</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/android-settings.png" alt="Grouped Android settings for the account, floating tree, appearance, and permissions" width="250" /></td>
+    <td><img src="docs/screenshots/android-app-blocking-all.png" alt="App-blocking switches with app icons, browser exceptions, and permission status" width="250" /></td>
+    <td><img src="docs/screenshots/android-save.png" alt="Save dialog with task categories, a custom name field, and Close and Save actions" width="250" /></td>
+  </tr>
+</table>
 
-### MVP features
+Android also adapts the focus layout for shorter screens and larger text, keeping the timer controls ahead of the tree. [View the compact layout](docs/screenshots/android-compact.png).
 
-- **Accurate focus timing:** start, pause, resume, finish and recover an unfinished session. Uses monotonic elapsed time, not an incrementing counter; breaks are excluded.
-- **Background controls:** Android foreground service with a system chronometer and Pause/Resume/Finish actions. No overlay permission required.
-- **A growing companion:** native Canvas tree, slow water droplets, gentle sway, reduced-motion support, and next-tree progress. Pausing gives the plant a dry, dormant appearance and stops water; resuming revives green foliage and watering.
-- **Optional floating tree:** drag from the tree, timer, controls or empty space above other apps, adjust opacity, hide/show, and use compact icon controls. Finishing stops time even when Android blocks opening the naming screen.
-- **Save without friction:** Job Apply, Upskill, Interview Prep, Work or a custom name. Close the popup and your typed name remains available; Resume continues the same unsaved session and Reset starts fresh. Save opens the journal.
-- **Useful history:** month calendar, Day/Week/Month summaries, daily trees, garden days, device totals, rename, delete confirmation and undo.
-- **Local data ownership:** atomic private JSON history and document-picker JSON export. Existing history is preserved on upgrade.
-- **Optional cloud account:** username + four-digit PIN; remembered secure login, offline changes, cross-device sessions, deletion sync and explicit conflict resolution.
+</details>
 
-<img src="docs/screenshots/android-save.png" alt="Save session with the Focanopy app icon and task categories" width="260" /> <img src="docs/screenshots/android-finished.png" alt="Finished session with Save, Resume and Reset controls" width="260" />
+### Native desktop companions
 
-### Stopwatch with an optional Flower Pomodoro
+Keep a small floating tree on your desktop, then open the journal when you want the bigger picture.
 
-Pomodoro shares Focanopy’s forest-green surfaces, warm cream countdown, rounded cards and soft flower accents. Focus, break and cancelled states each have a clear title, with compact controls and quieter app-blocking settings. Cancelled trees now visibly wither over 3.4 seconds: watering stops, petals fall, leaves fade and the stem bends into a dry, bare shape. Open **Fast-forward tree preview** to watch seed → bloom → next tree → cancellation without changing your timer or history.
+<table>
+  <tr><th>macOS · SwiftUI</th><th>Windows · Qt</th><th>Ubuntu · Qt</th></tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/macos-pet.png" alt="Native macOS floating tree and timer" width="170" /></td>
+    <td align="center"><img src="docs/screenshots/windows-pet.png" alt="Windows floating tree and timer" width="170" /></td>
+    <td align="center"><img src="docs/screenshots/linux-pet.png" alt="Ubuntu floating tree and timer" width="170" /></td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/macos-journal.png"><img src="docs/screenshots/macos-journal.png" alt="macOS calendar journal and session history" width="280" /></a></td>
+    <td><a href="docs/screenshots/windows-journal.png"><img src="docs/screenshots/windows-journal.png" alt="Windows calendar journal and session history" width="280" /></a></td>
+    <td><a href="docs/screenshots/linux-journal.png"><img src="docs/screenshots/linux-journal.png" alt="Ubuntu calendar journal and session history" width="280" /></a></td>
+  </tr>
+</table>
 
-![Fast-forward flower growth and withering](docs/screenshots/tree-lifecycle.gif)
+Screenshots come from the native apps using sample sessions, not personal activity records. Android captures use an isolated Android 15 emulator. Select a desktop journal image to inspect it at full size.
 
+## Download & get started
 
-A second **Focus time** clock shows elapsed focus alongside the countdown and freezes during pauses and breaks. Apps & permissions lists app icons with individual blocking switches; one toggle blocks all apps except browsers, with per-app exceptions.
-
-Start with the default stopwatch, or enable the optional **Pomodoro effect**: 25 minutes of focus grows a pink flowering tree, followed by a 5- or 10-minute break. Watering stops for the break, a gentle reminder asks you to move, and another invites you back. **You start every next round yourself.** Completed 25-minute rounds save automatically. Pomodoro has no Finish button: cancelling an unfinished round kills its tree and discards that partial round; previously completed rounds stay saved. Breaks never count toward focus time.
-
-![Native Pomodoro flower growth](docs/screenshots/pomodoro-flower-milestones.png)
-
-<img src="docs/screenshots/android-pomodoro-focus.png" alt="Optional 25-minute Pomodoro with a growing flowering tree" width="260" /> <img src="docs/screenshots/android-pomodoro-break.png" alt="Fully bloomed tree resting during a five-minute break" width="260" /> <img src="docs/screenshots/android-pomodoro-ready.png" alt="Return reminder waiting for the user to start the next focus round" width="260" />
-
-Optional app blocking works with the default stopwatch and Pomodoro focus. Block selected apps, or all apps except browsers and your exclusions. Android uses an explicitly enabled Accessibility service; macOS adds a blocking shield plus optional window minimization; Windows minimizes windows; Ubuntu/GNOME uses an optional user-enabled shell extension. Apps stay open, and pauses/breaks release blocking. See [Pomodoro and app-blocking setup](POMODORO.md) for controls, permissions and platform limits.
-
-<img src="docs/screenshots/android-pomodoro-dead.png" alt="Cancelled Pomodoro round with a dead tree, saved completed focus and a fresh 25-minute countdown" width="260" />
-
-<img src="docs/screenshots/android-app-blocking-all.png" alt="App icons and individual blocking toggles with browsers automatically allowed" width="280" />
-
-<img src="docs/screenshots/android-app-blocking.png" alt="Android app blocking: selected apps or all apps except browsers and exclusions" width="280" />
-
-### Google sign-in
-
-**Account / Sync → Continue with Google** is available on Android, macOS, Windows and Linux. Sign in once with the same Google account to share your journal across devices. Existing username/PIN sign-in is still available. Google uses the system browser, PKCE and the existing secure account caches.
-
-**Owner setup required:** Google is currently disabled in the hosted Supabase project. Complete the [one-time Google OAuth setup](backend/GOOGLE_SIGN_IN.md) before live Google sign-in can succeed. No client secret ships in the apps. Until enabled, the Google button shows a setup message; username/PIN accounts and offline timing continue to work.
-
-<img src="docs/screenshots/android-google-account.png" alt="Native Android account screen with Continue with Google and existing username/PIN sign-in" width="300" />
-
-### Fast-forward preview on macOS
-
-Run `./macos/simulate-growth.sh` to open a separate native simulator using the app’s actual tree renderer. One hour takes 10 seconds by default, with speed, scrub, pause, restart and next-tree controls. Preview time is never saved to your timer or history.
-
-### Grow a forest
-
-| Focus time | Reward |
-|---|---|
-| Every minute within the current hour | Trunk, leaves and crown grow a little |
-| Every completed hour | A completed tree stays visible beside the next sprout |
-| 8 hours of saved focus in a single day | Garden badge |
-
-Short sessions add up, including synced sessions from different devices. Rewards derive from saved focus durations, so old history gets rewards and edits/deletions recalculate them. Pauses do not count. Days use the session’s local start date; week/month views count garden days rather than treating eight separate one-hour days as a garden.
-
-![Native tree growth milestones](docs/screenshots/forest-milestones.png)
-
-## Try it
-
-1. Install the [Android APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-debug.apk) on Android 8+ and allow notifications for background controls.
-2. Tap ▶, focus, and use Ⅱ when taking a break.
-3. Tap ✓, choose or type your task name, then Save.
-4. Open Journal to see your focus time and forest. Floating controls are optional under Settings.
-5. To combine Phone and Mac time, open Account / Sync and use the same username and PIN on each device.
-
-The APK uses the original debug-signing identity so existing installations can upgrade. It is a personal/testing build, not a Play Store release. Packages are unsigned or ad-hoc signed as described in the platform guides.
-
-## Native desktop companions
-
-| Platform | Download | Requirements |
+| Platform | Package | Requirements |
 |---|---|---|
-| macOS | [Focanopy-macOS-universal.zip](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-macOS-universal.zip) | macOS 14+, Apple Silicon or Intel |
-| Windows | [Focanopy-Windows.zip](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Windows.zip) | Windows x64; extract the whole folder, run `Focanopy.exe` |
-| Ubuntu | [Focanopy-Linux.tar.gz](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux.tar.gz) | Ubuntu 24.04+ x86-64 / compatible Qt runtime libraries |
+| **Android** | [Download APK](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Android-debug.apk) | Android 8.0+ |
+| **macOS** | [Universal app](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-macOS-universal.zip) | macOS 14+ · Apple Silicon or Intel |
+| **Windows** | [Portable ZIP](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Windows.zip) | Windows x64 · extract the folder, then run `Focanopy.exe` |
+| **Ubuntu** | [Linux archive](https://github.com/ashu-sa/cyber-cat/releases/latest/download/Focanopy-Linux.tar.gz) | Ubuntu 24.04+ x86-64 / compatible Qt runtime libraries |
 
-macOS uses SwiftUI, MenuBarExtra and an always-on-top NSPanel. Windows/Ubuntu use native Qt Widgets. All share the tree milestones and account history; none uses Electron or web views.
+[Release notes & checksums](https://github.com/ashu-sa/cyber-cat/releases/latest) · [Build checks](https://github.com/ashu-sa/cyber-cat/actions/workflows/build.yml)
 
-### macOS
+1. Open Focanopy and start the timer. On Android, allow notifications to use background controls.
+2. Pause whenever you need a break. Resume to keep growing the same tree.
+3. Finish, choose a category or enter a task name, and save. The app opens your journal at that session’s date.
+4. Enable the floating tree or Pomodoro only if you want them. Neither is required for ordinary timing.
 
-<img src="docs/screenshots/macos-pet.png" alt="Focanopy floating native macOS tree stopwatch" width="180" />
+Android packages are debug-signed personal/testing builds, not Play Store releases. The signing identity is preserved for upgrades. macOS builds are ad-hoc signed; platform installation details are in the guides below.
 
-![macOS journal](docs/screenshots/macos-journal.png)
+## How the grove works
 
-### Windows
+| Mode | Growth | Completion |
+|---|---|---|
+| **Default timer** | The tree grows gradually throughout an hour | Each full hour adds a completed tree to the grove |
+| **Flower Pomodoro** | A flowering tree grows through a 25-minute round | The completed round saves automatically, followed by a break |
+| **Daily garden** | Saved sessions add up across tasks and synced devices | Eight hours of saved focus in one day earns a Garden badge |
 
-<img src="docs/screenshots/windows-pet.png" alt="Focanopy Windows floating tree stopwatch" width="180" />
+Completed trees ease into overlapping background layers as a new seedling emerges in front. The scene keeps a stable ground surface, with bounded visible layers and exact totals in the journal.
 
-![Windows journal](docs/screenshots/windows-journal.png)
+Pomodoro has no Finish action during focus. Cancelling an unfinished round makes that tree wither and discards the partial round; earlier completed rounds remain saved. Breaks do not count as focus time, and the next focus round always waits for you.
 
-### Ubuntu
+Rewards are derived from session durations. Short sessions add up, and edits or deletions recalculate totals. Calendar days use each session’s local start date; week/month summaries count garden days separately.
 
-<img src="docs/screenshots/linux-pet.png" alt="Focanopy Ubuntu floating tree stopwatch" width="180" />
+**Try the animation:** open **Fast-forward tree preview** in the app. On macOS, `./macos/simulate-growth.sh` also opens a separate native simulator with pause, replay, speed, and scrubbing controls.
 
-![Ubuntu journal](docs/screenshots/linux-journal.png)
+## Optional focus tools & sync
 
-| Action | Android | macOS | Windows / Ubuntu GNOME |
-|---|---|---|---|
-| Show/hide floating tree | Settings / floating × | ⌘R | Ctrl+R |
-| Start/resume | ▶ / notification | ⌘S | Ctrl+S |
-| Pause | Ⅱ / notification | ⌘P | Ctrl+P |
-| Finish | ✓ / notification | ⌘F | Ctrl+F |
+**App blocking:** block selected apps, or all apps except browsers and your exclusions. Blocking releases during pauses and breaks. Android requires explicit Accessibility access; desktop behaviour depends on the OS. See [Pomodoro & app blocking](POMODORO.md) for setup and platform limits.
 
-Desktop S/P/F shortcuts are active only while the floating tree is visible. On Ubuntu/GNOME, enable the app’s Ctrl shortcuts once from floating controls. GNOME/Wayland can restrict placement and always-on-top behavior; other Linux desktops support local/manual bindings. See the [desktop guide](desktop/README.md).
+**Cross-device history:** sign in once with the same username and four-digit PIN on each device. Completed sessions sync with their source-device labels; active timers stay on their own devices. Offline edits are retained, and conflicting edits have explicit resolution choices. Existing local history uploads only when you choose to include it. See [accounts & sync](backend/README.md).
 
-## Engineering
+**Google sign-in:** the clients include Google OAuth with PKCE, but the hosted provider is not enabled yet. Live Google sign-in requires the owner’s [one-time setup](backend/GOOGLE_SIGN_IN.md). Local timing and username/PIN sign-in work independently.
 
-| Layer | Implementation |
+<details>
+<summary><strong>Desktop keyboard shortcuts</strong></summary>
+
+| Action | macOS | Windows / Ubuntu GNOME |
+|---|---|---|
+| Show/hide floating tree | ⌘R | Ctrl+R |
+| Start/resume | ⌘S | Ctrl+S |
+| Pause | ⌘P | Ctrl+P |
+| Finish a default-timer session | ⌘F | Ctrl+F |
+
+Start/pause/finish shortcuts are active only while the floating tree is visible. Ubuntu/GNOME requires enabling the app’s Ctrl shortcuts once. Wayland can restrict placement and always-on-top behaviour; see the [desktop guide](desktop/README.md).
+
+</details>
+
+## Under the hood
+
+| Area | Implementation |
 |---|---|
-| Primary Android app | Kotlin, native Views and Canvas, foreground service, Notification chronometer, WindowManager overlay |
-| Timing | `SystemClock.elapsedRealtime()` on Android, ContinuousClock on macOS, monotonic clocks on desktop |
-| Local persistence | Android AtomicFile JSON and lifecycle checkpoints; native platform storage on desktop |
-| Shared backend | Supabase account gateway, PostgreSQL, owner-only RLS policies, revision-based session sync |
-| Authentication | Username + four-digit PIN via a rate-limited server gateway; PIN is not stored on devices |
-| Credentials | Android Keystore encryption, macOS Keychain, Windows/Linux OS credential vault |
-| Sync consistency | Stable session UUIDs, retained tombstones, offline outbox, explicit conflict choices |
-| Rewards | Derived from session durations; no separate counters or reward schema to drift |
-| Delivery | Per-OS GitHub Actions builds, tests, packaged smoke checks, versioned releases and SHA-256 manifests |
+| Android | Kotlin · native Views & Canvas · foreground service · system chronometer · optional WindowManager overlay |
+| macOS | Swift · SwiftUI · MenuBarExtra · floating NSPanel |
+| Windows & Ubuntu | Python · PySide6 / Qt Widgets |
+| Timing & animation | Monotonic elapsed-time clocks · deterministic vector growth · continuous grove handoffs |
+| Local storage | Private JSON history, atomic writes/checkpoints, and history export |
+| Cloud sync | Supabase · PostgreSQL · owner-scoped RLS · stable session UUIDs · tombstones · offline changes |
+| Credentials | OS-backed credential storage; the account PIN is not stored on the device |
+| Delivery | Per-platform GitHub Actions builds, automated checks, versioned packages, and SHA-256 manifests |
 
-For a résumé: **“Built Focanopy, an Android-first focus tracker with animated tree rewards, accurate background timing, floating controls, calendar analytics and secure cross-platform offline sync using Kotlin and Supabase.”**
+The apps render native UI. There is no Electron shell or embedded web interface.
 
-## Build and verify
+## Build from source
 
-| Platform | Command |
-|---|---|
-| Android | `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` |
-| macOS | `cd macos && ./test.sh && ./build.sh` (`CYBERCAT_UNIVERSAL=1` builds both architectures) |
-| Windows | `desktop\build-windows.cmd` on Windows |
-| Ubuntu | `cd desktop && ./build-linux.sh` on Ubuntu |
+Clone the repository, then use the command for your platform. Toolchain prerequisites and isolated-device test instructions are in each platform guide.
 
-[Android setup and isolated end-to-end tests](android/README.md) · [macOS guide](macos/README.md) · [Desktop guide](desktop/README.md) · [Backend and sync](backend/README.md)
+| Target | Command | Guide |
+|---|---|---|
+| Android | `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` | [Android setup](android/README.md) |
+| macOS | `cd macos && ./test.sh && ./build.sh` | [macOS setup](macos/README.md) |
+| Windows | `desktop\build-windows.cmd` | [Desktop setup](desktop/README.md) |
+| Ubuntu | `cd desktop && ./build-linux.sh` | [Desktop setup](desktop/README.md) |
 
-Android MVP instrumentation covers notification controls, real category/custom naming, retained draft names, rename/delete/undo, activity recreation, JSON export, granted overlays, denied-overlay fallback and paused-timer process recovery. JVM tests cover timing, formatting and forest milestones. macOS model tests and Windows/Linux model/widget/packaged checks run separately. Platform screenshots are rendered from the real native views.
+For a universal macOS package, run the build with `CYBERCAT_UNIVERSAL=1`.
 
-Physical OEM battery restrictions, deep-sleep/reboot behavior and Google Play review have not been validated on physical devices. Force stop can stop Android’s service; reopen the app to restore its checkpoint. There is no email recovery for PIN accounts. Local-only mode remains available.
+**Validation:** Android unit tests, lint, and isolated-emulator flows cover timing, notification actions, saving, journal editing, permissions, recreation, and Pomodoro. macOS model/interaction checks and Windows/Linux model/widget/packaged checks run separately. Grove tests verify continuity at completion boundaries and reduced-motion behaviour.
 
-## Upgrade compatibility
+<details>
+<summary><strong>Platform notes & compatibility</strong></summary>
 
-Focanopy was previously named **Cyber Cat**. The repository URL and internal package/storage/credential identifiers remain stable so existing installations, accounts and history continue working. Download filenames and visible branding now use Focanopy.
+- Android Force stop, reboot, or OEM battery management can stop the foreground service. Reopen the app to restore its checkpoint. Physical-device OEM restrictions and Play Store review have not been validated.
+- PIN accounts have no email recovery. Local-only mode remains available.
+- Focanopy was previously named **Cyber Cat**. The repository URL and internal package/storage identifiers stay stable to preserve upgrades, accounts, and history.
+
+</details>
 
 ## License
 
-Application source: [MIT](LICENSE). Desktop dependencies retain their own licenses; see [third-party notices](desktop/THIRD_PARTY.md).
+[MIT](LICENSE) for application source. Desktop dependencies retain their own licenses; see [third-party notices](desktop/THIRD_PARTY.md).
