@@ -43,11 +43,12 @@ jobs:
           gh run download "$MACOS_RUN" --name release-macos --dir artifacts/macos
           mkdir -p release docs/screenshots
           find artifacts -type f -name '*.png' -exec cp {} docs/screenshots/ \;
-          find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} release/ \;
+          find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.AppImage' \) -exec cp {} release/ \;
           gh release download "$RELEASE_TAG" --pattern 'Focanopy-Android-debug.apk' --dir release
           test -s release/Focanopy-Android-debug.apk
           test -s release/Focanopy-Windows.zip
           test -s release/Focanopy-Linux.tar.gz
+          test -s release/Focanopy-Linux-x86_64.AppImage
           test -s release/Focanopy-macOS-universal.zip
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -56,6 +57,6 @@ jobs:
             git commit -m 'Add verified Windows, Linux and macOS release screenshots'
             git push origin HEAD:main
           fi
-          sha256sum release/*.apk release/*.zip release/*.tar.gz > release/SHA256SUMS.txt
+          sha256sum release/*.apk release/*.zip release/*.tar.gz release/*.AppImage > release/SHA256SUMS.txt
           gh release upload "$RELEASE_TAG" release/* --clobber
           gh release edit "$RELEASE_TAG" --target "$(git rev-parse HEAD)" --draft=false --latest --notes-file RELEASE_NOTES.md

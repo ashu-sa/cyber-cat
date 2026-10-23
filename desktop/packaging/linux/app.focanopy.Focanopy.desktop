@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Focanopy
+Comment=Make room to grow — a focus timer and living grove
+Exec=Focanopy
+Icon=app.focanopy.Focanopy
+Terminal=false
+Categories=Utility;Office;
+Keywords=focus;timer;pomodoro;productivity;tree;
+StartupWMClass=CyberCatDesktop

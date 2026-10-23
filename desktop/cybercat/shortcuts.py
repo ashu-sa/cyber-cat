@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+from .host import host_environment
 from PySide6.QtCore import QAbstractNativeEventFilter, QTimer
 
 KEYS = {1: 'R', 2: 'S', 3: 'P', 4: 'F'}
@@ -15,7 +16,7 @@ SCHEMA = 'org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:'
 
 
 def gsettings(*args):
-    result = subprocess.run(['gsettings', *args], check=True, text=True, capture_output=True, timeout=5)
+    result = subprocess.run(['gsettings', *args], check=True, text=True, capture_output=True, timeout=5, env=host_environment())
     return result.stdout.strip()
 
 
@@ -34,7 +35,7 @@ def install_gnome():
                 raise RuntimeError('An existing GNOME custom shortcut already uses ' + binding)
     root = str(Path(__file__).resolve().parent.parent)
     if getattr(sys, 'frozen', False):
-        command = shlex.quote(sys.executable)
+        command = shlex.quote(os.environ.get('APPIMAGE') or sys.executable)
     else:
         # GSettings commands do not run in a shell; /usr/bin/env supplies module location.
         command = '/usr/bin/env ' + shlex.quote('PYTHONPATH=' + root) + ' ' + shlex.quote(sys.executable) + ' -m cybercat'
@@ -50,7 +51,7 @@ def remove_gnome():
     ours = [BASE + key.lower() + '/' for key in KEYS.values()]
     gsettings('set', 'org.gnome.settings-daemon.plugins.media-keys', 'custom-keybindings', repr([p for p in paths if p not in ours]))
     for path in ours:
-        subprocess.run(['gsettings', 'reset-recursively', SCHEMA + path], check=True, timeout=5)
+        subprocess.run(['gsettings', 'reset-recursively', SCHEMA + path], check=True, timeout=5, env=host_environment())
 
 
 class Shortcuts(QAbstractNativeEventFilter):

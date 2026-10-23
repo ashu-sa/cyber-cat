@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from .model import atomic_json
+from .host import host_environment
 
 UUID='focanopy-focus@ashu-sa'
 
@@ -22,7 +23,7 @@ def windows_app_blocked(path,selected,excluded,all_apps):
     return base not in browsers if all_apps else name in map(normalize,selected)
 
 def install_gnome_focus():
-    result=subprocess.run(['gnome-shell','--version'],capture_output=True,text=True,check=True,timeout=5)
+    result=subprocess.run(['gnome-shell','--version'],capture_output=True,text=True,check=True,timeout=5,env=host_environment())
     import re
     version=re.search(r'(\d+)\.',result.stdout)
     if not version or int(version[1])<45: raise RuntimeError('App blocking requires GNOME 45 or later. Free Stopwatch and Pomodoro still work.')

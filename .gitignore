@@ -14,3 +14,5 @@ release/
 artifacts/
 *.jks
 *.keystore
+
+**/.appimage-tools/

@@ -18,6 +18,7 @@ def main():
     args = parser.parse_args()
     app = QApplication(sys.argv)
     app.setApplicationName('CyberCatDesktop'); app.setOrganizationName('CyberCat')
+    app.setDesktopFileName('app.focanopy.Focanopy')
     app.setQuitOnLastWindowClosed(False); apply_theme(app)
     name = 'cybercat-' + hashlib.sha256((getpass.getuser() + str(data_directory().resolve())).encode()).hexdigest()[:20]
     socket = QLocalSocket(); socket.connectToServer(name)
