@@ -269,7 +269,24 @@ struct TreePreviewFrame {
         let t=max(0,min(27,time))
         if t<10 {return .init(elapsed:t/10*1500,dead:false,death:0,title:"01 · A seed becomes a flower")}
         if t<12 {return .init(elapsed:1500,dead:false,death:0,title:"02 · 25 minutes complete — flower saved")}
-        if t<20 {return .init(elapsed:1500+(t-12)/8*975,dead:false,death:0,title:"03 · A second tree begins")}
+        if t<14.4 {return .init(elapsed:1500+t-12,dead:false,death:0,title:"03 · A second tree begins")}
+        if t<20 {return .init(elapsed:1502.4+(t-14.4)/5.6*972.6,dead:false,death:0,title:"03 · A second tree begins")}
         return .init(elapsed:2475,dead:true,death:min(1,(t-20)/3.4),title:t<23.4 ? "04 · Cancelled — the unfinished tree withers":"05 · Completed flower safe · Cancelled tree lost")
+    }
+}
+
+/// Elapsed-time choreography keeps a completed tree continuous across the hour boundary.
+struct GroveFrame {
+    struct Tree {let x:Double;let scale:Double;let alpha:Double}
+    let trees:[Tree];let active:Double;let seedAlpha:Double
+    static func at(count:Int,remainder:Double,animated:Bool=true,flower:Bool=false)->GroveFrame {
+        let v=animated ? min(1,max(0,remainder/(flower ? 5.76:2.4))):1
+        let ease=v*v*(3-2*v)
+        let targets=[Tree(x:45,scale:0.86,alpha:1),Tree(x:30,scale:0.70,alpha:0.86),Tree(x:20,scale:0.56,alpha:0.72),Tree(x:12,scale:0.46,alpha:0)]
+        let trees=(0..<min(count,4)).reversed().map {rank in
+            let a=rank==0 ? Tree(x:count==1 ? 55:66,scale:1,alpha:1):targets[rank-1],b=targets[rank]
+            return Tree(x:a.x+(b.x-a.x)*ease,scale:a.scale+(b.scale-a.scale)*ease,alpha:a.alpha+(b.alpha-a.alpha)*ease)
+        }
+        return GroveFrame(trees:trees,active:count>0 ? 66:55,seedAlpha:count>0 ? ease:1)
     }
 }

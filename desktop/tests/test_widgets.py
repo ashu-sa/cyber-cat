@@ -69,9 +69,9 @@ class WidgetTests(unittest.TestCase):
             painter=QPainter(image);painter.scale(3,3);paint_tree(painter,2701,phase);painter.end();return image
         running=render('running'); paused=render('paused')
         self.assertNotEqual(running,paused)
-        # The water falls to the right of the canopy; this strip must be empty on pause.
-        self.assertTrue(any(running.pixelColor(x,y).alpha()>0 for x in range(246,270) for y in range(10,90)))
-        self.assertTrue(all(paused.pixelColor(x,y).alpha()==0 for x in range(246,270) for y in range(10,90)))
+        # Water now lands above the active seedling; test the air above its canopy.
+        self.assertTrue(any(running.pixelColor(x,y).alpha()>0 for x in range(168,201) for y in range(0,30)))
+        self.assertTrue(all(paused.pixelColor(x,y).alpha()==0 for x in range(168,201) for y in range(0,30)))
         self.assertEqual(render('running'),running)
     def test_calendar_and_popup_construct(self):
         self.c.show_history(); self.c.options(); self.app.processEvents()

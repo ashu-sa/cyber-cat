@@ -39,7 +39,8 @@ data class TreePreviewFrame(val elapsed:Long,val dead:Boolean,val death:Float,va
             return when {
                 t<10 -> TreePreviewFrame((t/10*Pomodoro.FOCUS).toLong(),false,0f,"01 · A seed becomes a flower")
                 t<12 -> TreePreviewFrame(Pomodoro.FOCUS,false,0f,"02 · 25 minutes complete — flower saved")
-                t<20 -> TreePreviewFrame(Pomodoro.FOCUS+((t-12)/8*975000).toLong(),false,0f,"03 · A second tree begins")
+                t<14.4 -> TreePreviewFrame(Pomodoro.FOCUS+((t-12)*1000).toLong(),false,0f,"03 · A second tree begins")
+                t<20 -> TreePreviewFrame(1502400+((t-14.4f)/5.6f*972600).toLong(),false,0f,"03 · A second tree begins")
                 else -> TreePreviewFrame(2475000,true,((t-20)/3.4f).coerceIn(0f,1f),if(t<23.4)"04 · Cancelled — the unfinished tree withers" else "05 · Completed flower safe · Cancelled tree lost")
             }
         }

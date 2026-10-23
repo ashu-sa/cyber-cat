@@ -503,7 +503,7 @@ class MainActivity: Activity() {
         section("Explore & manage")
         settingsRow("Fast-forward tree preview","Watch a little tree’s complete lifecycle") {treePreviewDialog()}
         settingsRow("Export session history","Save your journal as a JSON file") {exportHistory()}
-        root.addView(text("Focanopy · 1.11.0",12f,cyan).apply {gravity=Gravity.CENTER;setPadding(0,dp(24),0,dp(8))})
+        root.addView(text("Focanopy · 1.12.0",12f,cyan).apply {gravity=Gravity.CENTER;setPadding(0,dp(24),0,dp(8))})
         root.addView(text("Made for small, steady progress. Your sessions stay on this device unless you choose to sync.",12f,Color.rgb(161,181,165)).apply {gravity=Gravity.CENTER})
     }
 }

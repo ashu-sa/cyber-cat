@@ -3,6 +3,7 @@ import math
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QColor, QPen, QPainterPath, QLinearGradient, QFont, QGuiApplication
 from .forest import trees, growth
+from .grove import grove_layout
 
 def smooth(x):
     x=max(0,min(1,x)); return x*x*(3-2*x)
@@ -54,13 +55,11 @@ def paint_tree(p, seconds, phase, animated=True, flower=False, death_progress=1.
             p.setBrush(QColor(203,242,180,95)); p.drawEllipse(QRectF(43,top-16,14,10))
             p.setBrush(QColor(22,80,57,45)); p.drawEllipse(QRectF(47,top+1,22,9)); p.restore()
         p.restore()
-    if n:
-        centers=[40] if n==1 else [26,44] if n==2 else [19,35,51]
-        for i,x in enumerate(centers): tree(1,.95,x,.62 if n==1 else .52 if i==1 else .44)
-    active=66 if n==1 else 70 if n==2 else 77 if n else 55
-    tree(progress,1,active,1,dry)
-    p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#493c32')); p.drawEllipse(QRectF(10 if n else active-25,50,94 if n else 51,7))
-    p.setBrush(QColor('#8d7758' if dry else '#6a9c70')); p.drawEllipse(QRectF(11 if n else active-24,49,92 if n else 49,4))
+    layers,active,seed_alpha=grove_layout(n,seconds%3600,animated,flower)
+    for layer in layers:tree(1,layer.alpha,layer.x,layer.scale)
+    tree(progress,seed_alpha,active,1,dry)
+    p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor('#493c32')); p.drawEllipse(QRectF(16,50,78,7))
+    p.setBrush(QColor('#8d7758' if dry else '#6a9c70')); p.drawEllipse(QRectF(17,49,76,4))
     if phase=='dead':
         g=progress;top=51-(5+23*g)-9*g
         for i in range(15):
@@ -74,10 +73,8 @@ def paint_tree(p, seconds, phase, animated=True, flower=False, death_progress=1.
         u=(t%3.6)/3.6; fall=min(1,u/.78); y=3+44*fall*fall
         p.save(); p.setOpacity(1)
         if u<.78:
-            drop=QPainterPath(); drop.moveTo(84,y-5); drop.cubicTo(82,y-2,78,y+3,81,y+5); drop.cubicTo(87,y+9,90,y+2,84,y-5)
-            p.setBrush(QColor('#a5d9cc')); p.drawPath(drop); p.setBrush(QColor('#d4f5ff')); p.drawEllipse(QRectF(82,y+1,1.5,2.5))
+            drop=QPainterPath(); drop.moveTo(active+4,y-5); drop.cubicTo(active+2,y-2,active-2,y+3,active+1,y+5); drop.cubicTo(active+7,y+9,active+10,y+2,active+4,y-5)
+            p.setBrush(QColor('#a5d9cc')); p.drawPath(drop); p.setBrush(QColor('#d4f5ff')); p.drawEllipse(QRectF(active+2,y+1,1.5,2.5))
         else:
-            r=(u-.78)/.22; p.setBrush(Qt.BrushStyle.NoBrush); p.setPen(QPen(QColor(165,217,204,int((1-r)*160)),.8)); p.drawEllipse(QRectF(84-10*r,51-2*r,20*r,4*r))
+            r=(u-.78)/.22; p.setBrush(Qt.BrushStyle.NoBrush); p.setPen(QPen(QColor(165,217,204,int((1-r)*160)),.8)); p.drawEllipse(QRectF(active+4-10*r,51-2*r,20*r,4*r))
         p.restore()
-    if n:
-        p.setPen(QColor('#a8d9b4')); p.setFont(QFont(QGuiApplication.font().family(),8,QFont.Weight.DemiBold)); p.drawText(QRectF(8,48,32,10),Qt.AlignmentFlag.AlignCenter,str(n)+'×')

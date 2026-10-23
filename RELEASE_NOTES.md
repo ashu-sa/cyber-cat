@@ -1,14 +1,10 @@
-# Focanopy Android 1.11.0 · A calmer place to focus
+# Focanopy 1.12.0 · A grove that grows together
 
-This release updates the Android app. Desktop packages remain available in v1.10.0.
+- Replaced the abrupt completed-tree reset with a continuous 2.4-second handoff. The full tree eases back into the grove while the next seedling fades into the foreground.
+- Overlapping canopies use graduated scale and opacity for depth. Older trees settle behind newer trees; visible layers stay bounded as the total grows.
+- One stable soil island anchors the scene. Water now lands above the active seedling, and the large count label is removed from the artwork; session metrics keep the exact totals.
+- The fast-forward preview holds the handoff at real speed before accelerating growth, so the transition is easy to inspect.
+- The same native choreography runs on Android, macOS, Windows and Linux. Pausing freezes elapsed-time motion; disabled animations and reduced-motion settings show the settled layout.
+- Android includes the polished focus cards, stable navigation and compact-screen controls from 1.11.
 
-- A redesigned focus screen with a clear tree-and-timer card, quieter daily metrics and consistent icon-only session controls.
-- Stable three-destination navigation: timer transitions update the content without replacing the app shell. Each destination keeps its scroll position while navigating.
-- Grouped settings for account, floating grove, appearance, focus permissions and history management.
-- Matching dark dialogs, inset scrollable panels, vector icons, visible touch feedback and accessible control descriptions.
-- Compact layouts keep timer controls above the tree on short screens, including at larger text sizes.
-- Adaptive timer text for narrow screens, larger calendar labels and consistent 48dp control targets.
-- Fixed the floating-tree setting remaining stale after permission approval. Back from Journal or Settings returns to Timer.
-- Existing offline history, sync, notification timer, app blocking and tree growth remain supported.
-
-Validation: Android unit tests and lint; isolated-device save/rename/delete/undo, notification controls, calendar recreation, JSON export, overlay permission fallback, stable navigation shell and Pomodoro lifecycle checks.
+Validation: native macOS timing/layout tests, Android unit tests/lint and isolated Pomodoro flow, desktop model/widget tests, and all-platform release builds.

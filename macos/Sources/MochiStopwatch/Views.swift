@@ -73,24 +73,22 @@ struct GrowingTree: View {
                         c.fill(Path(ellipseIn:CGRect(x:43,y:top-16,width:14,height:10)),with:.color(Color(red:0.8,green:0.95,blue:0.7).opacity(0.35)))
                     }
                 }
-                if n>0 {
-                    let centers:[Double]=n==1 ? [40] : n==2 ? [26,44] : [19,35,51]
-                    for (i,x) in centers.enumerated() { tree(1,0.95,x,n==1 ? 0.62 : i==1 ? 0.52 : 0.44) }
-                }
-                let activeX:Double=n==1 ? 66 : n==2 ? 70 : n>2 ? 77 : 55
-                tree(remainder/3600,1,activeX,1,dry)
-                ellipse(CGRect(x:n>0 ? 10:activeX-25,y:50,width:n>0 ? 94:51,height:7),Color(red:0.29,green:0.24,blue:0.20))
-                ellipse(CGRect(x:n>0 ? 11:activeX-24,y:49,width:n>0 ? 92:49,height:4),(dry ? Color(red:0.55,green:0.47,blue:0.35) : Color(red:0.42,green:0.61,blue:0.44)))
+                let grove=GroveFrame.at(count:n,remainder:remainder,animated:animated && !reduceMotion,flower:flower)
+                for layer in grove.trees {tree(1,layer.alpha,layer.x,layer.scale)}
+                let activeX=grove.active
+                tree(remainder/3600,grove.seedAlpha,activeX,1,dry)
+                ellipse(CGRect(x:16,y:50,width:78,height:7),Color(red:0.29,green:0.24,blue:0.20))
+                ellipse(CGRect(x:17,y:49,width:76,height:4),dry ? Color(red:0.55,green:0.47,blue:0.35):Color(red:0.42,green:0.61,blue:0.44))
                 if motion && phase == .running {
                     let u=t.truncatingRemainder(dividingBy:3.6)/3.6, fall=min(1,u/0.78), y=3+44*fall*fall
                     let water=ctx
                     if u<0.78 {
-                        var p=Path(); p.move(to:CGPoint(x:84,y:y-5)); p.addCurve(to:CGPoint(x:81,y:y+5),control1:CGPoint(x:82,y:y-2),control2:CGPoint(x:78,y:y+3)); p.addCurve(to:CGPoint(x:84,y:y-5),control1:CGPoint(x:87,y:y+9),control2:CGPoint(x:90,y:y+2))
+                        var p=Path(); p.move(to:CGPoint(x:activeX+4,y:y-5)); p.addCurve(to:CGPoint(x:activeX+1,y:y+5),control1:CGPoint(x:activeX+2,y:y-2),control2:CGPoint(x:activeX-2,y:y+3)); p.addCurve(to:CGPoint(x:activeX+4,y:y-5),control1:CGPoint(x:activeX+7,y:y+9),control2:CGPoint(x:activeX+10,y:y+2))
                         water.fill(p,with:.color(Color(red:0.65,green:0.85,blue:0.80)))
-                        water.fill(Path(ellipseIn:CGRect(x:82,y:y+1,width:1.5,height:2.5)),with:.color(.white.opacity(0.8)))
+                        water.fill(Path(ellipseIn:CGRect(x:activeX+2,y:y+1,width:1.5,height:2.5)),with:.color(.white.opacity(0.8)))
                     } else {
                         let r=(u-0.78)/0.22
-                        water.stroke(Path(ellipseIn:CGRect(x:84-10*r,y:51-2*r,width:20*r,height:4*r)),with:.color(Color.cyber.opacity((1-r)*0.65)),lineWidth:0.8)
+                        water.stroke(Path(ellipseIn:CGRect(x:activeX+4-10*r,y:51-2*r,width:20*r,height:4*r)),with:.color(Color.cyber.opacity((1-r)*0.65)),lineWidth:0.8)
                     }
                 }
                 if dead {
@@ -106,7 +104,7 @@ struct GrowingTree: View {
                         }
                     }
                 }
-                if n>0 { ctx.draw(Text("\(n)×").font(.system(size:8,weight:.semibold)).foregroundStyle(Color(red:0.66,green:0.85,blue:0.71)),at:CGPoint(x:23,y:55)) }
+
             }
         }.frame(width:110,height:58)
         .task(id:dead) {

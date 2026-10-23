@@ -74,23 +74,21 @@ class TreeView(c:Context):View(c) {
                 ellipse(43f,top-16,14f,10f,Color.argb(95,203,242,180));c.restoreToCount(alphaLayer); c.restore()
             }; c.restoreToCount(layer)
         }
-        if(n>0) {
-            val centers=if(n==1L)listOf(40f) else if(n==2L)listOf(26f,44f) else listOf(19f,35f,51f)
-            centers.forEachIndexed { i,x -> tree(1f,.95f,x,if(n==1L).62f else if(i==1).52f else .44f) }
-        }
-        val active=if(n==1L)66f else if(n==2L)70f else if(n>2)77f else 55f
-        tree(remainder/3600,1f,active,1f,dry)
-        ellipse(if(n>0)10f else active-25,50f,if(n>0)94f else 51f,7f,Color.rgb(73,60,50)); ellipse(if(n>0)11f else active-24,49f,if(n>0)92f else 49f,4f,if(dry)Color.rgb(141,119,88) else Color.rgb(106,156,112))
+        val grove=Grove.frame(n,remainder,animate && motionEnabled,flower)
+        grove.trees.forEach {tree(1f,it.alpha,it.x,it.scale)}
+        val active=grove.active
+        tree(remainder/3600,grove.seedAlpha,active,1f,dry)
+        ellipse(16f,50f,78f,7f,Color.rgb(73,60,50));ellipse(17f,49f,76f,4f,if(dry)Color.rgb(141,119,88) else Color.rgb(106,156,112))
         if(motion && phase=="running") {
             c.saveLayerAlpha(0f,0f,110f,58f,255)
             val u=(t%3.6/3.6).toFloat(); val fall=(u/.78f).coerceAtMost(1f); val y=3+44*fall*fall
             if(u<.78) {
-                val drop=Path().apply { moveTo(84f,y-5); cubicTo(82f,y-2,78f,y+3,81f,y+5); cubicTo(87f,y+9,90f,y+2,84f,y-5) }
+                val drop=Path().apply { moveTo(active+4,y-5); cubicTo(active+2,y-2,active-2,y+3,active+1,y+5); cubicTo(active+7,y+9,active+10,y+2,active+4,y-5) }
                 paint.shader=null; paint.style=Paint.Style.FILL; paint.color=Color.rgb(165,217,204); c.drawPath(drop,paint)
-                ellipse(82f,y+1,1.5f,2.5f,Color.rgb(212,245,255))
+                ellipse(active+2,y+1,1.5f,2.5f,Color.rgb(212,245,255))
             } else {
                 val r=(u-.78f)/.22f; paint.style=Paint.Style.STROKE; paint.color=Color.argb(((1-r)*160).toInt(),165,217,204); paint.strokeWidth=.8f
-                c.drawOval(84-10*r,51-2*r,84+10*r,51+2*r,paint)
+                c.drawOval(active+4-10*r,51-2*r,active+4+10*r,51+2*r,paint)
             }; c.restore()
         }
         if(phase=="dead") {
@@ -106,7 +104,6 @@ class TreeView(c:Context):View(c) {
                 }
             }
         }
-        if(n>0) { paint.shader=null; paint.style=Paint.Style.FILL; paint.color=Color.rgb(168,217,180); paint.textSize=8f; paint.typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL); c.drawText("${n}×",12f,57f,paint) }
         c.restore()
     }
 }
