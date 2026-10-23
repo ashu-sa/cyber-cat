@@ -77,6 +77,23 @@ class WidgetTests(unittest.TestCase):
         self.c.show_history(); self.c.options(); self.app.processEvents()
         self.assertTrue(self.c.history.isVisible()); self.assertTrue(self.c.popup.isVisible())
 
+class AppToggleTests(unittest.TestCase):
+    def test_app_switches_store_exclusions_and_selected_apps(self):
+        import tempfile
+        from unittest.mock import patch
+        from cybercat.model import Store
+        from cybercat.app import Controller,AppSwitch
+        app=QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as folder,patch('cybercat.focus_blocking.app_inventory',return_value=[dict(id='editor.desktop',name='Editor',icon='application-x-executable',browser=False),dict(id='browser.desktop',name='Browser',icon='web-browser',browser=True)]):
+            store=Store(folder);controller=Controller(app,store);dialog=controller.focus_settings(preview=True);dialog.show();app.processEvents()
+            def toggles():return {t.property('appId'):t for t in dialog.findChildren(AppSwitch,'appBlockToggle') if not t.parent().isHidden()}
+            rows=toggles();rows['editor.desktop'].setChecked(True);self.assertIn('editor.desktop',store.settings['blocked_apps'])
+            all_switch=dialog.findChild(AppSwitch,'blockAllSwitch');all_switch.setChecked(True);app.processEvents()
+            rows=toggles();self.assertFalse(rows['browser.desktop'].isEnabled());self.assertFalse(rows['browser.desktop'].isChecked())
+            rows['editor.desktop'].setChecked(False);self.assertIn('editor.desktop',store.settings['excluded_apps'])
+            all_switch.setChecked(False);app.processEvents();rows=toggles();rows['editor.desktop'].setChecked(True);self.assertNotIn('editor.desktop',store.settings['excluded_apps'])
+            dialog.close();controller.tick.stop();controller.persist.stop();controller.shortcuts.close();controller.tray.hide();controller.pet.cat.animation.stop();controller.pet.close()
+
 if __name__=='__main__':unittest.main()
 
 class ShortcutScopeTests(unittest.TestCase):

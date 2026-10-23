@@ -13,15 +13,23 @@ import android.widget.TextView
 class PomodoroInstrumentation:Instrumentation() {
     override fun onCreate(arguments:Bundle?) {super.onCreate(arguments);start()}
     private fun find(view:View,name:String):View? {
-        if(view.contentDescription==name || (view is TextView && view.text.toString()==name))return view
+        if(view.tag==name || view.contentDescription==name || (view is TextView && view.text.toString()==name))return view
         if(view is ViewGroup)for(i in 0 until view.childCount)find(view.getChildAt(i),name)?.let{return it}
         return null
+    }
+    private fun activeRoot():android.view.accessibility.AccessibilityNodeInfo {
+        val deadline=SystemClock.uptimeMillis()+8000
+        while(SystemClock.uptimeMillis()<deadline) {
+            uiAutomation.rootInActiveWindow?.let {return it}
+            SystemClock.sleep(100)
+        }
+        error("QA window did not become accessible")
     }
     override fun onStart() {
         val result=Bundle()
         try {
             check(targetContext.packageName.endsWith(".qa"));Repository.init(targetContext)
-            runOnMainSync {Repository.discard();Repository.replace(emptyList());Repository.selectMode(false,5);Repository.prefs.edit().putBoolean("showPet",false).putBoolean("focusBlocking",false).apply()}
+            runOnMainSync {Repository.discard();Repository.replace(emptyList());Repository.selectMode(false,5);Repository.prefs.edit().putBoolean("showPet",false).putBoolean("focusBlocking",false).putBoolean("focusBlockAll",false).putStringSet("blockedApps",emptySet()).putStringSet("excludedApps",emptySet()).apply()}
             val activity=startActivitySync(Intent(targetContext,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
             runOnMainSync {activity.setShowWhenLocked(true);activity.setTurnScreenOn(true)}
             fun screenshot(name:String) {SystemClock.sleep(1200);waitForIdleSync();uiAutomation.takeScreenshot()!!.let {b->targetContext.openFileOutput(name,0).use{b.compress(Bitmap.CompressFormat.PNG,100,it)};b.recycle()}}
@@ -31,18 +39,42 @@ class PomodoroInstrumentation:Instrumentation() {
                 check(find(activity.window.decorView,"Pomodoro effect · 25-minute flower")!=null)
                 find(activity.window.decorView,"App blocking · Off")!!.performClick()
             }
+            waitForIdleSync()
+            val searchNode=activeRoot().findAccessibilityNodeInfosByText("Find an app").first()
+            val searchArgs=Bundle().apply {putCharSequence(android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,"c")}
+            check(searchNode.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_TEXT,searchArgs));waitForIdleSync()
             screenshot("android-app-blocking.png")
-            val root=uiAutomation.rootInActiveWindow
-            check(root.findAccessibilityNodeInfosByText("Block all").isNotEmpty())
-            check(root.findAccessibilityNodeInfosByText("Block selected apps").isNotEmpty())
-            val close=root.findAccessibilityNodeInfosByText("Close").first()
+            val root=activeRoot()
+            check(root.findAccessibilityNodeInfosByText("Block all except browsers").isNotEmpty())
+            check(root.findAccessibilityNodeInfosByText("App blocking").isNotEmpty())
+            val allToggle=root.findAccessibilityNodeInfosByText("Block all except browsers").first()
+            check(allToggle.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));waitForIdleSync()
+            check(Repository.prefs.getBoolean("focusBlockAll",false))
+            screenshot("android-app-blocking-all.png")
+            fun appToggle(node:android.view.accessibility.AccessibilityNodeInfo):android.view.accessibility.AccessibilityNodeInfo? {
+                if(node.className?.toString()=="android.widget.Switch" && node.isEnabled && node.contentDescription?.toString()?.let {it!="App blocking" && it.endsWith(" blocking")}==true)return node
+                for(i in 0 until node.childCount)node.getChild(i)?.let {appToggle(it)?.let {found->return found}}
+                return null
+            }
+            val appSwitch=appToggle(activeRoot())
+            if(appSwitch!=null) {
+                check(appSwitch.isChecked);check(appSwitch.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));waitForIdleSync()
+                check((Repository.prefs.getStringSet("excludedApps",emptySet()) ?: emptySet()).isNotEmpty())
+            }
+
+            check(activeRoot().findAccessibilityNodeInfosByText("Block all except browsers").first().performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));waitForIdleSync()
+            check(!Repository.prefs.getBoolean("focusBlockAll",true))
+            val close=activeRoot().findAccessibilityNodeInfosByText("Close").first()
             check(close.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
             waitForIdleSync()
             runOnMainSync { (find(activity.window.decorView,"Pomodoro effect · 25-minute flower") as android.widget.Switch).isChecked=true }
             waitForIdleSync();check(Repository.pomodoroEnabled)
             runOnMainSync {find(activity.window.decorView,"Start or resume")!!.performClick()}
             waitForIdleSync();check(Repository.engine.phase=="running")
-            runOnMainSync { check(find(activity.window.decorView,"Finish session")?.visibility != View.VISIBLE) }
+            runOnMainSync {
+                check(find(activity.window.decorView,"Finish session")?.visibility != View.VISIBLE)
+                check(find(activity.window.decorView,"Focus time")!=null)
+            }
             runOnMainSync {Repository.engine.accumulated=750000;Repository.engine.anchor=SystemClock.elapsedRealtime();Repository.checkpoint()}
             screenshot("android-pomodoro-focus.png")
             runOnMainSync {Repository.engine.accumulated=1501000;Repository.engine.anchor=SystemClock.elapsedRealtime();Repository.advancePomodoro()}

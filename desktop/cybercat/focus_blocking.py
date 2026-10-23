@@ -45,6 +45,40 @@ def desktop_apps():
             except Exception:continue
     return sorted(apps.items(),key=lambda pair:pair[1].lower())
 
+def app_inventory(extra=()):
+    """Names/icons for user-facing apps; no executables are launched."""
+    import configparser
+    import json
+    import ntpath
+    found={}
+    browser_exes={'chrome.exe','msedge.exe','firefox.exe','brave.exe','opera.exe','vivaldi.exe','librewolf.exe','zen.exe'}
+    if sys.platform=='win32':
+        script="""[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); $shell=New-Object -ComObject WScript.Shell; $roots=@([Environment]::GetFolderPath('StartMenu'),[Environment]::GetFolderPath('CommonStartMenu')); @($roots | ForEach-Object {Get-ChildItem -LiteralPath $_ -Filter *.lnk -Recurse -ErrorAction SilentlyContinue} | ForEach-Object {$s=$shell.CreateShortcut($_.FullName); if($s.TargetPath -like '*.exe'){[pscustomobject]@{id=$s.TargetPath;name=$_.BaseName}}}) | ConvertTo-Json -Compress"""
+        try:
+            result=subprocess.run(['powershell','-NoProfile','-NonInteractive','-Command',script],capture_output=True,encoding='utf-8-sig',timeout=8,check=True)
+            entries=json.loads(result.stdout or '[]');entries=[entries] if isinstance(entries,dict) else entries
+            for entry in entries:
+                path=entry['id'];base=ntpath.basename(path).lower()
+                if base in {'focanopy.exe','cybercat.exe','explorer.exe','taskmgr.exe','systemsettings.exe','uninstall.exe','unins000.exe'}:continue
+                found[os.path.normcase(path)]=dict(id=path,name=entry['name'],icon=path,browser=base in browser_exes)
+        except (OSError,ValueError,subprocess.SubprocessError):pass
+        for path in extra:
+            found.setdefault(os.path.normcase(path),dict(id=path,name=ntpath.basename(path),icon=path,browser=ntpath.basename(path).lower() in browser_exes))
+    else:
+        roots=[Path.home()/'.local/share/applications',Path('/usr/local/share/applications'),Path('/usr/share/applications')]
+        for identifier,name in desktop_apps():
+            entry={}
+            for root in roots:
+                path=root/identifier
+                if path.exists():
+                    config=configparser.ConfigParser(interpolation=None,strict=False)
+                    try:config.read(path,encoding='utf-8');entry=config['Desktop Entry'];break
+                    except (OSError,KeyError,configparser.Error):continue
+            mime=entry.get('MimeType','')
+            found[identifier]=dict(id=identifier,name=name,icon=entry.get('Icon','application-x-executable'),browser='x-scheme-handler/http' in mime)
+        for identifier in extra:found.setdefault(identifier,dict(id=identifier,name=identifier.removesuffix('.desktop'),icon='application-x-executable',browser=False))
+    return sorted(found.values(),key=lambda app:app['name'].lower())
+
 class FocusBlocker:
     def __init__(self,store,notice):
         self.store=store;self.notice=notice;self.last=0;self.last_write=0

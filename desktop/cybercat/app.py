@@ -6,11 +6,11 @@ import time
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from functools import partial
-from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSize, QSettings, QEvent
+from PySide6.QtCore import Qt, QDate, QRectF, QTimer, QPoint, QPointF, QSize, QSettings, QEvent, QFileInfo
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPalette, QPen, QPixmap, QPolygonF, QShortcut, QKeySequence
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QDialog, QComboBox, QDialogButtonBox, QSlider, QCheckBox, QScrollArea, QCalendarWidget,
-    QListWidget, QListWidgetItem, QAbstractItemView, QSystemTrayIcon, QMenu, QMessageBox, QInputDialog, QFileDialog, QFrame, QProgressBar)
+    QListWidget, QListWidgetItem, QAbstractItemView, QSystemTrayIcon, QMenu, QMessageBox, QInputDialog, QFileDialog, QFrame, QProgressBar, QLineEdit, QFileIconProvider)
 from .model import Store, clock_text, duration_text, device_label
 from .forest import tree_text, cell_text, summary as forest_summary, garden
 from .tree import paint_tree
@@ -80,6 +80,16 @@ def label(text, role=None):
         w.setObjectName(role)
     return w
 
+
+class AppSwitch(QCheckBox):
+    def __init__(self,name='',checked=False):
+        super().__init__();self.setAccessibleName(name);self.setChecked(checked);self.setFixedSize(44,28);self.setCursor(Qt.CursorShape.PointingHandCursor)
+    def hitButton(self,pos):return self.rect().contains(pos)
+    def paintEvent(self,event):
+        p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor('#567e58' if self.isChecked() else '#3a4e3e'));p.drawRoundedRect(QRectF(3,5,36,18),9,9)
+        p.setBrush(QColor('#addaad' if self.isEnabled() else '#718475'));p.drawEllipse(QRectF(23 if self.isChecked() else 5,7,14,14))
+        if self.hasFocus():p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QColor('#addaad'));p.drawRoundedRect(QRectF(1,2,41,24),11,11)
 
 class GrowingTree(QWidget):
     def __init__(self, controller):
@@ -518,6 +528,7 @@ class Controller:
         heading=label('Grow one little flower');heading.setAlignment(Qt.AlignmentFlag.AlignCenter);heading.setStyleSheet('font-size:21px;color:#eef0dc;');box.addWidget(heading)
         tree=GrowingTree(self);tree.setFixedSize(245,129);tree.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents);tree.setStyleSheet('background:transparent;');box.addWidget(tree,0,Qt.AlignmentFlag.AlignHCenter)
         status=label('');status.setAlignment(Qt.AlignmentFlag.AlignCenter);status.setFont(QFont('Noto Sans Mono',35));status.setStyleSheet("color:#eef0dc;font-family:'Noto Sans Mono';font-size:46px;");box.addWidget(status)
+        focus_time=label('Focus time · 00:00:00');focus_time.setAlignment(Qt.AlignmentFlag.AlignCenter);focus_time.setStyleSheet("color:#addaad;font-family:'Noto Sans Mono';font-size:12px;");box.addWidget(focus_time)
         hint=label('');hint.setWordWrap(True);hint.setAlignment(Qt.AlignmentFlag.AlignCenter);hint.setStyleSheet('color:#a1b5a5;font-size:11px;');box.addWidget(hint)
         progress=QProgressBar();progress.setRange(0,1000);progress.setTextVisible(False);progress.setFixedHeight(5);progress.setStyleSheet('QProgressBar{background:#2e4133;border:0;border-radius:2px;} QProgressBar::chunk{background:#addaad;border-radius:2px;}');box.addWidget(progress)
         controls=QHBoxLayout();controls.addStretch()
@@ -532,30 +543,60 @@ class Controller:
             self.safe(lambda:self.store.select_mode(mode.isChecked(),10 if minutes.currentIndex() else 5));self.refresh();update()
         mode.toggled.connect(apply_mode);minutes.currentIndexChanged.connect(apply_mode)
         layout.addWidget(label('A little room for what matters','subtitle'))
-        blocking=QCheckBox('Block apps while the timer runs');blocking.setChecked(self.store.settings.get('focus_blocking',False));layout.addWidget(blocking)
+        app_card=QFrame();app_card.setObjectName('card');apps_layout=QVBoxLayout(app_card);apps_layout.setContentsMargins(16,16,16,16);apps_layout.setSpacing(12)
+        layout.addWidget(app_card)
+        def toggle_row(title,checked,name):
+            row=QHBoxLayout();row.addWidget(label(title));row.addStretch();toggle=AppSwitch(title,checked);toggle.setObjectName(name);row.addWidget(toggle);apps_layout.addLayout(row);return toggle
+        blocking=toggle_row('App blocking',self.store.settings.get('focus_blocking',False),'appBlockingSwitch')
         blocking.toggled.connect(lambda value:self.safe(lambda:self.store.setting('focus_blocking',value)))
-        note=label('Apps stay open and keep their data. Pauses and Pomodoro breaks allow apps. You can turn blocking off at any time.');note.setWordWrap(True);layout.addWidget(note)
-        strategy=QComboBox();strategy.addItems(['Block selected apps','Block all except browsers & exclusions']);strategy.setCurrentIndex(int(self.store.settings.get('focus_block_all',False)));layout.addWidget(strategy)
-        strategy.currentIndexChanged.connect(lambda index:self.store.setting('focus_block_all',bool(index)))
-        chosen=list(self.store.settings.get('excluded_apps' if strategy.currentIndex() else 'blocked_apps',[]));selected=label('\n'.join(chosen) or 'No apps selected');selected.setWordWrap(True);selected.setMaximumHeight(80);layout.addWidget(selected)
-        def choose():
-            if sys.platform=='win32':
-                files,_=QFileDialog.getOpenFileNames(dialog,'Select distracting applications','','Applications (*.exe)')
-                protected={'explorer.exe','taskmgr.exe','winlogon.exe','logonui.exe','focanopy.exe'}
-                items=[f for f in files if Path(f).name.lower() not in protected]
-            else:
-                from .focus_blocking import desktop_apps
-                chooser=QDialog(dialog);chooser.setWindowTitle('Choose apps to minimize');chooser.resize(420,500);box=QVBoxLayout(chooser);listing=QListWidget();listing.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
-                for identifier,name in desktop_apps():
-                    item=QListWidgetItem(name);item.setData(Qt.ItemDataRole.UserRole,identifier);listing.addItem(item);item.setSelected(identifier in chosen)
-                box.addWidget(listing);buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel);buttons.accepted.connect(chooser.accept);buttons.rejected.connect(chooser.reject);box.addWidget(buttons)
-                if chooser.exec()!=QDialog.DialogCode.Accepted:return
-                items=[item.data(Qt.ItemDataRole.UserRole) for item in listing.selectedItems()]
-            chosen[:]=items;self.store.setting('excluded_apps' if strategy.currentIndex() else 'blocked_apps',items);selected.setText('\n'.join(items) or 'No apps selected')
-        def change_selection():
-            chosen[:]=self.store.settings.get('excluded_apps' if strategy.currentIndex() else 'blocked_apps',[]);selected.setText('\n'.join(chosen) or 'No apps selected')
-        strategy.currentIndexChanged.connect(change_selection)
-        layout.addWidget(button('Choose blocked apps / allowed exclusions…',choose))
+        all_apps=toggle_row('Block all except browsers',self.store.settings.get('focus_block_all',False),'blockAllSwitch')
+        permission=label('GNOME extension access is required below.' if sys.platform.startswith('linux') else 'Ready · desktop windows can be minimized.','subtitle');permission.setWordWrap(True);apps_layout.addWidget(permission)
+        apps_layout.addWidget(label('On blocks an app · Off allows it','subtitle'))
+        search=QLineEdit();search.setPlaceholderText('Find an app');search.setAccessibleName('Find an app');search.setStyleSheet('padding:9px;background:#17231b;border:1px solid #3a4e3e;border-radius:8px;');apps_layout.addWidget(search)
+        list_widget=QWidget();rows=QVBoxLayout(list_widget);rows.setContentsMargins(0,0,0,0);rows.setSpacing(6)
+        list_scroll=QScrollArea();list_scroll.setWidgetResizable(True);list_scroll.setWidget(list_widget);list_scroll.setMinimumHeight(220);list_scroll.setMaximumHeight(300);apps_layout.addWidget(list_scroll)
+        from .focus_blocking import app_inventory
+        inventory=app_inventory(self.store.settings.get('blocked_apps',[])+self.store.settings.get('excluded_apps',[]))
+        icons=QFileIconProvider()
+        def draw_apps():
+            while rows.count():
+                item=rows.takeAt(0)
+                if item.widget():item.widget().deleteLater()
+            normalize=lambda value:os.path.normcase(os.path.abspath(value)) if sys.platform=='win32' else value
+            selected={normalize(v) for v in self.store.settings.get('blocked_apps',[])};excluded={normalize(v) for v in self.store.settings.get('excluded_apps',[])};all_on=all_apps.isChecked()
+            for app in inventory:
+                identifier=app['id'];browser_allowed=all_on and app['browser']
+                row=QFrame();row.setObjectName('appToggleRow');row.setProperty('appName',app['name'].lower());row.setStyleSheet('QFrame#appToggleRow{background:#17231b;border-radius:10px;}')
+                cells=QHBoxLayout(row);cells.setContentsMargins(10,8,8,8);image=QLabel();image.setFixedSize(30,30)
+                icon=icons.icon(QFileInfo(identifier)) if sys.platform=='win32' else (QIcon(app['icon']) if Path(app['icon']).is_file() else QIcon.fromTheme(app['icon']))
+                if icon.isNull():icon=icons.icon(QFileIconProvider.IconType.File)
+                image.setPixmap(icon.pixmap(28,28));cells.addWidget(image)
+                texts=QVBoxLayout();texts.setSpacing(3);texts.addWidget(label(app['name']));texts.addWidget(label('Browser · always allowed' if browser_allowed else 'On blocks this app','subtitle'));cells.addLayout(texts,1)
+                toggle=AppSwitch(app['name']+' blocking',not browser_allowed and normalize(identifier) not in excluded and (all_on or normalize(identifier) in selected));toggle.setObjectName('appBlockToggle');toggle.setProperty('appId',identifier);toggle.setEnabled(not browser_allowed);cells.addWidget(toggle)
+                def change(on,identifier=identifier):
+                    blocked={p for p in self.store.settings.get('blocked_apps',[]) if normalize(p)!=normalize(identifier)};allowed=set(self.store.settings.get('excluded_apps',[]))
+                    if on:allowed={p for p in allowed if normalize(p)!=normalize(identifier)}
+                    if all_apps.isChecked() and any(normalize(p)==normalize(identifier) for p in self.store.settings.get('blocked_apps',[])):blocked.add(identifier)
+                    if all_apps.isChecked():
+                        if on:allowed.discard(identifier)
+                        else:allowed.add(identifier)
+                    elif on:blocked.add(identifier);allowed.discard(identifier)
+                    else:blocked.discard(identifier)
+                    self.store.setting('blocked_apps',sorted(blocked));self.store.setting('excluded_apps',sorted(allowed));self.refresh()
+                toggle.toggled.connect(change);rows.addWidget(row);row.setVisible(search.text().lower() in app['name'].lower())
+            rows.addStretch()
+        def strategy(on):self.store.setting('focus_block_all',on);draw_apps();self.refresh()
+        all_apps.toggled.connect(strategy)
+        def filter_apps(value):
+            for row in list_widget.findChildren(QFrame,'appToggleRow'):row.setVisible(value.lower() in row.property('appName'))
+        search.textChanged.connect(filter_apps);draw_apps()
+        if sys.platform=='win32':
+            def add_app():
+                paths,_=QFileDialog.getOpenFileNames(dialog,'Add applications','','Applications (*.exe)')
+                for path in paths:
+                    if not any(a['id']==path for a in inventory):inventory.append(dict(id=path,name=Path(path).stem,icon=path,browser=Path(path).name.lower() in {'chrome.exe','msedge.exe','firefox.exe','brave.exe','opera.exe','vivaldi.exe','librewolf.exe','zen.exe'}))
+                draw_apps()
+            apps_layout.addWidget(button('Add another app…',add_app))
         if sys.platform.startswith('linux'):
             help_text=label('Ubuntu/GNOME 45+ needs the optional Focanopy Flower Focus extension. Install it here, then enable it yourself in GNOME Extensions.');help_text.setWordWrap(True);layout.addWidget(help_text)
             def install():
@@ -568,7 +609,7 @@ class Controller:
             hero.setVisible(s.pomodoro_enabled)
             badge.setText({'break':'REST & RESET','ready':'READY TO GROW','dead':'ROUND CANCELLED'}.get(stage,'WATERING PAUSED' if s.phase=='paused' else 'FLOWER FOCUS'))
             heading.setText({'break':'A little room to breathe','ready':'Your next flower is waiting','dead':'A fresh start awaits'}.get(stage,'Grow one little flower'))
-            seconds=max(0,int(s.display_time));status.setText(f'{seconds//60:02}:{seconds%60:02}')
+            seconds=max(0,int(s.display_time));status.setText(f'{seconds//60:02}:{seconds%60:02}');focus_time.setText('Focus time · '+clock_text(s.elapsed))
             hint.setText({'break':'Flower saved. Stretch, breathe, move a little.','ready':'Start when you’re ready. No rush.','dead':'This tree died. Begin again when you’re ready.'}.get(stage,'Your flower is resting.' if s.phase=='paused' else 'A little water. A little growth.'))
             progress.setValue(0 if stage=='dead' else 1000 if stage!='focus' else int(max(0,min(1,1-s.display_time/1500))*1000))
             next_round.setVisible(stage in ('break','ready'));end_cycle.setVisible(stage in ('break','ready'))

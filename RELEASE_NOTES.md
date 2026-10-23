@@ -1,7 +1,7 @@
-# Focanopy 1.8.1 · A calmer focus garden
+# Focanopy 1.9.0 · Your apps, your focus
 
-- Redesigned Android Pomodoro with a dedicated forest-green focus card, warm cream countdown, centered flowering tree, compact icon controls and subtle round progress.
-- Focus, pause, break, ready and cancelled rounds have clearer titles and guidance. Break choices, saved focus and app-blocking settings have their own spacious sections.
-- Redesigned the native macOS focus window with matching rounded cards, a live flower preview, prominent countdown, compact controls and expandable app-blocking permissions.
-- Windows and Ubuntu receive a matching scrollable focus garden with a live flower preview and clearer controls.
-- Existing 25-minute timing, automatic saving, manual next rounds and cancelled-tree behavior remain intact.
+- Apps & permissions now shows app icons, readable names and individual on/off blocking switches, with search on Android and desktop.
+- One Block all except browsers switch selects all eligible apps; turn an app off to make it an allowed exception. Browser switches remain off and protected in all-app mode.
+- App blocking has its own master switch. Permission status and Enable/Manage controls make OS setup explicit without pretending to grant access automatically.
+- Pomodoro now shows Focus time alongside its countdown: elapsed focus stays still during pauses and breaks.
+- Existing app selections, exclusions, timers, saved sessions and 25-minute completion/cancellation behavior are preserved.

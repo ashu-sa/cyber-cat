@@ -83,7 +83,7 @@ final class FloatingPanel: NSPanel {
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
     func showFocusSettings() {
         if focusWindow == nil {
-            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:650),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:700),styleMask:[.titled,.closable],backing:.buffered,defer:false)
             w.title="Focanopy · Focus garden";w.isReleasedWhenClosed=false
             w.contentView=NSHostingView(rootView:FocusPreferences(model:model));w.center();focusWindow=w
         }
@@ -393,9 +393,19 @@ struct MenuContents: View {
     }
 }
 
+struct FocusApplication:Identifiable {
+    let id:String
+    let url:URL
+    let name:String
+    let icon:NSImage
+}
 struct FocusPreferences:View {
     @ObservedObject var model:Stopwatch
     @State private var confirmCancel=false
+    @State private var installedApps:[FocusApplication]=[]
+    @State private var appSearch=""
+    @State private var accessGranted=AXIsProcessTrusted()
+    @State private var browserIDs:Set<String>=[]
     @AppStorage("focusBlocking") private var blocking=false
     @AppStorage("focusBlockAll") private var blockAll=false
     @State private var excludedIDs:[String] = UserDefaults.standard.stringArray(forKey:"focusExcludedApps") ?? []
@@ -442,6 +452,7 @@ struct FocusPreferences:View {
                         GrowingTree(phase:["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase,animated:model.petVisible,flower:true,dead:model.pomodoro.stage=="dead",elapsed:{model.elapsed}).scaleEffect(1.6).frame(height:90)
                         TimelineView(.periodic(from:.now,by:1)) { _ in
                             Text(countdown).font(.system(size:48,weight:.medium,design:.monospaced)).monospacedDigit().foregroundStyle(Color(red:0.93,green:0.94,blue:0.86))
+                            Text("Focus time  ·  "+timeText(model.elapsed)).font(.system(size:13,weight:.medium,design:.monospaced)).foregroundStyle(Color.cyber)
                             ProgressView(value:progress).tint(.cyber)
                         }
                         Text(model.pomodoro.stage=="dead" ? "This tree died. Start a fresh round when you’re ready." : model.pomodoro.stage=="break" ? "Flower saved. Stretch, breathe, move a little." : model.pomodoro.stage=="ready" ? "Start when you’re ready. No rush." : "A little water. A little growth.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -471,36 +482,91 @@ struct FocusPreferences:View {
                 Text("Make a little room for what matters.").font(.caption).foregroundStyle(.secondary)
                 DisclosureGroup("Apps & permissions") {
                     VStack(alignment:.leading,spacing:12) {
-                        Picker("Block",selection:$blockAll) { Text("Selected apps").tag(false);Text("All except browsers & exclusions").tag(true) }
-                        Button(blockAll ? "Choose allowed exclusions…":"Choose apps to block…") { chooseApps() }
-                        Text((blockAll ? excludedIDs:appIDs).isEmpty ? "No apps selected":(blockAll ? excludedIDs:appIDs).joined(separator:"\n")).font(.caption).foregroundStyle(.secondary)
-                        Button("Clear this list") {
-                            let key=blockAll ? "focusExcludedApps":"focusBlockedApps"
-                            UserDefaults.standard.set([String](),forKey:key);UserDefaults.standard.set([String](),forKey:key+"Paths")
-                            if blockAll {excludedIDs=[]} else {appIDs=[]}
+                        Toggle("Block all except browsers",isOn:$blockAll).toggleStyle(.switch).tint(.cyber)
+                        Text("On blocks an app. Switch it off to allow it. Browsers stay allowed in all-app mode.").font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Image(systemName:accessGranted ? "checkmark.shield.fill":"lock.shield").foregroundStyle(Color.cyber)
+                            VStack(alignment:.leading,spacing:3) {
+                                Text(accessGranted ? "Accessibility enabled":"Stronger window control").font(.caption.bold())
+                                Text(accessGranted ? "Window minimization is available":"Optional access for resistant apps").font(.caption2).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(accessGranted ? "Manage":"Enable") {
+                                if accessGranted { NSWorkspace.shared.open(URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!) }
+                                else { let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary;_=AXIsProcessTrustedWithOptions(options) }
+                            }
                         }
-                        Button("Enable stronger window minimization…") {
-                            let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary
-                            _=AXIsProcessTrustedWithOptions(options)
+                        TextField("Find an app",text:$appSearch).textFieldStyle(.roundedBorder)
+                        LazyVStack(spacing:8) {
+                            ForEach(installedApps.filter { appSearch.isEmpty || $0.name.localizedCaseInsensitiveContains(appSearch) }) { app in
+                                let browserAllowed=blockAll && browserIDs.contains(app.id)
+                                HStack(spacing:10) {
+                                    Image(nsImage:app.icon).resizable().frame(width:30,height:30).accessibilityHidden(true)
+                                    VStack(alignment:.leading,spacing:3) {
+                                        Text(app.name).font(.callout).lineLimit(1)
+                                        Text(browserAllowed ? "Browser · always allowed":"On blocks this app").font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Toggle(app.name+" blocking",isOn:Binding(get:{!browserAllowed && !excludedIDs.contains(app.id) && (blockAll || appIDs.contains(app.id))},set:{setBlocked(app,$0)}))
+                                        .labelsHidden().toggleStyle(.switch).tint(.cyber).disabled(browserAllowed)
+                                }.padding(10).background(forest,in:RoundedRectangle(cornerRadius:12))
+                            }
                         }
-                        Text("Pauses and breaks allow apps. System essentials stay available. Accessibility permission enables stronger window minimization.").font(.caption2).foregroundStyle(.secondary)
+                        Button("Add another app…") {chooseApps();loadApps()}
+                        Text("Pauses and breaks allow apps. System essentials stay available.").font(.caption2).foregroundStyle(.secondary)
                     }.padding(.top,12)
                 }.font(.callout)
             }
-        }.padding(22) }.frame(width:478,height:650).background(forest).foregroundStyle(Color(red:0.93,green:0.94,blue:0.89)).preferredColorScheme(.dark)
+        }.padding(22) }.frame(width:478,height:700).background(forest).foregroundStyle(Color(red:0.93,green:0.94,blue:0.89)).preferredColorScheme(.dark)
+            .onAppear {loadApps()}
+            .onReceive(NotificationCenter.default.publisher(for:NSApplication.didBecomeActiveNotification)) { _ in accessGranted=AXIsProcessTrusted() }
             .alert("Cancel this round?",isPresented:$confirmCancel) {
                 Button("Keep growing",role:.cancel) {}
                 Button("Cancel round",role:.destructive) { model.cancelPomodoro() }
             } message:{Text("An unfinished tree will die. Completed 25-minute rounds stay saved.")}
+    }
+    private func setBlocked(_ app:FocusApplication,_ value:Bool) {
+        let prefs=UserDefaults.standard
+        if blockAll {
+            excludedIDs.removeAll{$0==app.id};if !value {excludedIDs.append(app.id)}
+        } else {
+            appIDs.removeAll{$0==app.id};if value {appIDs.append(app.id);excludedIDs.removeAll{$0==app.id}}
+        }
+        prefs.set(appIDs,forKey:"focusBlockedApps");prefs.set(excludedIDs,forKey:"focusExcludedApps")
+        for (key,ids) in [("focusBlockedApps",appIDs),("focusExcludedApps",excludedIDs)] {
+            let old=prefs.stringArray(forKey:key+"Paths") ?? []
+            let kept=old.filter {path in Bundle(url:URL(fileURLWithPath:path))?.bundleIdentifier.map{ids.contains($0)} ?? false}
+            let resolved=ids.compactMap{NSWorkspace.shared.urlForApplication(withBundleIdentifier:$0)?.path}
+            let paths=kept+resolved+installedApps.filter{ids.contains($0.id)}.map{$0.url.path}
+            prefs.set(Array(Set(paths)),forKey:key+"Paths")
+        }
+    }
+    private func loadApps() {
+        browserIDs=Set(NSWorkspace.shared.urlsForApplications(toOpen:URL(string:"https://example.com")!).compactMap{Bundle(url:$0)?.bundleIdentifier})
+        let protected=[Bundle.main.bundleIdentifier ?? "","com.apple.finder","com.apple.systempreferences","com.apple.dock","com.apple.loginwindow"]
+        var found:[String:FocusApplication]=[:]
+        let roots=[URL(fileURLWithPath:"/Applications"),URL(fileURLWithPath:"/System/Applications"),FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications")]
+        func add(_ url:URL) {
+            guard let bundle=Bundle(url:url),let id=bundle.bundleIdentifier,!protected.contains(id) else {return}
+            found[id]=FocusApplication(id:id,url:url,name:(bundle.object(forInfoDictionaryKey:"CFBundleDisplayName") as? String) ?? (bundle.object(forInfoDictionaryKey:"CFBundleName") as? String) ?? url.deletingPathExtension().lastPathComponent,icon:NSWorkspace.shared.icon(forFile:url.path))
+        }
+        for root in roots {
+            for url in (try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil)) ?? [] {
+                if url.pathExtension=="app" {add(url)}
+                else {for child in (try? FileManager.default.contentsOfDirectory(at:url,includingPropertiesForKeys:nil)) ?? [] where child.pathExtension=="app" {add(child)}}
+            }
+        }
+        for id in appIDs+excludedIDs {if found[id]==nil,let url=NSWorkspace.shared.urlForApplication(withBundleIdentifier:id){add(url)}}
+        installedApps=found.values.sorted{$0.name.localizedStandardCompare($1.name) == .orderedAscending}
     }
     func chooseApps() {
         let panel=NSOpenPanel();panel.title="Choose distracting apps";panel.allowedContentTypes=[.applicationBundle];panel.allowsMultipleSelection=true;panel.canChooseDirectories=false
         if panel.runModal() == .OK {
             let ids=panel.urls.compactMap { Bundle(url:$0)?.bundleIdentifier }.filter { ![Bundle.main.bundleIdentifier ?? "","com.apple.finder","com.apple.systempreferences"].contains($0) }
             let key=blockAll ? "focusExcludedApps" : "focusBlockedApps"
-            if blockAll { excludedIDs=ids } else { appIDs=ids }
-            UserDefaults.standard.set(ids,forKey:key)
-            UserDefaults.standard.set(panel.urls.map { $0.path },forKey:key+"Paths")
+            if blockAll { excludedIDs=Array(Set(excludedIDs+ids)) } else { appIDs=Array(Set(appIDs+ids));excludedIDs.removeAll{ids.contains($0)};UserDefaults.standard.set(excludedIDs,forKey:"focusExcludedApps");let removed=Set(panel.urls.map{$0.path});UserDefaults.standard.set((UserDefaults.standard.stringArray(forKey:"focusExcludedAppsPaths") ?? []).filter{path in Bundle(url:URL(fileURLWithPath:path))?.bundleIdentifier.map{!ids.contains($0)} ?? !removed.contains(path)},forKey:"focusExcludedAppsPaths") }
+            UserDefaults.standard.set(blockAll ? excludedIDs:appIDs,forKey:key)
+            UserDefaults.standard.set(Array(Set((UserDefaults.standard.stringArray(forKey:key+"Paths") ?? [])+panel.urls.map{$0.path})),forKey:key+"Paths")
         }
     }
 }
