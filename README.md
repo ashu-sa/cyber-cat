@@ -186,7 +186,7 @@ Clone the repository, then use the command for your platform. Toolchain prerequi
 
 | Target | Command | Guide |
 |---|---|---|
-| Android | `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` | [Android setup](android/README.md) |
+| Android | `cd android && ./gradlew :app:assembleStandard :app:testStandardUnitTest :app:lintStandard` | [Android setup](android/README.md) |
 | macOS | `cd macos && ./test.sh && ./build.sh` | [macOS setup](macos/README.md) |
 | Windows | `desktop\build-windows.cmd` | [Desktop setup](desktop/README.md) |
 | Portable Linux | `cd desktop && ./build-appimage.sh` on Ubuntu 22.04 x86-64 / Ubuntu 24.04 ARM64 | [Linux packaging & Fedora setup](desktop/LINUX.md) |
