@@ -3,6 +3,7 @@ import AppKit
 import Carbon
 import UserNotifications
 import UniformTypeIdentifiers
+import ApplicationServices
 
 final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -14,6 +15,9 @@ final class FloatingPanel: NSPanel {
     var panel: NSPanel!
     var focusWindow:NSWindow?
     var focusShield:NSPanel?
+    var blockingShields:[NSPanel]=[]
+    var blockingWatchdog:Timer?
+    lazy var browserIDs:Set<String> = Set(NSWorkspace.shared.urlsForApplications(toOpen:URL(string:"https://example.com")!).compactMap { Bundle(url:$0)?.bundleIdentifier })
     var appObserver:NSObjectProtocol?
     var historyWindow: NSWindow?
     var accountWindow: NSWindow?
@@ -55,7 +59,12 @@ final class FloatingPanel: NSPanel {
                     try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier:UUID().uuidString,content:content,trigger:nil))
                     self.showPet()
                 }
-                if self.model.phase != .running || !UserDefaults.standard.bool(forKey:"focusBlocking") { self.focusShield?.orderOut(nil) }
+                if !self.blockingActive { self.clearBlockingShields();self.blockingWatchdog?.invalidate();self.blockingWatchdog=nil }
+                else if self.blockingWatchdog == nil {
+                    let timer=Timer(timeInterval:0.25,repeats:true) { [weak self] _ in Task { @MainActor in
+                        guard let self else { return };if let front=NSWorkspace.shared.frontmostApplication { self.blockIfSelected(front) }
+                    } };self.blockingWatchdog=timer;RunLoop.main.add(timer,forMode:.common)
+                }
                 if let front=NSWorkspace.shared.frontmostApplication { self.blockIfSelected(front) }
                 if self.ticks % 30 == 0 { Task { await self.model.cloud.sync() } }
                 if self.ticks % 15 == 0 && self.model.phase == .running { self.model.checkpoint() }
@@ -79,23 +88,41 @@ final class FloatingPanel: NSPanel {
         }
         NSApp.activate(ignoringOtherApps:true);focusWindow?.makeKeyAndOrderFront(nil)
     }
+    var blockingActive:Bool {
+        model.phase == .running && (!model.pomodoroEnabled || model.pomodoro.stage=="focus") && UserDefaults.standard.bool(forKey:"focusBlocking")
+    }
+    func clearBlockingShields() { blockingShields.forEach { $0.orderOut(nil) };blockingShields=[];focusShield?.orderOut(nil) }
     func blockIfSelected(_ app:NSRunningApplication) {
         model.advancePomodoro()
-        guard model.pomodoroEnabled,model.phase == .running,model.pomodoro.stage=="focus",UserDefaults.standard.bool(forKey:"focusBlocking"),let id=app.bundleIdentifier,id != Bundle.main.bundleIdentifier,
-            !["com.apple.finder","com.apple.dock","com.apple.systempreferences","com.apple.loginwindow"].contains(id),
-            (UserDefaults.standard.stringArray(forKey:"focusBlockedApps") ?? []).contains(id) else { return }
-        guard app.hide() else { model.error="Could not hide the selected app. You can pause focus or turn blocking off.";return }
-        if focusShield == nil {
-            let p=NSPanel(contentRect:NSRect(x:0,y:0,width:380,height:190),styleMask:[.titled,.closable,.nonactivatingPanel],backing:.buffered,defer:false)
-            p.title="Let your flower grow";p.level = .floating;p.isReleasedWhenClosed=false;p.center();focusShield=p
+        guard blockingActive else { clearBlockingShields();return }
+        let prefs=UserDefaults.standard
+        let id=app.bundleIdentifier ?? ""
+        let path=app.executableURL?.path ?? app.bundleURL?.path ?? ""
+        let protected=["com.apple.finder","com.apple.dock","com.apple.systempreferences","com.apple.loginwindow","com.apple.SecurityAgent","com.apple.controlcenter","com.apple.notificationcenterui","com.apple.systemuiserver"]
+        guard app.processIdentifier != ProcessInfo.processInfo.processIdentifier,app.activationPolicy == .regular,!protected.contains(id) else { clearBlockingShields();return }
+        let blocked=FocusAppPolicy.blocks(id:id,path:path,all:prefs.bool(forKey:"focusBlockAll"),selected:prefs.stringArray(forKey:"focusBlockedApps") ?? [],selectedPaths:prefs.stringArray(forKey:"focusBlockedAppsPaths") ?? [],excluded:prefs.stringArray(forKey:"focusExcludedApps") ?? [],excludedPaths:prefs.stringArray(forKey:"focusExcludedAppsPaths") ?? [],browsers:browserIDs)
+        guard blocked else { clearBlockingShields();return }
+        // AX minimization covers Java/JetBrains windows that may resist application hiding.
+        if AXIsProcessTrusted() {
+            let target=AXUIElementCreateApplication(app.processIdentifier);var value:CFTypeRef?
+            if AXUIElementCopyAttributeValue(target,kAXWindowsAttribute as CFString,&value) == .success,let windows=value as? [AXUIElement] {
+                for window in windows { AXUIElementSetAttributeValue(window,kAXMinimizedAttribute as CFString,kCFBooleanTrue) }
+            }
         }
-        focusShield?.contentView=NSHostingView(rootView:VStack(spacing:16) {
-            Text("🌸 Let your flower grow").font(.title2)
-            Text("This app is hidden during running focus rounds. Your work stays open.").multilineTextAlignment(.center)
-            Button("Pause focus & allow apps") { self.model.pause();self.focusShield?.orderOut(nil) }
-            Button("Turn app blocking off") { UserDefaults.standard.set(false,forKey:"focusBlocking");self.focusShield?.orderOut(nil) }
-        }.padding(20).frame(width:380))
-        focusShield?.orderFrontRegardless()
+        _=app.hide()
+        guard blockingShields.isEmpty else { return }
+        for screen in NSScreen.screens {
+            let shield=NSPanel(contentRect:screen.frame,styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            shield.level = .screenSaver;shield.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary];shield.hidesOnDeactivate=false;shield.isReleasedWhenClosed=false
+            shield.contentView=NSHostingView(rootView:VStack(spacing:20) {
+                Text("🌳 Keep growing").font(.largeTitle.bold())
+                Text("This app is blocked while your timer runs.").font(.title3)
+                Text("Your work stays open. Switch to an allowed app, or pause below.").foregroundStyle(.secondary)
+                Button("Pause timer & allow apps") { self.model.pause();self.clearBlockingShields() }.keyboardShortcut(.escape,modifiers:[])
+                Button("Turn app blocking off") { prefs.set(false,forKey:"focusBlocking");self.clearBlockingShields() }
+            }.frame(maxWidth:.infinity,maxHeight:.infinity).background(Color(red:0.08,green:0.14,blue:0.10)).preferredColorScheme(.dark))
+            blockingShields.append(shield);shield.orderFrontRegardless()
+        }
     }
     func showAccount() {
         if accountWindow == nil {
@@ -310,7 +337,7 @@ final class FloatingPanel: NSPanel {
                 Button("Hide Pet",action:delegate.hidePet)
                 Button("Close Pet ×",action:delegate.closePet)
                 Divider()
-                Button("Free Stopwatch / Pomodoro",action:delegate.showFocusSettings)
+                Button("Pomodoro & App Blocking",action:delegate.showFocusSettings)
         Button("View Session History",action:delegate.showHistory)
                 Button("Account / Sync",action:delegate.showAccount)
             }
@@ -339,7 +366,7 @@ struct MenuContents: View {
         Button("Show / Hide Pet (⌘R)",action:delegate.togglePet)
         Button("Show Pet",action:delegate.showPet); Button("Hide Pet",action:delegate.hidePet)
         Button("Close Pet ×",action:delegate.closePet)
-        Button("Free Stopwatch / Pomodoro",action:delegate.showFocusSettings)
+        Button("Pomodoro & App Blocking",action:delegate.showFocusSettings)
         Button("View Session History",action:delegate.showHistory)
                 Button("Account / Sync",action:delegate.showAccount)
         if let error = model.error { Divider(); Text(error); Button("Dismiss Error") { model.error = nil } }
@@ -350,18 +377,17 @@ struct MenuContents: View {
 struct FocusPreferences:View {
     @ObservedObject var model:Stopwatch
     @AppStorage("focusBlocking") private var blocking=false
+    @AppStorage("focusBlockAll") private var blockAll=false
+    @State private var excludedIDs:[String] = UserDefaults.standard.stringArray(forKey:"focusExcludedApps") ?? []
     @State private var appIDs: [String] = UserDefaults.standard.stringArray(forKey:"focusBlockedApps") ?? []
     var body:some View {
         ScrollView { VStack(alignment:.leading,spacing:16) {
             Text("Choose your rhythm").font(.title2.bold())
-            HStack {
-                Button("Free Stopwatch") { model.selectMode(false) }
-                Button("Pomodoro · 25 minutes") {
-                    model.selectMode(true,minutes:model.pomodoro.breakMinutes)
-                    UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in }
-                }
-            }.disabled(model.phase != .idle)
-            Text(model.pomodoroEnabled ? "🌸 Flower focus · "+model.pomodoro.stage.capitalized : "🌳 Free Stopwatch · No scheduled breaks").foregroundStyle(Color.cyber)
+            Toggle("Pomodoro effect · 25-minute flower",isOn:Binding(get:{model.pomodoroEnabled},set:{ enabled in
+                model.selectMode(enabled,minutes:model.pomodoro.breakMinutes)
+                if enabled { UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound]) { _,_ in } }
+            })).disabled(model.phase != .idle)
+            Text(model.pomodoroEnabled ? "🌸 Flower focus · "+model.pomodoro.stage.capitalized : "🌳 Stopwatch · Grow at your own pace").foregroundStyle(Color.cyber)
             if model.pomodoroEnabled {
                 Picker("Break",selection:Binding(get:{model.pomodoro.breakMinutes},set:{model.selectMode(true,minutes:$0)})) { Text("5 minutes").tag(5);Text("10 minutes").tag(10) }.disabled(model.phase != .idle)
                 Text(model.menuTime).font(.system(size:32,design:.monospaced))
@@ -371,19 +397,32 @@ struct FocusPreferences:View {
                 }
             }
             Divider()
-            Toggle("Block selected apps during running Pomodoro focus",isOn:$blocking)
-            Text("Selected apps are hidden when opened. They are never quit. Pauses, breaks and Free Stopwatch allow all apps.").font(.caption).foregroundStyle(.secondary)
-            Button("Choose apps…") { chooseApps() }
-            Text(appIDs.isEmpty ? "No apps selected" : appIDs.joined(separator:"\n")).font(.caption).lineLimit(5)
-            Button("Clear selected apps") { appIDs=[];UserDefaults.standard.set(appIDs,forKey:"focusBlockedApps");blocking=false }
+            Toggle("Block apps while the timer runs",isOn:$blocking)
+            Picker("Block",selection:$blockAll) { Text("Selected apps").tag(false);Text("All except browsers & exclusions").tag(true) }
+            Text("Pauses and Pomodoro breaks allow apps. System essentials and Focanopy stay available. Your work is never quit.").font(.caption).foregroundStyle(.secondary)
+            Button(blockAll ? "Choose allowed exclusions…" : "Choose apps to block…") { chooseApps() }
+            Text((blockAll ? excludedIDs : appIDs).isEmpty ? "No apps selected" : (blockAll ? excludedIDs : appIDs).joined(separator:"\n")).font(.caption)
+            Button("Clear this list") {
+                let key=blockAll ? "focusExcludedApps" : "focusBlockedApps"
+                UserDefaults.standard.set([String](),forKey:key);UserDefaults.standard.set([String](),forKey:key+"Paths")
+                if blockAll { excludedIDs=[] } else { appIDs=[] }
+            }
+            Button("Enable stronger window minimization…") {
+                let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary
+                _=AXIsProcessTrustedWithOptions(options)
+            }
+            Text("Optional Accessibility permission helps minimize resistant app windows, including Java apps. A blocking screen also prevents clicking through.").font(.caption).foregroundStyle(.secondary)
             Text("The next round always waits for you. Finish or reset the current timer to switch modes.").font(.caption).foregroundStyle(.secondary)
         }.padding(24).frame(maxWidth:.infinity) }.frame(width:478,height:580).preferredColorScheme(.dark)
     }
     func chooseApps() {
         let panel=NSOpenPanel();panel.title="Choose distracting apps";panel.allowedContentTypes=[.applicationBundle];panel.allowsMultipleSelection=true;panel.canChooseDirectories=false
         if panel.runModal() == .OK {
-            appIDs=panel.urls.compactMap { Bundle(url:$0)?.bundleIdentifier }.filter { ![Bundle.main.bundleIdentifier ?? "","com.apple.finder","com.apple.systempreferences"].contains($0) }
-            UserDefaults.standard.set(appIDs,forKey:"focusBlockedApps")
+            let ids=panel.urls.compactMap { Bundle(url:$0)?.bundleIdentifier }.filter { ![Bundle.main.bundleIdentifier ?? "","com.apple.finder","com.apple.systempreferences"].contains($0) }
+            let key=blockAll ? "focusExcludedApps" : "focusBlockedApps"
+            if blockAll { excludedIDs=ids } else { appIDs=ids }
+            UserDefaults.standard.set(ids,forKey:key)
+            UserDefaults.standard.set(panel.urls.map { $0.path },forKey:key+"Paths")
         }
     }
 }

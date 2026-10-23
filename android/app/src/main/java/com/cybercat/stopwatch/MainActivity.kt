@@ -71,7 +71,7 @@ class MainActivity: Activity() {
     }
     override fun onResume() {
         super.onResume(); Cloud.changed={ if(!isFinishing && !isDestroyed) render() }; if(Cloud.owner!=null) Cloud.run({ Cloud.sync() }); handler.removeCallbacks(tick); handler.post(tick)
-        if(tab=="Settings" || Repository.pomodoroEnabled) render()
+        if(tab=="Settings" || tab=="Timer") render()
         if(requestOverlay && Settings.canDrawOverlays(this)) { Repository.prefs.edit().putBoolean("showPet",true).apply(); service("SHOW"); requestOverlay=false }
     }
     override fun onSaveInstanceState(state:Bundle) {
@@ -143,22 +143,29 @@ class MainActivity: Activity() {
         content.addView(button("Close") { dialog.dismiss() }); dialog.show(); dialog.window?.setLayout(-1,-2)
     }
     private fun focusApps() {
+        val all=Repository.prefs.getBoolean("focusBlockAll",false)
+        AlertDialog.Builder(this).setTitle("App blocking")
+            .setSingleChoiceItems(arrayOf("Block selected apps", "Block all · allow browsers & exclusions"),if(all)1 else 0) { dialog,index ->
+                dialog.dismiss();chooseFocusApps(index==1)
+            }.setNeutralButton("Turn blocking off") { _,_->Repository.prefs.edit().putBoolean("focusBlocking",false).apply();render() }
+            .setPositiveButton("Choose apps") { _,_->chooseFocusApps(all) }.setNegativeButton("Close",null).show()
+    }
+    private fun chooseFocusApps(all:Boolean) {
         val packages=packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),0)
             .filter { it.activityInfo.packageName!=packageName && it.activityInfo.packageName !in setOf("com.android.settings","com.google.android.dialer","com.android.dialer","com.android.phone") }
             .distinctBy { it.activityInfo.packageName }.sortedBy { it.loadLabel(packageManager).toString().lowercase() }
-        val selected=(Repository.prefs.getStringSet("blockedApps",emptySet()) ?: emptySet()).toMutableSet()
-        val names=packages.map { it.loadLabel(packageManager).toString() }.toTypedArray()
-        val checked=packages.map { it.activityInfo.packageName in selected }.toBooleanArray()
-        AlertDialog.Builder(this).setTitle("Block only during running Pomodoro focus")
-            .setMultiChoiceItems(names,checked) { _,index,on -> val name=packages[index].activityInfo.packageName;if(on)selected.add(name) else selected.remove(name) }
-            .setNegativeButton("Cancel",null).setNeutralButton("Turn blocking off") { _,_->Repository.prefs.edit().putBoolean("focusBlocking",false).apply();render() }
-            .setPositiveButton("Save apps") { _,_->
-                Repository.prefs.edit().putStringSet("blockedApps",selected).putBoolean("focusBlocking",selected.isNotEmpty()).apply();render()
+        val key=if(all)"excludedApps" else "blockedApps"
+        val selected=(Repository.prefs.getStringSet(key,emptySet()) ?: emptySet()).toMutableSet()
+        AlertDialog.Builder(this).setTitle(if(all)"Allowed apps · browsers always allowed" else "Apps to block")
+            .setMultiChoiceItems(packages.map { it.loadLabel(packageManager).toString() }.toTypedArray(),packages.map { it.activityInfo.packageName in selected }.toBooleanArray()) { _,index,on ->
+                val name=packages[index].activityInfo.packageName;if(on)selected.add(name) else selected.remove(name)
+            }.setNegativeButton("Cancel",null).setPositiveButton("Save & enable") { _,_->
+                Repository.prefs.edit().putStringSet(key,selected).putBoolean("focusBlockAll",all).putBoolean("focusBlocking",all || selected.isNotEmpty()).apply();render()
                 val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
                 val active=Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-                if(selected.isNotEmpty() && !active.split(':').any { it.equals(component,true) }) AlertDialog.Builder(this)
+                if((all || selected.isNotEmpty()) && !active.split(':').any { it.equals(component,true) }) AlertDialog.Builder(this)
                     .setTitle("Enable optional app blocking")
-                    .setMessage("Focanopy needs its Accessibility service to detect selected app openings and return you to Home during running focus rounds. It does not read screen content or typing. Breaks, paused timers and Free Stopwatch never block apps. You can pause from the notification or turn blocking off here at any time.")
+                    .setMessage("Enable Focanopy Accessibility to return blocked apps to Home while your stopwatch runs. No screen contents or typing are read. Pauses and Pomodoro breaks allow apps. System essentials remain available. You can disable blocking here at any time.")
                     .setNegativeButton("Not now",null).setPositiveButton("Open Accessibility settings") { _,_->startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }.show()
             }.show()
     }
@@ -207,19 +214,20 @@ class MainActivity: Activity() {
         }
     }
     private fun timerPage() {
-        line { row ->
-            for((title,enabled) in listOf("Free Stopwatch" to false,"Pomodoro · 25 min" to true)) row.addView(button(title) { Repository.selectMode(enabled,Repository.pomodoro.breakMinutes);render() }.apply { isEnabled=phase=="idle";alpha=if(Repository.pomodoroEnabled==enabled)1f else .55f },LinearLayout.LayoutParams(0,dp(48),1f))
-        }
+        root.addView(android.widget.Switch(this).apply {
+            text="Pomodoro effect · 25-minute flower";isChecked=Repository.pomodoroEnabled;isEnabled=phase=="idle"
+            setTextColor(cyan);setOnCheckedChangeListener { _,on -> Repository.selectMode(on,Repository.pomodoro.breakMinutes);render() }
+        })
         if(Repository.pomodoroEnabled) {
             root.addView(text(when(pomoStage) { "break" -> "Your flower bloomed! Stop watering, stretch and move a little."; "ready" -> "Come back when you’re ready — your next flower needs water."; else -> "25 minutes of focus · A flower blooms when you finish" },15f,cyan))
             if(phase=="idle")line { row -> for(minutes in listOf(5,10)) row.addView(button("$minutes min break") { Repository.selectMode(true,minutes);render() }.apply { alpha=if(Repository.pomodoro.breakMinutes==minutes)1f else .5f },LinearLayout.LayoutParams(0,dp(44),1f)) }
             if(pomoStage!="focus" && phase!="finished")root.addView(button(if(pomoStage=="break")"Skip break & start next focus" else "Start next 25-minute focus") { notifications();Repository.start();service("SYNC");render() })
-            val count=Repository.prefs.getStringSet("blockedApps",emptySet())?.size ?: 0
-            val on=Repository.prefs.getBoolean("focusBlocking",false)
-            val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
-            val allowed=(Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").split(':').any { it.equals(component,true) }
-            root.addView(button("App blocking · "+(if(!on) "Off" else if(!allowed) "Permission needed" else "On")+" · $count apps") { focusApps() })
         }
+        val on=Repository.prefs.getBoolean("focusBlocking",false)
+        val all=Repository.prefs.getBoolean("focusBlockAll",false)
+        val component=ComponentName(this,FocusAccessibilityService::class.java).flattenToString()
+        val allowed=(Settings.Secure.getString(contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").split(':').any { it.equals(component,true) }
+        root.addView(button("App blocking · "+(if(!on) "Off" else if(!allowed) "Permission needed" else if(all) "All except allowed apps" else "Selected apps")) { focusApps() })
         val today=total(recordsFor(LocalDate.now()))
         line { row ->
             for((title,value) in listOf("SAVED TODAY" to focusText(today),"TREES TODAY" to Forest.trees(today).toString())) {
@@ -365,7 +373,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.6.0",12f,cyan))
+        root.addView(text("Focanopy · 1.7.0",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }

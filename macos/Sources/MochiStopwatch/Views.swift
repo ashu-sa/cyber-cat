@@ -483,7 +483,7 @@ struct PetOptionsView: View {
                         Toggle("Animate tree and water", isOn: $petAnimations).font(.system(size: 12)).toggleStyle(.switch).controlSize(.small)
                     }.padding(12).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     Divider().padding(.vertical, 5)
-                    row("Free Stopwatch / Pomodoro", "leaf", focus)
+                    row("Pomodoro & App Blocking", "leaf", focus)
                     if model.pomodoroEnabled { Text(model.pomodoro.stage=="focus" ? "25-minute flower focus" : model.pomodoro.stage=="break" ? "Stop watering · stretch and move" : "Come back — your flower needs water").font(.caption).foregroundStyle(Color.cyber) }
                     row("Session History", "clock.arrow.circlepath", history)
                     row("Quit App…", "power", quit)

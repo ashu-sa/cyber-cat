@@ -12,12 +12,24 @@ func XCTAssertGreaterThan(_ a: Double, _ b: Double) { precondition(a > b) }
         try tests.testHistoryEditingAndPeriods()
         try tests.testSaveRecoveryDoesNotDuplicate()
         tests.testMonthCalendar()
+        tests.testBlockingPolicy()
         tests.testFormatting()
         tests.testForest()
         try tests.testGooglePKCE()
         try tests.testPomodoroRecoveryAndCaps()
         try await tests.testResumeFinishedExcludesGap()
         print("PASS: timing, recovery, rename persistence, delete/restore, calendar periods and totals, formatting")
+    }
+    func testBlockingPolicy() {
+        func blocks(_ id:String,_ path:String="",all:Bool=false)->Bool {
+            FocusAppPolicy.blocks(id:id,path:path,all:all,selected:["com.google.android.studio","browser"],selectedPaths:["/Applications/Android Studio.app"],excluded:["music"],excludedPaths:["/Applications/Allowed.app"],browsers:["browser"])
+        }
+        precondition(blocks("com.google.android.studio"))
+        precondition(blocks("java.helper","/Applications/Android Studio.app/Contents/jbr/bin/java"))
+        precondition(!blocks("java.helper","/Applications/Android Studio.app.other/Contents/java"))
+        precondition(blocks("browser"));precondition(!blocks("browser",all:true))
+        precondition(!blocks("music",all:true));precondition(blocks("editor",all:true))
+        precondition(!blocks("editor","/Applications/Allowed.app/Contents/MacOS/editor",all:true))
     }
     @MainActor func testPomodoroRecoveryAndCaps() throws {
         let dir=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

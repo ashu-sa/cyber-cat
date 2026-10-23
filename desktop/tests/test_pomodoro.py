@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from cybercat.model import Store
-from cybercat.focus_blocking import active,FocusBlocker
+from cybercat.focus_blocking import active,FocusBlocker,windows_app_blocked
 from unittest.mock import patch
 import json
 
@@ -31,8 +31,22 @@ class PomodoroTests(unittest.TestCase):
         s=self.s;self.assertFalse(s.pomodoro_enabled);s.start();self.advance(3000);self.assertIsNone(s.advance_pomodoro());self.assertEqual(s.elapsed,3000)
         with self.assertRaises(ValueError):s.select_mode(True)
     def test_blocking_only_running_focus_and_lease_releases(self):
-        s=self.s;s.setting('focus_blocking',True);s.setting('blocked_apps',['demo.desktop']);s.start();self.assertFalse(active(s));s.discard();s.select_mode(True);s.start();self.assertTrue(active(s))
+        s=self.s;s.setting('focus_blocking',True);s.setting('blocked_apps',['demo.desktop']);s.start();self.assertTrue(active(s));s.discard();s.select_mode(True);s.start();self.assertTrue(active(s))
         with patch('cybercat.focus_blocking.sys.platform','linux'):
             blocker=FocusBlocker(s,lambda *_:None);blocker.tick();policy=json.loads(blocker.policy.read_text());self.assertTrue(policy['active']);self.assertLessEqual(policy['expires']-self.wall,10)
             s.pause();blocker.tick();self.assertFalse(json.loads(blocker.policy.read_text())['active'])
             s.start();self.advance(1500);s.advance_pomodoro();self.assertFalse(active(s));blocker.close()
+
+    def test_all_apps_exclusions_browsers_and_system_essentials(self):
+        selected=[r'C:\Apps\Studio.exe',r'C:\Apps\chrome.exe'];excluded=[r'C:\Apps\Music.exe']
+        def blocked(path,all_apps=True):return windows_app_blocked(path,selected,excluded,all_apps)
+        self.assertTrue(blocked(r'C:\Apps\Studio.exe'))
+        self.assertFalse(blocked(r'C:\Apps\chrome.exe'));self.assertTrue(blocked(r'C:\Apps\chrome.exe',False))
+        self.assertFalse(blocked(r'C:\Apps\Music.exe'));self.assertFalse(blocked(r'C:\Windows\explorer.exe'))
+        self.assertFalse(blocked(r'C:\Apps\Focanopy.exe'));self.assertTrue(blocked(r'C:\Other\Editor.exe'))
+    def test_free_timer_all_app_policy_and_exclusions_are_written(self):
+        s=self.s;s.setting('focus_blocking',True);s.setting('focus_block_all',True);s.setting('excluded_apps',['music.desktop']);s.start()
+        with patch('cybercat.focus_blocking.sys.platform','linux'):
+            blocker=FocusBlocker(s,lambda *_:None);blocker.tick();policy=json.loads(blocker.policy.read_text())
+            self.assertTrue(policy['active']);self.assertTrue(policy['all']);self.assertEqual(policy['excluded'],['music.desktop'])
+            self.assertEqual(policy['expires'],self.wall+10);s.pause();blocker.tick();self.assertFalse(json.loads(blocker.policy.read_text())['active'])

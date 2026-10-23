@@ -10,7 +10,16 @@ from .model import atomic_json
 UUID='focanopy-focus@ashu-sa'
 
 def active(store):
-    return bool(store.pomodoro_enabled and store.phase=='running' and store.pomodoro.stage=='focus' and store.settings.get('focus_blocking',False))
+    return bool(store.phase=='running' and (not store.pomodoro_enabled or store.pomodoro.stage=='focus') and store.settings.get('focus_blocking',False))
+
+def windows_app_blocked(path,selected,excluded,all_apps):
+    import ntpath
+    normalize=lambda value:ntpath.normcase(ntpath.abspath(value))
+    name=normalize(path);base=ntpath.basename(name)
+    protected={'explorer.exe','taskmgr.exe','winlogon.exe','logonui.exe','focanopy.exe','cybercat.exe','systemsettings.exe','consent.exe','applicationframehost.exe','shellexperiencehost.exe','searchhost.exe','startmenuexperiencehost.exe','textinputhost.exe'}
+    browsers={'chrome.exe','msedge.exe','firefox.exe','brave.exe','opera.exe','vivaldi.exe','librewolf.exe','zen.exe'}
+    if base in protected or name in map(normalize,excluded):return False
+    return base not in browsers if all_apps else name in map(normalize,selected)
 
 def install_gnome_focus():
     result=subprocess.run(['gnome-shell','--version'],capture_output=True,text=True,check=True,timeout=5)
@@ -44,11 +53,11 @@ class FocusBlocker:
         s=self.store; enabled=active(s); chosen=s.settings.get('blocked_apps',[])
         if sys.platform.startswith('linux'):
             now=s.wall()
-            policy=dict(active=enabled,apps=chosen,expires=now+min(10,s.pomodoro.remaining(s.elapsed)) if enabled else 0)
+            policy=dict(active=enabled,apps=chosen,all=s.settings.get("focus_block_all",False),excluded=s.settings.get("excluded_apps",[]),expires=now+10 if enabled else 0)
             if enabled and now-self.last_write<3:return
             if not enabled and self.last_write==0:return
             atomic_json(self.policy,policy);self.last_write=now if enabled else 0
-        elif sys.platform=='win32' and enabled and chosen:
+        elif sys.platform=='win32' and enabled:
             try:
                 import ctypes
                 from ctypes import wintypes
@@ -67,9 +76,9 @@ class FocusBlocker:
                     if not k.QueryFullProcessImageNameW(handle,0,buffer,ctypes.byref(size)):return
                     name=os.path.normcase(os.path.abspath(buffer.value))
                 finally:k.CloseHandle(handle)
-                if name in [os.path.normcase(os.path.abspath(p)) for p in chosen]:
+                if windows_app_blocked(name,chosen,s.settings.get('excluded_apps',[]),s.settings.get('focus_block_all',False)):
                     u.ShowWindowAsync(window,6)
-                    if time.monotonic()-self.last>10:self.last=time.monotonic();self.notice('Flower focus','App minimized. Pause Pomodoro or turn blocking off to allow it.')
+                    if time.monotonic()-self.last>10:self.last=time.monotonic();self.notice('Flower focus','App minimized. Pause the timer or turn blocking off to allow it.')
             except OSError:pass
     def close(self):
         if sys.platform.startswith('linux') and self.policy.exists():atomic_json(self.policy,dict(active=False,apps=[],expires=0))

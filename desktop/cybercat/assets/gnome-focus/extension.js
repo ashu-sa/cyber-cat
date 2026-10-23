@@ -27,9 +27,15 @@ export default class FocanopyFocus extends Extension {
         if(!window || !window.can_minimize()) return;
         const app = Shell.WindowTracker.get_default().get_window_app(window);
         const id = app?.get_id();
-        if(!id || ['org.gnome.Settings.desktop','org.gnome.Extensions.desktop','com.mattjakeman.ExtensionManager.desktop'].includes(id) || !this._policy.apps.includes(id)) return;
+        if(!id || ['org.gnome.Settings.desktop','org.gnome.Extensions.desktop','com.mattjakeman.ExtensionManager.desktop'].includes(id)) return;
+        if((this._policy.excluded ?? []).includes(id) || (id.toLowerCase().includes('focanopy') || id.toLowerCase().includes('cybercat'))) return;
+        if(this._policy.all) {
+            const info=app.get_app_info();
+            const types=info?.get_supported_types() ?? [];
+            if(types.includes('x-scheme-handler/http') || types.includes('x-scheme-handler/https')) return;
+        } else if(!this._policy.apps.includes(id)) return;
         window.minimize();
-        if(now-this._lastNotice > 10) { this._lastNotice = now; Main.notify('Focanopy · Flower focus', 'Let your flower grow. Pause Pomodoro or turn app blocking off in Focanopy to allow this app.'); }
+        if(now-this._lastNotice > 10) { this._lastNotice = now; Main.notify('Focanopy · Flower focus', 'Let your flower grow. Pause the timer or turn app blocking off in Focanopy to allow this app.'); }
     }
     disable() {
         if(this._focus) global.display.disconnect(this._focus);

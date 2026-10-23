@@ -3,13 +3,20 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PomodoroTest {
-    @Test fun blockingIsOptInAndNeverAppliesToFreePauseOrBreak() {
+    @Test fun blockingIsOptInDuringStopwatchOrFocusOnly() {
         assertTrue(focusBlockingActive(true,"running","focus",true))
-        assertFalse(focusBlockingActive(false,"running","focus",true))
+        assertTrue(focusBlockingActive(false,"running","focus",true))
         assertFalse(focusBlockingActive(true,"running","focus",false))
         assertFalse(focusBlockingActive(true,"paused","focus",true))
         assertFalse(focusBlockingActive(true,"paused","break",true))
         assertFalse(focusBlockingActive(true,"paused","ready",true))
+    }
+    @Test fun allAppsRespectBrowsersExclusionsAndProtectedApps() {
+        fun blocked(name:String,all:Boolean=true)=focusAppBlocked(name,all,setOf("studio","browser"),setOf("music"),setOf("browser"),setOf("home","keyboard"),setOf("studio","browser","music","home","keyboard"))
+        assertTrue(blocked("studio"));assertFalse(blocked("browser"));assertFalse(blocked("music"));assertFalse(blocked("home"));assertFalse(blocked("keyboard"));assertFalse(blocked("system-agent"))
+        assertTrue(blocked("browser",false));assertFalse(blocked("music",false))
+        assertFalse(focusBlockingActive(true,"running","break",true))
+        assertFalse(focusBlockingActive(false,"paused","focus",true))
     }
     @Test fun breaksAreExcludedAndNextRoundIsManual() {
         var now=0L;var wall=100000L;val plan=Pomodoro({now},{wall});val timer=TimerEngine {now}

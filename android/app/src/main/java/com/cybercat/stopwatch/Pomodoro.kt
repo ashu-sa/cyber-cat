@@ -26,4 +26,8 @@ class Pomodoro(private val clock:()->Long,private val wall:()->Long) {
     }
 }
 
-fun focusBlockingActive(pomodoro:Boolean,phase:String,stage:String,enabled:Boolean):Boolean = pomodoro && phase=="running" && stage=="focus" && enabled
+fun focusBlockingActive(pomodoro:Boolean,phase:String,stage:String,enabled:Boolean):Boolean = phase=="running" && (!pomodoro || stage=="focus") && enabled
+
+/** System essentials and user exclusions always win. Browsers are allowed only in all-app mode. */
+fun focusAppBlocked(name:String,all:Boolean,selected:Set<String>,excluded:Set<String>,browsers:Set<String>,protected:Set<String>,launchers:Set<String>):Boolean =
+    name !in protected && name !in excluded && (if(all) name in launchers && name !in browsers else name in selected)

@@ -227,3 +227,12 @@ struct PomodoroState: Codable {
     var breakMinutes=5
     var deadline:Date?
 }
+
+/// Device-local blocking policy. Exclusions win over both strategies.
+struct FocusAppPolicy {
+    static func blocks(id:String,path:String,all:Bool,selected:[String],selectedPaths:[String],excluded:[String],excludedPaths:[String],browsers:Set<String>)->Bool {
+        func matches(_ ids:[String],_ paths:[String])->Bool { ids.contains(id) || paths.contains { path == $0 || path.hasPrefix($0+"/") } }
+        if matches(excluded,excludedPaths) { return false }
+        return all ? !browsers.contains(id) : matches(selected,selectedPaths)
+    }
+}

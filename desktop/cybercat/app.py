@@ -478,7 +478,7 @@ class Controller:
         container = QWidget()
         layout = QVBoxLayout(container); layout.setContentsMargins(16,16,16,16); layout.setSpacing(8)
         header = QHBoxLayout(); header.addWidget(label('Pet controls', 'title')); header.addWidget(button('×', self.popup.close)); layout.addLayout(header)
-        for text, action in [('Start / Resume · Ctrl+S', self.start), ('Pause · Ctrl+P', lambda:self.safe(self.store.pause)), ('Finish · Ctrl+F', self.finish), ('Cancel session…', self.cancel), ('Hide / Close pet · Ctrl+R', self.hide_pet), ('Free Stopwatch / Pomodoro', self.focus_settings), ('Session history', self.show_history), ('Account / Sync', self.accounts.show)]:
+        for text, action in [('Start / Resume · Ctrl+S', self.start), ('Pause · Ctrl+P', lambda:self.safe(self.store.pause)), ('Finish · Ctrl+F', self.finish), ('Cancel session…', self.cancel), ('Hide / Close pet · Ctrl+R', self.hide_pet), ('Pomodoro & App Blocking', self.focus_settings), ('Session history', self.show_history), ('Account / Sync', self.accounts.show)]:
             def invoke(fn=action): self.popup.close(); QTimer.singleShot(0, fn)
             layout.addWidget(button(text, invoke))
         opacity_text = label('Pet opacity'); layout.addWidget(opacity_text)
@@ -505,18 +505,20 @@ class Controller:
         dialog=QDialog(self.pet);dialog.setWindowTitle('Focanopy · Flower focus');dialog.setMinimumWidth(450)
         layout=QVBoxLayout(dialog);layout.setSpacing(12)
         layout.addWidget(label('Choose your rhythm','title'))
-        mode=QComboBox();mode.addItems(['Free Stopwatch','Pomodoro · 25-minute flower']);mode.setCurrentIndex(int(self.store.pomodoro_enabled));layout.addWidget(mode)
+        mode=QCheckBox('Pomodoro effect · 25-minute flower');mode.setChecked(self.store.pomodoro_enabled);layout.addWidget(mode)
         minutes=QComboBox();minutes.addItems(['5-minute break','10-minute break']);minutes.setCurrentIndex(int(self.store.pomodoro.break_minutes==10));layout.addWidget(minutes)
         status=label('');status.setWordWrap(True);layout.addWidget(status)
         def apply_mode():
-            self.safe(lambda:self.store.select_mode(bool(mode.currentIndex()),10 if minutes.currentIndex() else 5));self.refresh()
-        mode.currentIndexChanged.connect(apply_mode);minutes.currentIndexChanged.connect(apply_mode)
+            self.safe(lambda:self.store.select_mode(mode.isChecked(),10 if minutes.currentIndex() else 5));self.refresh()
+        mode.toggled.connect(apply_mode);minutes.currentIndexChanged.connect(apply_mode)
         mode.setEnabled(self.store.phase=='idle');minutes.setEnabled(self.store.phase=='idle')
         next_round=button('Start next focus / skip remaining break',lambda:(self.safe(self.store.start),self.refresh()));layout.addWidget(next_round)
-        blocking=QCheckBox('Minimize selected apps during running Pomodoro focus');blocking.setChecked(self.store.settings.get('focus_blocking',False));layout.addWidget(blocking)
+        blocking=QCheckBox('Block apps while the timer runs');blocking.setChecked(self.store.settings.get('focus_blocking',False));layout.addWidget(blocking)
         blocking.toggled.connect(lambda value:self.safe(lambda:self.store.setting('focus_blocking',value)))
-        note=label('Apps stay open and keep their data. Pauses, breaks and Free Stopwatch allow all apps. You can turn blocking off at any time.');note.setWordWrap(True);layout.addWidget(note)
-        chosen=list(self.store.settings.get('blocked_apps',[]));selected=label('\n'.join(chosen) or 'No apps selected');selected.setWordWrap(True);selected.setMaximumHeight(80);layout.addWidget(selected)
+        note=label('Apps stay open and keep their data. Pauses and Pomodoro breaks allow apps. You can turn blocking off at any time.');note.setWordWrap(True);layout.addWidget(note)
+        strategy=QComboBox();strategy.addItems(['Block selected apps','Block all except browsers & exclusions']);strategy.setCurrentIndex(int(self.store.settings.get('focus_block_all',False)));layout.addWidget(strategy)
+        strategy.currentIndexChanged.connect(lambda index:self.store.setting('focus_block_all',bool(index)))
+        chosen=list(self.store.settings.get('excluded_apps' if strategy.currentIndex() else 'blocked_apps',[]));selected=label('\n'.join(chosen) or 'No apps selected');selected.setWordWrap(True);selected.setMaximumHeight(80);layout.addWidget(selected)
         def choose():
             if sys.platform=='win32':
                 files,_=QFileDialog.getOpenFileNames(dialog,'Select distracting applications','','Applications (*.exe)')
@@ -530,8 +532,11 @@ class Controller:
                 box.addWidget(listing);buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel);buttons.accepted.connect(chooser.accept);buttons.rejected.connect(chooser.reject);box.addWidget(buttons)
                 if chooser.exec()!=QDialog.DialogCode.Accepted:return
                 items=[item.data(Qt.ItemDataRole.UserRole) for item in listing.selectedItems()]
-            chosen[:]=items;self.store.setting('blocked_apps',items);selected.setText('\n'.join(items) or 'No apps selected')
-        layout.addWidget(button('Choose apps…',choose))
+            chosen[:]=items;self.store.setting('excluded_apps' if strategy.currentIndex() else 'blocked_apps',items);selected.setText('\n'.join(items) or 'No apps selected')
+        def change_selection():
+            chosen[:]=self.store.settings.get('excluded_apps' if strategy.currentIndex() else 'blocked_apps',[]);selected.setText('\n'.join(chosen) or 'No apps selected')
+        strategy.currentIndexChanged.connect(change_selection)
+        layout.addWidget(button('Choose blocked apps / allowed exclusions…',choose))
         if sys.platform.startswith('linux'):
             help_text=label('Ubuntu/GNOME 45+ needs the optional Focanopy Flower Focus extension. Install it here, then enable it yourself in GNOME Extensions.');help_text.setWordWrap(True);layout.addWidget(help_text)
             def install():
@@ -541,7 +546,7 @@ class Controller:
             layout.addWidget(button('Install optional GNOME focus extension',install))
         def update():
             s=self.store
-            status.setText(('🌸 '+clock_text(s.display_time)+' · '+s.pomodoro.stage.capitalize()+'\n'+('Stop watering, stretch and move a little.' if s.pomodoro.stage=='break' else 'Come back when you’re ready — your next flower needs water.' if s.pomodoro.stage=='ready' else 'A flower blooms after 25 minutes of focus.')) if s.pomodoro_enabled else '🌳 Free Stopwatch · No scheduled breaks')
+            status.setText(('🌸 '+clock_text(s.display_time)+' · '+s.pomodoro.stage.capitalize()+'\n'+('Stop watering, stretch and move a little.' if s.pomodoro.stage=='break' else 'Come back when you’re ready — your next flower needs water.' if s.pomodoro.stage=='ready' else 'A flower blooms after 25 minutes of focus.')) if s.pomodoro_enabled else '🌳 Stopwatch · No scheduled breaks')
             next_round.setVisible(s.pomodoro_enabled and s.pomodoro.stage!='focus' and s.phase!='finished')
             mode.setEnabled(s.phase=='idle');minutes.setEnabled(s.phase=='idle')
         timer=QTimer(dialog);timer.timeout.connect(update);timer.start(500);update()
@@ -560,7 +565,7 @@ class Controller:
     def tray_menu(self):
         self.menu.clear()
         self.menu.addAction('Focanopy · ' + clock_text(self.store.elapsed)).setEnabled(False)
-        for text, action in [('Start / Resume',self.start),('Pause',lambda:self.safe(self.store.pause)),('Finish Session',self.finish),('Show Pet',self.show_pet),('Hide Pet',self.hide_pet),('Free Stopwatch / Pomodoro',self.focus_settings),('Session History',self.show_history),('Account / Sync',self.accounts.show),('Quit App…',self.quit)]:
+        for text, action in [('Start / Resume',self.start),('Pause',lambda:self.safe(self.store.pause)),('Finish Session',self.finish),('Show Pet',self.show_pet),('Hide Pet',self.hide_pet),('Pomodoro & App Blocking',self.focus_settings),('Session History',self.show_history),('Account / Sync',self.accounts.show),('Quit App…',self.quit)]:
             self.menu.addAction(text, action)
 
     def quit(self):
