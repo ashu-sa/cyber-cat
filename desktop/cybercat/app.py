@@ -100,10 +100,14 @@ class GrowingTree(QWidget):
         self.setAccessibleName('Growing tree. Drag to move or click for controls.')
         self.drag_start = None
         self.animation = QTimer(self)
-        self.animation.timeout.connect(self.update)
+        self.animation.timeout.connect(self.animation_frame)
+
+    def animation_frame(self):
+        self.update()
+        if self.c.store.pomodoro.stage=='dead' and self.c.store.death_progress>=1:self.animation.stop()
 
     def sync(self):
-        if self.c.pet.isVisible() and self.c.store.phase == 'running' and self.c.store.settings.get('animation', True):
+        if self.c.pet.isVisible() and (self.c.store.phase == 'running' or (self.c.store.pomodoro.stage=='dead' and self.c.store.death_progress<1)) and self.c.store.settings.get('animation', True):
             self.animation.start(50)
         else:
             self.animation.stop()
@@ -113,7 +117,7 @@ class GrowingTree(QWidget):
         p=QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.scale(self.width()/110, self.height()/58)
         paint_tree(p,self.c.store.elapsed if self.c.store.pomodoro_enabled else self.c.store.growth_elapsed,
-            "dead" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage=="dead" else "resting" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage!="focus" else self.c.store.phase,self.c.store.settings.get("animation",True),self.c.store.pomodoro_enabled)
+            "dead" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage=="dead" else "resting" if self.c.store.pomodoro_enabled and self.c.store.pomodoro.stage!="focus" else self.c.store.phase,self.c.store.settings.get("animation",True),self.c.store.pomodoro_enabled,self.c.store.death_progress)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
@@ -513,13 +517,19 @@ class Controller:
         self.popup.move(max(screen.left(), min(pos.x(), screen.right()-350)), max(screen.top(), min(pos.y(), screen.bottom()-self.popup.height())))
         self.popup.show()
 
+    def tree_preview(self):
+        from .lifecycle_preview import LifecycleDialog
+        modal=self.modal;self.modal=True;self.scope()
+        try:LifecycleDialog(self.pet).exec()
+        finally:self.modal=modal;self.scope()
+
     def focus_settings(self,preview=False):
         dialog=QDialog(self.pet);dialog.setWindowTitle('Focanopy · Focus garden');dialog.resize(470,690)
         dialog.setStyleSheet('QScrollBar:vertical{background:#17231b;width:8px;margin:0;} QScrollBar::handle:vertical{background:#3a4e3e;border-radius:4px;min-height:30px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}')
         shell=QVBoxLayout(dialog);shell.setContentsMargins(4,4,4,4)
         scroll=QScrollArea();scroll.setWidgetResizable(True);container=QWidget();scroll.setWidget(container);shell.addWidget(scroll)
         layout=QVBoxLayout(container);layout.setContentsMargins(20,20,20,20);layout.setSpacing(16)
-        layout.addWidget(label('Your focus garden','title'));layout.addWidget(label('A little time. A little growth.','subtitle'))
+        layout.addWidget(label('Your focus garden','title'));layout.addWidget(label('A little time. A little growth.','subtitle'));layout.addWidget(button('Fast-forward tree preview',self.tree_preview))
         mode=QCheckBox('Pomodoro effect · One flower, 25 minutes');mode.setChecked(self.store.pomodoro_enabled)
         mode.setStyleSheet('padding:14px; background:#1e2c24; border-radius:12px;');layout.addWidget(mode)
         hero=QFrame();hero.setObjectName('focusHero');hero.setStyleSheet('QFrame#focusHero {background:#1e2c24;border:1px solid #374c3d;border-radius:22px;} QFrame#focusHero QLabel {background:transparent;}')
@@ -617,7 +627,7 @@ class Controller:
             cancel_round.setVisible(s.phase!='idle' and stage=='focus')
             mode.setEnabled(s.phase=='idle' or stage=='dead');minutes.setVisible(s.phase=='idle')
             tree.update()
-            if dialog.isVisible() and not dialog.isMinimized() and s.phase=='running' and s.settings.get('animation',True):tree.animation.start(50)
+            if dialog.isVisible() and not dialog.isMinimized() and (s.phase=='running' or (stage=='dead' and s.death_progress<1)) and s.settings.get('animation',True):tree.animation.start(50)
             else:tree.animation.stop()
         timer=QTimer(dialog);timer.timeout.connect(update);timer.start(500);update()
         shell.addWidget(button('Close',dialog.accept));dialog.finished.connect(lambda: (timer.stop(),tree.animation.stop()))

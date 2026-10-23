@@ -14,6 +14,7 @@ final class FloatingPanel: NSPanel {
     let model = Stopwatch(directory: ProcessInfo.processInfo.environment["MOCHI_TEST_DATA_DIRECTORY"].map { URL(fileURLWithPath: $0) })
     var panel: NSPanel!
     var focusWindow:NSWindow?
+    var treePreviewWindow:NSWindow?
     var focusShield:NSPanel?
     var blockingShields:[NSPanel]=[]
     var blockingWatchdog:Timer?
@@ -81,11 +82,16 @@ final class FloatingPanel: NSPanel {
         NotificationCenter.default.addObserver(self,selector:#selector(screensChanged),name:NSApplication.didChangeScreenParametersNotification,object:nil)
     }
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
+    func showTreePreview() {
+        let w=NSWindow(contentRect:NSRect(x:0,y:0,width:576,height:600),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        w.title="Focanopy · Tree lifecycle preview";w.isReleasedWhenClosed=false;w.contentView=NSHostingView(rootView:TreeLifecyclePreview());w.center()
+        treePreviewWindow?.close();treePreviewWindow=w;NSApp.activate(ignoringOtherApps:true);w.makeKeyAndOrderFront(nil)
+    }
     func showFocusSettings() {
         if focusWindow == nil {
             let w=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:700),styleMask:[.titled,.closable],backing:.buffered,defer:false)
             w.title="Focanopy · Focus garden";w.isReleasedWhenClosed=false
-            w.contentView=NSHostingView(rootView:FocusPreferences(model:model));w.center();focusWindow=w
+            w.contentView=NSHostingView(rootView:FocusPreferences(model:model,onPreview:{[weak self] in self?.showTreePreview()}));w.center();focusWindow=w
         }
         NSApp.activate(ignoringOtherApps:true);focusWindow?.makeKeyAndOrderFront(nil)
     }
@@ -401,6 +407,7 @@ struct FocusApplication:Identifiable {
 }
 struct FocusPreferences:View {
     @ObservedObject var model:Stopwatch
+    var onPreview:()->Void = {}
     @State private var confirmCancel=false
     @State private var installedApps:[FocusApplication]=[]
     @State private var appSearch=""
@@ -432,6 +439,7 @@ struct FocusPreferences:View {
             VStack(alignment:.leading,spacing:5) {
                 Text("Your focus garden").font(.system(size:26,weight:.semibold,design:.rounded))
                 Text("A little time. A little growth.").font(.callout).foregroundStyle(.secondary)
+                Button("Fast-forward tree preview",systemImage:"forward.fill",action:onPreview).font(.caption)
             }.padding(.bottom,3)
             card {
                 Toggle(isOn:Binding(get:{model.pomodoroEnabled},set:{ enabled in
@@ -449,7 +457,7 @@ struct FocusPreferences:View {
                     VStack(spacing:10) {
                         Text(stageTitle).font(.system(size:10,weight:.semibold)).tracking(2).foregroundStyle(model.pomodoro.stage=="dead" ? Color.orange.opacity(0.7):.cyber)
                         Text(headline).font(.system(size:22,weight:.medium,design:.rounded))
-                        GrowingTree(phase:["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase,animated:model.petVisible,flower:true,dead:model.pomodoro.stage=="dead",elapsed:{model.elapsed}).scaleEffect(1.6).frame(height:90)
+                        GrowingTree(phase:["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase,animated:model.petVisible,flower:true,dead:model.pomodoro.stage=="dead",deathProgress:{model.deathProgress},elapsed:{model.elapsed}).scaleEffect(1.6).frame(height:90)
                         TimelineView(.periodic(from:.now,by:1)) { _ in
                             Text(countdown).font(.system(size:48,weight:.medium,design:.monospaced)).monospacedDigit().foregroundStyle(Color(red:0.93,green:0.94,blue:0.86))
                             Text("Focus time  ·  "+timeText(model.elapsed)).font(.system(size:13,weight:.medium,design:.monospaced)).foregroundStyle(Color.cyber)

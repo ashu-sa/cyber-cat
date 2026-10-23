@@ -3,6 +3,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PomodoroTest {
+    @Test fun nativePreviewCoversBloomNewTreeAndBoundedWithering() {
+        assertEquals(0L,TreePreviewFrame.at(-1f).elapsed)
+        assertEquals(Pomodoro.FOCUS,TreePreviewFrame.at(10f).elapsed);assertFalse(TreePreviewFrame.at(10f).dead)
+        assertTrue(TreePreviewFrame.at(20f).dead);assertEquals(0f,TreePreviewFrame.at(20f).death,0.001f)
+        assertEquals(.5f,TreePreviewFrame.at(21.7f).death,.001f);assertEquals(1f,TreePreviewFrame.at(100f).death,0.001f)
+    }
     @Test fun blockingIsOptInDuringStopwatchOrFocusOnly() {
         assertTrue(focusBlockingActive(true,"running","focus",true))
         assertTrue(focusBlockingActive(false,"running","focus",true))

@@ -76,6 +76,7 @@ class Store:
         from .cloud import Cloud
         self.cloud = Cloud(self.directory, **({'vault': lambda value=None: None} if directory is not None or os.environ.get('CYBERCAT_DATA_DIRECTORY') else {}))
         if self.cloud.owner: self.sessions = self.cloud.visible()
+        self.death_started=None
         self.phase, self.accumulated, self.anchor = 'idle', 0.0, None
         self.started, self.ended, self.session_id = None, None, None
         self.pomodoro_enabled=bool(self.settings.get('pomodoro',False))
@@ -155,11 +156,15 @@ class Store:
         record=dict(id=self.session_id,name=old['name'] if old else 'Pomodoro focus',start=self.started,end=self.wall()-max(0,self.elapsed-self.pomodoro.target),duration=self.pomodoro.target,device_id=self.settings['device_id'],platform={'win32':'windows','darwin':'macos'}.get(sys.platform,'linux'),device_name={'win32':'Windows','darwin':'Mac'}.get(sys.platform,'Linux'))
         self.replace_sessions([record]+[r for r in self.sessions if r['id']!=self.session_id])
 
+    @property
+    def death_progress(self):
+        return 1 if self.death_started is None else max(0,min(1,(self.clock()-self.death_started)/3.4))
+
     def cancel_pomodoro(self):
         if not self.pomodoro_enabled or self.phase=='idle':return
         self.advance_pomodoro()
         if self.pomodoro.stage=='focus':
-            self.accumulated=self.elapsed;self.anchor=None;self.phase='paused';self.pomodoro.stage='dead';self.pomodoro.deadline=None;self.checkpoint()
+            self.death_started=self.clock();self.accumulated=self.elapsed;self.anchor=None;self.phase='paused';self.pomodoro.stage='dead';self.pomodoro.deadline=None;self.checkpoint()
         elif self.pomodoro.stage!='dead':self.discard()
 
     def resume_finished(self):
@@ -209,6 +214,7 @@ class Store:
 
     def discard(self):
         (self.directory / 'active.json').unlink(missing_ok=True)
+        self.death_started=None
         self.phase, self.accumulated, self.anchor = 'idle', 0, None
         self.started, self.ended, self.session_id = None, None, None
         self.pomodoro=Pomodoro(dict(break_minutes=self.settings.get('break_minutes',5)),clock=self.clock,wall=self.wall)

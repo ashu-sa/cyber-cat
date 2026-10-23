@@ -21,6 +21,12 @@ struct Session: Codable, Identifiable {
     @Published var pomodoroEnabled=false
     @Published var pomodoro=PomodoroState()
     @Published var focusNotice:String?
+    private var deathAnchor:ContinuousClock.Instant?
+    var deathProgress:Double {
+        guard let deathAnchor else {return 1}
+        let d=deathAnchor.duration(to:clock.now).components
+        return min(1,max(0,(Double(d.seconds)+Double(d.attoseconds)/1e18)/3.4))
+    }
     private var breakAnchor:ContinuousClock.Instant?
     private var breakRemaining:TimeInterval=0
     private var focusSettingsURL:URL { directory.appendingPathComponent("focus-settings.json") }
@@ -72,7 +78,7 @@ struct Session: Codable, Identifiable {
     func cancelPomodoro() {
         guard pomodoroEnabled,phase != .idle else { return }
         advancePomodoro()
-        if pomodoro.stage=="focus" { accumulated=elapsed;anchor=nil;phase = .paused;pomodoro.stage="dead";pomodoro.deadline=nil;breakAnchor=nil;focusNotice="This tree died. Start a new 25-minute round when you’re ready.";refreshMenu();checkpoint() }
+        if pomodoro.stage=="focus" { deathAnchor=clock.now;accumulated=elapsed;anchor=nil;phase = .paused;pomodoro.stage="dead";pomodoro.deadline=nil;breakAnchor=nil;focusNotice="This tree died. Start a new 25-minute round when you’re ready.";refreshMenu();checkpoint() }
         else if pomodoro.stage != "dead" { _=discard() }
     }
     private func startRoundIfNeeded() {
@@ -157,7 +163,7 @@ struct Session: Codable, Identifiable {
     @discardableResult func discard() -> Bool {
         do {
             if FileManager.default.fileExists(atPath: draftURL.path) { try FileManager.default.removeItem(at: draftURL) }
-            anchor = nil; accumulated = 0; started = nil; ended = nil; sessionId = nil; phase = .idle;pomodoro=PomodoroState(breakMinutes:pomodoro.breakMinutes);breakAnchor=nil;focusNotice=nil; refreshMenu()
+            deathAnchor=nil;anchor = nil; accumulated = 0; started = nil; ended = nil; sessionId = nil; phase = .idle;pomodoro=PomodoroState(breakMinutes:pomodoro.breakMinutes);breakAnchor=nil;focusNotice=nil; refreshMenu()
             return true
         } catch { self.error = "Couldn’t discard session: \(error.localizedDescription)"; return false }
     }
@@ -254,5 +260,16 @@ struct FocusAppPolicy {
         func matches(_ ids:[String],_ paths:[String])->Bool { ids.contains(id) || paths.contains { path == $0 || path.hasPrefix($0+"/") } }
         if matches(excluded,excludedPaths) { return false }
         return all ? !browsers.contains(id) : matches(selected,selectedPaths)
+    }
+}
+
+struct TreePreviewFrame {
+    var elapsed:Double;var dead:Bool;var death:Double;var title:String
+    static func at(_ time:Double)->TreePreviewFrame {
+        let t=max(0,min(27,time))
+        if t<10 {return .init(elapsed:t/10*1500,dead:false,death:0,title:"01 · A seed becomes a flower")}
+        if t<12 {return .init(elapsed:1500,dead:false,death:0,title:"02 · 25 minutes complete — flower saved")}
+        if t<20 {return .init(elapsed:1500+(t-12)/8*975,dead:false,death:0,title:"03 · A second tree begins")}
+        return .init(elapsed:2475,dead:true,death:min(1,(t-20)/3.4),title:t<23.4 ? "04 · Cancelled — the unfinished tree withers":"05 · Completed flower safe · Cancelled tree lost")
     }
 }

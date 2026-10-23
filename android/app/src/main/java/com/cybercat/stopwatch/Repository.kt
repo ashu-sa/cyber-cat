@@ -22,6 +22,8 @@ object Repository {
         set(value) { field=value; growthKey=null }
     var error: String? = null
     var focusNotice:String?=null
+    var deathBegan=0L
+    fun deathProgress():Float=if(deathBegan==0L)1f else ((SystemClock.elapsedRealtime()-deathBegan)/3400f).coerceIn(0f,1f)
     private var initialized = false
     private var sessionId = UUID.randomUUID().toString()
     val prefs get() = context.getSharedPreferences("cybercat", Context.MODE_PRIVATE)
@@ -95,10 +97,10 @@ object Repository {
     fun cancelPomodoro() {
         if(!pomodoroEnabled || engine.phase=="idle")return
         advancePomodoro()
-        if(pomodoro.stage=="focus") { engine.pause();pomodoro.stage="dead";pomodoro.deadline=0;focusNotice="This tree died. Start a new 25-minute round when you’re ready.";checkpoint() }
+        if(pomodoro.stage=="focus") { deathBegan=SystemClock.elapsedRealtime();engine.pause();pomodoro.stage="dead";pomodoro.deadline=0;focusNotice="This tree died. Start a new 25-minute round when you’re ready.";checkpoint() }
         else if(pomodoro.stage!="dead")discard()
     }
-    private fun resetPomodoro() { focusNotice=null;pomodoro=Pomodoro({SystemClock.elapsedRealtime()},{System.currentTimeMillis()}).apply { breakMinutes=prefs.getInt("breakMinutes",5) } }
+    private fun resetPomodoro() { deathBegan=0;focusNotice=null;pomodoro=Pomodoro({SystemClock.elapsedRealtime()},{System.currentTimeMillis()}).apply { breakMinutes=prefs.getInt("breakMinutes",5) } }
     fun replace(records: List<JSONObject>) {
         check(error == null) { error ?: "Storage unavailable" }
         if(Cloud.owner!=null) { Cloud.replace(records); sessions=Cloud.visible(); Cloud.run({ Cloud.sync() }); return }

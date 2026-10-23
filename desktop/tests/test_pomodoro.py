@@ -61,3 +61,14 @@ class PomodoroTests(unittest.TestCase):
         identifier=s.sessions[0]['id'];s.advance_pomodoro();self.assertEqual(len(s.sessions),1)
         s.start();self.advance(400);s.cancel_pomodoro();self.assertEqual(s.pomodoro.stage,'dead');self.assertEqual(s.sessions[0]['duration'],1500);self.assertEqual(s.sessions[0]['id'],identifier)
         recovered=Store(self.tmp.name,lambda:self.now,lambda:self.wall);self.assertEqual(len(recovered.sessions),1);self.assertEqual(recovered.sessions[0]['duration'],1500)
+
+    def test_death_animation_is_bounded_and_preview_is_isolated(self):
+        from cybercat.lifecycle import TreePreviewFrame
+        s=self.s;s.select_mode(True);s.start();self.advance(600);s.cancel_pomodoro()
+        self.assertEqual(s.death_progress,0);self.advance(1.7);self.assertAlmostEqual(s.death_progress,.5);self.advance(10);self.assertEqual(s.death_progress,1)
+        before=(s.elapsed,s.pomodoro.stage,list(s.sessions))
+        for t in (0,10,12,20,21.7,27):TreePreviewFrame.at(t)
+        self.assertEqual(before,(s.elapsed,s.pomodoro.stage,s.sessions))
+        self.assertEqual(TreePreviewFrame.at(10).elapsed,1500);self.assertFalse(TreePreviewFrame.at(10).dead)
+        self.assertTrue(TreePreviewFrame.at(20).dead);self.assertAlmostEqual(TreePreviewFrame.at(21.7).death,.5);self.assertEqual(TreePreviewFrame.at(27).death,1)
+        recovered=Store(self.tmp.name,lambda:self.now,lambda:self.wall);self.assertEqual(recovered.death_progress,1)

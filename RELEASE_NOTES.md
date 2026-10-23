@@ -1,7 +1,7 @@
-# Focanopy 1.9.0 · Your apps, your focus
+# Focanopy 1.10.0 · A little tree’s full lifecycle
 
-- Apps & permissions now shows app icons, readable names and individual on/off blocking switches, with search on Android and desktop.
-- One Block all except browsers switch selects all eligible apps; turn an app off to make it an allowed exception. Browser switches remain off and protected in all-app mode.
-- App blocking has its own master switch. Permission status and Enable/Manage controls make OS setup explicit without pretending to grant access automatically.
-- Pomodoro now shows Focus time alongside its countdown: elapsed focus stays still during pauses and breaks.
-- Existing app selections, exclusions, timers, saved sessions and 25-minute completion/cancellation behavior are preserved.
+- Replaced the cancellation cross mark with a native 3.4-second withering animation: water stops, foliage loses colour, petals drift down, branches droop and a dry bare plant remains.
+- Previously completed flowers stay healthy beside the cancelled tree. Reopening an old cancelled round shows the settled tree without replaying its death.
+- Added an isolated Fast-forward tree preview on Android, macOS, Windows and Linux, with replay, pause and timeline scrubbing. Watch growth, a saved bloom, a second tree and its cancellation in 27 seconds.
+- Preview controls never change the real timer, saved sessions or account. Reduced-motion and animation preferences remain respected by the normal timer.
+- Animation frame updates stop after the withering transition settles.

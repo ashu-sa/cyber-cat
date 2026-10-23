@@ -10,45 +10,61 @@ struct GrowingTree: View {
     var animated = true
     var flower = false
     var dead = false
+    var deathProgress:()->Double = {1}
+    var motionTime:(()->Double)? = nil
+    @State private var deathAnimating=false
     var elapsed: () -> TimeInterval = { 0 }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0/20, paused: !animated || reduceMotion || phase != .running)) { _ in
+        TimelineView(.animation(minimumInterval: 1.0/20, paused: !animated || reduceMotion || (phase != .running && !deathAnimating))) { _ in
             let raw=max(0,elapsed())*(flower ? 2.4:1)
             let seconds=flower && raw>0 && raw.truncatingRemainder(dividingBy:3600)<0.0001 ? raw-0.0001:raw
             let n=grownTrees(seconds)
             let remainder=seconds.truncatingRemainder(dividingBy:3600)
+            let death=dead ? (animated && !reduceMotion ? min(1,max(0,deathProgress())):1):0
             let dry=phase == .paused || dead
             let motion=animated && !reduceMotion && !dry
-            let t=motion ? elapsed() : 0
+            let t=motion ? (motionTime?() ?? elapsed()) : 0
             Canvas { context,size in
                 var ctx=context
                 ctx.scaleBy(x:size.width/110,y:size.height/58)
                 func ellipse(_ rect:CGRect,_ color:Color) { ctx.fill(Path(ellipseIn:rect),with:.color(color)) }
-                func smooth(_ x:Double)->Double { let v=min(1,max(0,x)); return v*v*(3-2*v) }
+                func smooth(_ x:Double)->Double {let v=min(1,max(0,x));return v*v*(3-2*v)}
+                func blend(_ a:Color,_ b:Color,_ f:Double)->Color {
+                    let x=NSColor(a).usingColorSpace(.deviceRGB)!,y=NSColor(b).usingColorSpace(.deviceRGB)!
+                    return Color(red:x.redComponent+(y.redComponent-x.redComponent)*f,green:x.greenComponent+(y.greenComponent-x.greenComponent)*f,blue:x.blueComponent+(y.blueComponent-x.blueComponent)*f)
+                }
                 ellipse(CGRect(x:25,y:45,width:60,height:12),Color.teal.opacity(0.09))
                 func tree(_ g:Double,_ alpha:Double,_ center:Double=55,_ scale:Double=1,_ dormant:Bool=false) {
                     guard alpha>0 else { return }
                     var c=ctx; c.opacity=alpha
                     c.translateBy(x:center-55*scale,y:51-51*scale);c.scaleBy(x:scale,y:scale)
                     c.translateBy(x:55,y:51); c.rotate(by:.degrees(motion ? sin(t*1.1)*1.2 : 0)); c.translateBy(x:-55,y:-51)
-                    let top=51-(5+23*g), canopy=g
-                    var stem=Path(); stem.move(to:CGPoint(x:55,y:51)); stem.addCurve(to:CGPoint(x:55,y:top),control1:CGPoint(x:53,y:43),control2:CGPoint(x:57,y:top+7))
+                    let d=dormant && dead ? smooth(death):0
+                    let wilt=dormant ? (dead ? d:1):0
+                    let top=51-(5+23*g)
+                    let dx=14*d,dy=min(16*d,max(0,49-top))
+                    let canopy=g*(1-0.72*d)
+                    var stem=Path(); stem.move(to:CGPoint(x:55,y:51)); stem.addCurve(to:CGPoint(x:55+dx,y:top+dy),control1:CGPoint(x:53,y:43),control2:CGPoint(x:57+dx,y:top+7+dy))
                     c.stroke(stem,with:.color(Color(red:0.76,green:0.63,blue:0.44)),style:StrokeStyle(lineWidth:2+2*g,lineCap:.round))
+                    c.translateBy(x:dx,y:dy)
                     for side:Double in [-1,1] {
                         let y=top+1
                         var leaf=Path(); leaf.move(to:CGPoint(x:55,y:y+3))
                         leaf.addCurve(to:CGPoint(x:55+side*(3+8*g),y:y-(1+3*g)),control1:CGPoint(x:55+side*3,y:y-(2+4*g)),control2:CGPoint(x:55+side*(3+7*g),y:y-(3+4*g)))
                         leaf.addCurve(to:CGPoint(x:55,y:y+3),control1:CGPoint(x:55+side*(3+6*g),y:y+4),control2:CGPoint(x:55+side*3,y:y+8))
                         var foliage=c
-                        if dormant { foliage.translateBy(x:55,y:y+3); foliage.rotate(by:.degrees(side*18)); foliage.translateBy(x:-55,y:-(y+3)) }
-                        foliage.fill(leaf,with:.color(dormant ? Color(red:0.66,green:0.57,blue:0.39) : side<0 ? Color(red:0.55,green:0.83,blue:0.64) : Color(red:0.27,green:0.59,blue:0.47)))
+                        if dormant { foliage.translateBy(x:55,y:y+3); foliage.rotate(by:.degrees(side*(dead ? 65*d:18))); foliage.translateBy(x:-55,y:-(y+3)) }
+                        foliage.fill(leaf,with:.color(blend(side<0 ? Color(red:0.55,green:0.83,blue:0.64):Color(red:0.27,green:0.59,blue:0.47),Color(red:0.66,green:0.49,blue:0.30),wilt)))
                     }
                     if canopy>0 {
                         c.translateBy(x:55,y:top+2); c.scaleBy(x:canopy,y:canopy); c.translateBy(x:-55,y:-(top+2))
-                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:dormant ? [Color(red:0.84,green:0.75,blue:0.55),Color(red:0.70,green:0.61,blue:0.43),Color(red:0.48,green:0.45,blue:0.35)] : (flower ? [Color(red:1,green:0.79,blue:0.83),Color(red:0.94,green:0.48,blue:0.65),Color(red:0.65,green:0.27,blue:0.49)] : [Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)])),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
+                        c.opacity *= 1-0.9*d
+                        let alive=flower ? [Color(red:1,green:0.79,blue:0.83),Color(red:0.94,green:0.48,blue:0.65),Color(red:0.65,green:0.27,blue:0.49)]:[Color(red:0.70,green:0.89,blue:0.68),Color(red:0.40,green:0.71,blue:0.55),Color(red:0.17,green:0.47,blue:0.36)]
+                        let dryColors=[Color(red:0.72,green:0.58,blue:0.36),Color(red:0.52,green:0.38,blue:0.22),Color(red:0.34,green:0.27,blue:0.18)]
+                        let fill=GraphicsContext.Shading.linearGradient(Gradient(colors:zip(alive,dryColors).map{blend($0,$1,wilt)}),startPoint:CGPoint(x:40,y:top-20),endPoint:CGPoint(x:65,y:top+12))
                         for r in [CGRect(x:30,y:top-14,width:30,height:29),CGRect(x:52,y:top-14,width:29,height:29),CGRect(x:39,y:top-21,width:32,height:31)] { c.fill(Path(ellipseIn:r),with:fill) }
-                        if flower && !dormant {
+                        if flower && (!dormant || (dead && death<0.6)) {
                             for point in [CGPoint(x:44,y:top-5),CGPoint(x:63,y:top-4),CGPoint(x:54,y:top-14)] {
                                 for a in 0..<5 { let angle=Double(a)*Double.pi*2/5; c.fill(Path(ellipseIn:CGRect(x:point.x+cos(angle)*3-2.8,y:point.y+sin(angle)*3-2.8,width:5.6,height:5.6)),with:.color(Color(red:1,green:0.89,blue:0.92))) }
                                 c.fill(Path(ellipseIn:CGRect(x:point.x-1.7,y:point.y-1.7,width:3.4,height:3.4)),with:.color(.yellow.opacity(0.85)))
@@ -78,12 +94,25 @@ struct GrowingTree: View {
                     }
                 }
                 if dead {
-                    for x in [activeX-14,activeX+12] { ellipse(CGRect(x:x,y:46,width:7,height:3),Color(red:0.64,green:0.46,blue:0.30)) }
-                    ctx.draw(Text("×").font(.system(size:14,weight:.bold)).foregroundStyle(Color(red:0.74,green:0.56,blue:0.40)),at:CGPoint(x:activeX,y:35))
+                    let g=remainder/3600, top=51-(5+23*g)-9*g
+                    for i in 0..<15 {
+                        let delay=Double(i)*0.027
+                        if death>delay {
+                            let u=min(1,max(0,(death-delay)/(1-delay)))
+                            let x=activeX+cos(Double(i)*2.4)*12*g+sin(Double(i)*1.3)*12*u
+                            let y=top+(50-top)*u*u
+                            var petal=ctx;petal.translateBy(x:x,y:y);petal.rotate(by:.degrees(u>=1 ? Double(i%3-1)*12:Double(i)*47+220*u))
+                            petal.fill(Path(ellipseIn:CGRect(x:-2,y:-1,width:4,height:2)),with:.color(blend(Color(red:1,green:0.81,blue:0.86),Color(red:0.57,green:0.40,blue:0.23),death)))
+                        }
+                    }
                 }
                 if n>0 { ctx.draw(Text("\(n)×").font(.system(size:8,weight:.semibold)).foregroundStyle(Color(red:0.66,green:0.85,blue:0.71)),at:CGPoint(x:23,y:55)) }
             }
         }.frame(width:110,height:58)
+        .task(id:dead) {
+            deathAnimating=dead && animated && !reduceMotion && deathProgress()<1
+            if deathAnimating {try? await Task.sleep(for:.seconds(max(0,1-deathProgress())*3.4));if !Task.isCancelled {deathAnimating=false}}
+        }
         .accessibilityLabel((dead ? "Dead tree. Cancelled round. " : "") + treeText(elapsed()) + (phase == .paused ? ", dry tree, watering paused" : isGarden(elapsed()) ? ", garden grown" : ", growing your grove"))
     }
 }
@@ -110,7 +139,7 @@ struct PetView: View {
     var reset: () -> Void = {}
     var body: some View {
         VStack(spacing: 3) {
-            GrowingTree(phase: model.pomodoroEnabled && ["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase, animated: model.petVisible && petAnimations, flower:model.pomodoroEnabled, dead:model.pomodoro.stage=="dead", elapsed: { model.pomodoroEnabled ? model.elapsed:model.growthElapsed })
+            GrowingTree(phase: model.pomodoroEnabled && ["break","ready"].contains(model.pomodoro.stage) ? .finished:model.phase, animated: model.petVisible && petAnimations, flower:model.pomodoroEnabled, dead:model.pomodoro.stage=="dead", deathProgress:{model.deathProgress}, elapsed: { model.pomodoroEnabled ? model.elapsed:model.growthElapsed })
                 .scaleEffect(0.76).frame(width: 110, height: 42)
                 .overlay(PetInteraction(showOptions: showOptions))
             Text(model.menuTime)

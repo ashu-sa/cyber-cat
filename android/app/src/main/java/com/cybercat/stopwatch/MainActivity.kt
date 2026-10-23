@@ -299,6 +299,7 @@ class MainActivity: Activity() {
         root.addView(button("App blocking · "+(if(!on)"Off" else if(!allowed)"Permission needed" else "On")) {focusApps()}.apply {gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(18),0,dp(18),0)})
         root.addView(text("25-minute rounds save automatically · Next round is always your choice",11f,muted).apply {gravity=Gravity.CENTER;setPadding(dp(8),dp(12),dp(8),dp(4))})
         if(rest || ready)root.addView(button("End Pomodoro","End Pomodoro · completed rounds saved") {cancelPomodoroDialog()}.apply {setTextColor(muted)})
+        root.addView(button("Fast-forward tree preview") {treePreviewDialog()})
         updateGrowth()
     }
     private fun timerPage() {
@@ -354,6 +355,38 @@ class MainActivity: Activity() {
             root.addView(text(if(pomoStage=="dead" && Repository.pomodoroEnabled) "Cancelled · No partial focus time saved" else if(phase=="finished") "Session stopped · Save, resume or reset when you’re ready." else "Your timer continues in the notification shade.",12f,Color.LTGRAY).apply { gravity=Gravity.CENTER })
             if(phase!="finished" && !Repository.pomodoroEnabled) root.addView(button("Cancel session…") { AlertDialog.Builder(this).setTitle("Discard this session?").setMessage("This session won’t be saved.").setNegativeButton("Keep session",null).setPositiveButton("Discard") { _,_-> safe { if(Repository.pomodoroEnabled)Repository.cancelPomodoro() else Repository.discard(); service("SYNC"); render() } }.show() })
         }
+    }
+    private fun treePreviewDialog() {
+        val dialog=Dialog(this)
+        val content=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(22),dp(22),dp(22),dp(16));setBackgroundColor(bg)}
+        content.addView(text("The life of a little tree",23f,cyan))
+        content.addView(text("Fast-forward preview · Your timer and history stay untouched",12f,Color.rgb(161,181,165)))
+        val tree=TreeView(this);content.addView(tree,LinearLayout.LayoutParams(-1,dp(200)))
+        val stage=text("",17f,cyan).apply {gravity=Gravity.CENTER};content.addView(stage)
+        val hint=text("",12f,Color.rgb(161,181,165)).apply {gravity=Gravity.CENTER};content.addView(hint)
+        val slider=SeekBar(this).apply {max=27000;contentDescription="Tree lifecycle preview"};content.addView(slider)
+        val controls=LinearLayout(this).apply {gravity=Gravity.CENTER};content.addView(controls)
+        var position=0f;var playing=true;var last=SystemClock.elapsedRealtime()
+        val play=button("Ⅱ","Pause preview") {};val replay=button("↺","Replay preview") {};controls.addView(play,LinearLayout.LayoutParams(dp(54),dp(48)));controls.addView(replay,LinearLayout.LayoutParams(dp(54),dp(48)))
+        fun draw() {
+            val frame=TreePreviewFrame.at(position)
+            tree.previewMillis=frame.elapsed;tree.previewFlower=true;tree.previewDeath=frame.death;tree.previewMotionTime=position.toDouble()
+            tree.previewPhase=if(frame.dead)"dead" else if(playing && (position<10 || position>=12 && position<20))"running" else "resting";tree.refresh()
+            stage.text=frame.title;hint.text=if(frame.dead)"Water stops. Petals fall. The stem droops and dries." else "25 minutes of focus shown in 10 seconds."
+            slider.progress=(position*1000).toInt();play.text=if(playing)"Ⅱ" else "▶";play.contentDescription=if(playing)"Pause preview" else "Play preview"
+        }
+        val previewHandler=Handler(Looper.getMainLooper())
+        lateinit var tick:Runnable
+        tick=Runnable {if(dialog.isShowing && playing){val now=SystemClock.elapsedRealtime();position=(position+(now-last)/1000f).coerceAtMost(27f);last=now;if(position>=27)playing=false;draw();if(playing)previewHandler.postDelayed(tick,50)}}
+        play.setOnClickListener {if(position>=27)position=0f;playing=!playing;last=SystemClock.elapsedRealtime();previewHandler.removeCallbacks(tick);draw();if(playing)previewHandler.post(tick)}
+        replay.setOnClickListener {position=0f;playing=true;last=SystemClock.elapsedRealtime();previewHandler.removeCallbacks(tick);draw();previewHandler.post(tick)}
+        slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar:SeekBar?,value:Int,user:Boolean){if(user){position=value/1000f;last=SystemClock.elapsedRealtime();draw()}}
+            override fun onStartTrackingTouch(bar:SeekBar?){}
+            override fun onStopTrackingTouch(bar:SeekBar?){}
+        })
+        content.addView(button("Close") {dialog.dismiss()});dialog.setContentView(ScrollView(this).apply {addView(content);isFillViewport=true});dialog.setOnDismissListener {previewHandler.removeCallbacksAndMessages(null)}
+        dialog.show();dialog.window?.setLayout(-1,(resources.displayMetrics.heightPixels*.88).toInt());draw();previewHandler.post(tick)
     }
     private fun cancelPomodoroDialog() {
         AlertDialog.Builder(this).setTitle("Cancel Pomodoro?")
@@ -444,6 +477,7 @@ class MainActivity: Activity() {
         } }
     }
     private fun settings() {
+        root.addView(button("Fast-forward tree preview") {treePreviewDialog()})
         root.addView(button("Account / Sync") { accountDialog() })
         root.addView(text(if(Cloud.owner!=null) "${Cloud.username} · ${Cloud.status}" else "Local only · sign in to sync devices",13f,Color.LTGRAY))
         root.addView(text("Your floating grove",24f))
@@ -466,7 +500,7 @@ class MainActivity: Activity() {
         root.addView(text(if(Build.VERSION.SDK_INT<33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED) "Notifications enabled · background controls ready" else "Notifications disabled · enable for background controls",13f,Color.LTGRAY))
         root.addView(button("Notification settings") { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName)) })
         root.addView(button("Export session history") { exportHistory() })
-        root.addView(text("Focanopy · 1.9.0",12f,cyan))
+        root.addView(text("Focanopy · 1.10.0",12f,cyan))
         root.addView(text("Swipe the app away without losing the timer. Android’s Force stop, reboot, and some battery managers can stop the service; reopen Focanopy to restore the saved session. No internet or account is needed.",13f,Color.LTGRAY))
     }
 }

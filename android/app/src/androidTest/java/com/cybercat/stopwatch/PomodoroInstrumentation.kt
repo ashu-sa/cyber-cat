@@ -92,8 +92,14 @@ class PomodoroInstrumentation:Instrumentation() {
             check(completed==1500000L)
             runOnMainSync {Repository.engine.accumulated=1700000;Repository.engine.anchor=SystemClock.elapsedRealtime();Repository.finish();check(Repository.engine.phase=="running");Repository.cancelPomodoro()}
             check(Repository.pomodoro.stage=="dead");check(Repository.sessions.first {it.getString("name")=="Pomodoro focus"}.getLong("duration")==1500000L)
-            screenshot("android-pomodoro-dead.png")
+            screenshot("android-pomodoro-withering.png")
+            SystemClock.sleep(2400);screenshot("android-pomodoro-dead.png")
             runOnMainSync {Repository.start();check(Repository.engine.elapsed()<1000);check(Repository.pomodoro.target==Pomodoro.FOCUS);Repository.discard()}
+            val savedBefore=Repository.sessions.toString()
+            runOnMainSync {find(activity.window.decorView,"Fast-forward tree preview")!!.performClick()}
+            screenshot("android-tree-lifecycle-preview.png")
+            check(Repository.engine.phase=="idle" && savedBefore==Repository.sessions.toString())
+            check(activeRoot().findAccessibilityNodeInfosByText("Close").first().performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));waitForIdleSync()
             runOnMainSync {Repository.selectMode(false);Repository.start();Repository.engine.accumulated=3600000;Repository.engine.anchor=SystemClock.elapsedRealtime();Repository.advancePomodoro()}
             check(Repository.engine.phase=="running" && Repository.engine.elapsed()>=3600000)
             runOnMainSync {Repository.discard();targetContext.stopService(Intent(targetContext,TimerService::class.java));activity.finish()}
