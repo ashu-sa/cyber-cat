@@ -281,7 +281,7 @@ struct HistoryView: View {
                         .frame(width: 38, height: 38)
                         .background(Color.cyber.opacity(0.1), in: Circle())
                 }.buttonStyle(.plain).help("Google profile").accessibilityLabel("Google profile")
-                    .sheet(isPresented: $accountOpen) { AccountView(model: model) }
+                    .popover(isPresented: $accountOpen, arrowEdge: .trailing) { AccountView(model: model) }
                 Button("Today") { selectedDate = Date(); period = .day }.buttonStyle(.bordered)
             }
             HStack(spacing: 12) {

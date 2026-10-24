@@ -142,7 +142,7 @@ final class FloatingPanel: NSPanel {
     }
     func showAccount() {
         if accountWindow == nil {
-            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:460,height:570),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            let w=NSWindow(contentRect:NSRect(x:0,y:0,width:354,height:320),styleMask:[.titled,.closable],backing:.buffered,defer:false)
             w.title="Focanopy · Account"; w.isReleasedWhenClosed=false; w.contentView=NSHostingView(rootView:AccountView(model:model,onClose:{ [weak self] in self?.accountWindow?.orderOut(nil) })); w.center(); accountWindow=w
         }
         NSApp.activate(ignoringOtherApps:true); accountWindow?.makeKeyAndOrderFront(nil)
