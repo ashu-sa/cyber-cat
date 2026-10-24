@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Security
+import LocalAuthentication
 import AuthenticationServices
 import CryptoKit
 import AppKit
@@ -38,7 +39,11 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
         } else if update != errSecSuccess { throw NSError(domain:NSOSStatusErrorDomain,code:Int(update)) }
         return nil
     }
+    // Startup must never wait for an invisible Keychain authorization dialog.
+    // Preserve the saved credential if access needs user interaction.
     var read=key; read[kSecReturnData as String]=true; read[kSecMatchLimit as String]=kSecMatchLimitOne
+    let context = LAContext(); context.interactionNotAllowed = true
+    read[kSecUseAuthenticationContext as String] = context
     var result: CFTypeRef?; let status=SecItemCopyMatching(read as CFDictionary,&result)
     if status == errSecItemNotFound { return nil }
     guard status == errSecSuccess else { throw NSError(domain:NSOSStatusErrorDomain,code:Int(status)) }
@@ -114,6 +119,7 @@ struct GooglePKCE {
     @Published var googleSignInActive=false
     private var googleBrowser: GoogleBrowserSignIn?
     private var googleRequestID: UUID?
+    private var restoreRequestID: UUID?
     let directory: URL
     var onChange: (() -> Void)?
     var owner: String? { login?.user.id }
@@ -122,9 +128,32 @@ struct GooglePKCE {
     init(directory: URL, enabled: Bool, vaultService:String = "CyberCat.Sync") {
         self.directory=directory; self.persistCredentials=enabled; self.vaultService=vaultService
         guard enabled else { return }
-        do {
-            if let data=try credential(service:vaultService) { login=try cloudDecoder().decode(CloudLogin.self,from:data); cache=try load(owner!); status="Saved offline · waiting to sync" }
-        } catch { login=nil; status="Couldn’t open secure account storage. Your local history is safe." }
+        let requestID = UUID(); restoreRequestID = requestID; busy = true
+        status = "Restoring your saved account…"
+        // Legacy Keychain services can stall even with interaction disabled.
+        // Never perform the OS credential read on the UI thread.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result { try credential(service: vaultService) }
+            Task { @MainActor [weak self] in
+                guard let self, self.restoreRequestID == requestID else { return }
+                self.restoreRequestID = nil; self.busy = false
+                do {
+                    if let data = try result.get() {
+                        let restored = try cloudDecoder().decode(CloudLogin.self, from: data)
+                        let restoredCache = try self.load(restored.user.id)
+                        self.login = restored; self.cache = restoredCache
+                        self.status = "Saved offline · waiting to sync"; self.onChange?()
+                        await self.sync()
+                    } else { self.status = "Local only" }
+                } catch { self.status = "Your saved login needs Keychain access. Your account and history are preserved." }
+            }
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard let self, self.restoreRequestID == requestID else { return }
+            self.restoreRequestID = nil; self.busy = false
+            self.status = "Keychain isn’t responding. You can keep focusing locally. Your saved account and history are preserved."
+        }
     }
     private func file(_ owner: String) -> URL { directory.appendingPathComponent("cloud-\(owner).json") }
     private func load(_ owner: String) throws -> CloudCache { let f=file(owner); return FileManager.default.fileExists(atPath:f.path) ? try JSONDecoder().decode(CloudCache.self,from:Data(contentsOf:f)) : CloudCache() }
