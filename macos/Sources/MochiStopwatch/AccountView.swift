@@ -24,7 +24,7 @@ struct AccountView: View {
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
             if cloud.owner != nil {
                 Text("Your grove, on every device.").font(.callout).foregroundStyle(.secondary)
-                if cloud.busy { ProgressView().controlSize(.small) }
+                if cloud.busy { SyncArrows(active: true) }
                 else { Label(cloud.status, systemImage: "cloud").font(.caption).foregroundStyle(.secondary) }
                 if !cloud.cache.conflicts.isEmpty {
                     Text("Choose which session edits to keep.").font(.caption)
@@ -84,13 +84,27 @@ struct JournalSyncButton: View {
             }
         } label: {
             Group {
-                if cloud.busy { ProgressView().controlSize(.small) }
-                else { Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 18, weight: .medium)) }
+                SyncArrows(active: cloud.busy)
             }.frame(width: 38, height: 38)
                 .foregroundStyle(Color.cyber)
                 .background(Color.cyber.opacity(0.1), in: Circle())
         }.buttonStyle(.plain).disabled(cloud.busy)
             .accessibilityLabel(cloud.busy ? "Syncing sessions" : "Sync sessions")
             .help(cloud.needsCredentialRestore ? "Restore saved sign-in and sync" : (cloud.owner == nil ? "Connect Google to sync devices" : cloud.status + " · Click to sync"))
+    }
+}
+
+private struct SyncArrows: View {
+    let active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var turning = false
+    var body: some View {
+        Image(systemName: "arrow.triangle.2.circlepath")
+            .font(.system(size: 18, weight: .medium))
+            .rotationEffect(.degrees(turning ? 360 : 0))
+            .animation(turning ? .linear(duration: 1.2).repeatForever(autoreverses: false) : nil, value: turning)
+            .onAppear { turning = active && !reduceMotion }
+            .onChange(of: active) { _, value in turning = value && !reduceMotion }
+            .onChange(of: reduceMotion) { _, value in turning = active && !value }
     }
 }
