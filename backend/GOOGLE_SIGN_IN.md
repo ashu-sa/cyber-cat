@@ -2,9 +2,13 @@
 
 All four native clients use **Supabase Auth + Google OAuth with PKCE**. One Google **Web application** OAuth client supports Android, macOS, Windows and Ubuntu; no Google client secret belongs in an APK, executable, repository or chat.
 
+## Hosted configuration status
+
+Verified on 24 October 2026: Google is enabled in Supabase, nonce checks remain enabled, users must have an email, and both native redirect patterns below are saved. The authorization endpoint redirects to Google with the configured Web client and only `email profile` scopes. Google Cloud remains External / Testing; basic identity-only requests are exempt from the test-user allowlist restriction ([Google audience policy](https://support.google.com/cloud/answer/15549945?hl=en)). A full user-driven consent, native callback and cross-device sync test remains to be completed. No client secret is stored in the repository.
+
 ## One-time owner setup
 
-1. Open [Google Auth Platform](https://console.cloud.google.com/auth/overview). Choose a Google Cloud project (or create a Focanopy project). Configure Branding with the app name **Focanopy** and your support/developer contact email. Set Audience to External if people outside your organization need to sign in. While in Testing, add your Google account as a test user. Publish to Production when ready for other users.
+1. Open [Google Auth Platform](https://console.cloud.google.com/auth/overview). Choose a Google Cloud project (or create a Focanopy project). Configure Branding with the app name **Focanopy** and your support/developer contact email. Set Audience to External if people outside your organization need to sign in. Basic identity-only sign-in can be used while in Testing without adding test users; if adding other scopes, review Google’s test-user restrictions. Publish to Production when your branding and public launch are ready.
 2. Add only the basic scopes **openid**, **email**, and **profile**. The app does not request Drive, Gmail, calendar or contacts access.
 3. Under **Clients → Create client**, choose **Web application**. Name it **Focanopy Supabase**. Add this **Authorized redirect URI** exactly:
 

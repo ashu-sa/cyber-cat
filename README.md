@@ -149,7 +149,7 @@ Rewards are derived from session durations. Short sessions add up, and edits or 
 
 **Cross-device history:** sign in once with the same username and four-digit PIN on each device. Completed sessions sync with their source-device labels; active timers stay on their own devices. Offline edits are retained, and conflicting edits have explicit resolution choices. Existing local history uploads only when you choose to include it. See [accounts & sync](backend/README.md).
 
-**Google sign-in:** the clients include Google OAuth with PKCE, but the hosted provider is not enabled yet. Live Google sign-in requires the owner’s [one-time setup](backend/GOOGLE_SIGN_IN.md). Local timing and username/PIN sign-in work independently.
+**Google sign-in:** Google OAuth with PKCE is enabled on the hosted backend for Android, macOS, Windows and Linux. Open **Account / Sync → Continue with Google**; login is remembered on your device. Existing username/PIN accounts remain separate. See [setup and verification](backend/GOOGLE_SIGN_IN.md).
 
 <details>
 <summary><strong>Desktop keyboard shortcuts</strong></summary>
