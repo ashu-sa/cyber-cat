@@ -274,7 +274,14 @@ struct HistoryView: View {
                     Text("Your time, at a glance.").font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Account / Sync") { accountOpen=true }.sheet(isPresented:$accountOpen) { AccountView(model:model) }
+                Button { accountOpen = true } label: {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 23, weight: .medium))
+                        .foregroundStyle(Color.cyber)
+                        .frame(width: 38, height: 38)
+                        .background(Color.cyber.opacity(0.1), in: Circle())
+                }.buttonStyle(.plain).help("Google profile").accessibilityLabel("Google profile")
+                    .sheet(isPresented: $accountOpen) { AccountView(model: model) }
                 Button("Today") { selectedDate = Date(); period = .day }.buttonStyle(.bordered)
             }
             HStack(spacing: 12) {

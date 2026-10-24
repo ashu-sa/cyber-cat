@@ -364,7 +364,7 @@ final class FloatingPanel: NSPanel {
                 Divider()
                 Button("Pomodoro & App Blocking",action:delegate.showFocusSettings)
         Button("View Session History",action:delegate.showHistory)
-                Button("Account / Sync",action:delegate.showAccount)
+                Button(action: delegate.showAccount) { Image(systemName: "person.crop.circle") }.help("Google profile").accessibilityLabel("Google profile")
             }
         }
     }
@@ -393,7 +393,7 @@ struct MenuContents: View {
         Button("Close Pet ×",action:delegate.closePet)
         Button("Pomodoro & App Blocking",action:delegate.showFocusSettings)
         Button("View Session History",action:delegate.showHistory)
-                Button("Account / Sync",action:delegate.showAccount)
+                Button(action: delegate.showAccount) { Image(systemName: "person.crop.circle") }.help("Google profile").accessibilityLabel("Google profile")
         if let error = model.error { Divider(); Text(error); Button("Dismiss Error") { model.error = nil } }
         Divider(); Button("Quit App",action:delegate.quit).keyboardShortcut("q")
     }
