@@ -27,7 +27,7 @@ struct CloudCache: Codable { var records: [CloudRecord] = []; var conflicts: [St
 struct CloudReply: Codable { var records: [CloudRecord]; var conflicts: [String] }
 func cloudEncoder() -> JSONEncoder { let e=JSONEncoder(); e.keyEncodingStrategy = .convertToSnakeCase; return e }
 func cloudDecoder() -> JSONDecoder { let d=JSONDecoder(); d.keyDecodingStrategy = .convertFromSnakeCase; return d }
-private func credential(_ data: Data? = nil, clear: Bool = false, service:String = "CyberCat.Sync") throws -> Data? {
+private func credential(_ data: Data? = nil, clear: Bool = false, service:String = "CyberCat.Sync", allowInteraction: Bool = false) throws -> Data? {
     let key: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:"session"]
     if clear { let s=SecItemDelete(key as CFDictionary); if s != errSecSuccess && s != errSecItemNotFound { throw NSError(domain:NSOSStatusErrorDomain,code:Int(s)) }; return nil }
     if let data {
@@ -42,7 +42,7 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
     // Startup must never wait for an invisible Keychain authorization dialog.
     // Preserve the saved credential if access needs user interaction.
     var read=key; read[kSecReturnData as String]=true; read[kSecMatchLimit as String]=kSecMatchLimitOne
-    let context = LAContext(); context.interactionNotAllowed = true
+    let context = LAContext(); context.interactionNotAllowed = !allowInteraction
     read[kSecUseAuthenticationContext as String] = context
     var result: CFTypeRef?; let status=SecItemCopyMatching(read as CFDictionary,&result)
     if status == errSecItemNotFound { return nil }
@@ -127,6 +127,7 @@ struct GooglePKCE {
     private let vaultService: String
     @Published var authenticating=false
     @Published var googleSignInActive=false
+    @Published var needsCredentialRestore = false
     private var googleBrowser: GoogleBrowserSignIn?
     private var googleRequestID: UUID?
     private var restoreRequestID: UUID?
@@ -146,7 +147,7 @@ struct GooglePKCE {
             let result = Result { try credential(service: vaultService) }
             Task { @MainActor [weak self] in
                 guard let self, self.restoreRequestID == requestID else { return }
-                self.restoreRequestID = nil; self.busy = false
+                self.restoreRequestID = nil; self.busy = false; self.needsCredentialRestore = false
                 do {
                     if let data = try result.get() {
                         let restored = try cloudDecoder().decode(CloudLogin.self, from: data)
@@ -155,14 +156,38 @@ struct GooglePKCE {
                         self.status = "Saved offline · waiting to sync"; self.onChange?()
                         await self.sync()
                     } else { self.status = "Local only" }
-                } catch { self.status = "Your saved login needs Keychain access. Your account and history are preserved." }
+                } catch { self.needsCredentialRestore = true; self.status = "Your saved login needs Keychain access. Your account and history are preserved." }
             }
         }
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(4))
             guard let self, self.restoreRequestID == requestID else { return }
-            self.restoreRequestID = nil; self.busy = false
+            self.busy = false; self.needsCredentialRestore = true
             self.status = "Keychain isn’t responding. You can keep focusing locally. Your saved account and history are preserved."
+        }
+    }
+    func restoreSavedAccount() async {
+        guard !busy else { return }
+        restoreRequestID = nil; busy = true
+        status = "Restoring saved sign-in from Keychain…"
+        defer { busy = false }
+        do {
+            let service = vaultService
+            let data: Data? = try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do { continuation.resume(returning: try credential(service: service, allowInteraction: true)) }
+                    catch { continuation.resume(throwing: error) }
+                }
+            }
+            if let data {
+                let restored = try cloudDecoder().decode(CloudLogin.self, from: data)
+                let restoredCache = try load(restored.user.id)
+                login = restored; cache = restoredCache; needsCredentialRestore = false
+                status = "Saved sign-in restored"; onChange?()
+            } else { needsCredentialRestore = false; status = "Local only" }
+        } catch {
+            needsCredentialRestore = true
+            status = "macOS couldn’t unlock your saved sign-in. Your account is still saved. Allow Focanopy access in the Keychain prompt, then retry Sync."
         }
     }
     private func file(_ owner: String) -> URL { directory.appendingPathComponent("cloud-\(owner).json") }

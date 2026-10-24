@@ -20,7 +20,7 @@ struct AccountView: View {
             }
             Image(systemName: cloud.owner == nil ? "person.crop.circle" : "person.crop.circle.badge.checkmark")
                 .font(.system(size: 38, weight: .light)).foregroundStyle(forest)
-            Text(cloud.owner == nil ? (cloud.googleSignInActive ? "Connecting with Google" : "Sign in with Google") : cloud.username)
+            Text(cloud.owner == nil ? (cloud.needsCredentialRestore ? "Restoring your profile" : (cloud.googleSignInActive ? "Connecting with Google" : "Sign in with Google")) : cloud.username)
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
             if cloud.owner != nil {
                 Text("Your grove, on every device.").font(.callout).foregroundStyle(.secondary)
@@ -39,11 +39,11 @@ struct AccountView: View {
             } else {
                 if cloud.busy {
                     ProgressView().controlSize(.small)
-                    Text("Choose your Google account to continue.").font(.caption).foregroundStyle(.secondary)
+                    Text(cloud.needsCredentialRestore ? "Unlocking your saved sign-in with macOS…" : "Choose your Google account to continue.").font(.caption).foregroundStyle(.secondary)
                 } else {
                     Text(model.phase != .idle ? "Finish your timer to connect your account." : cloud.status)
                         .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    Button("Continue with Google", action: connect)
+                    Button(cloud.needsCredentialRestore ? "Restore saved sign-in" : "Continue with Google", action: connect)
                         .buttonStyle(.borderedProminent).tint(forest).disabled(model.phase != .idle)
                 }
                 Text("No password or registration form.").font(.caption).foregroundStyle(.secondary)
@@ -62,7 +62,11 @@ struct AccountView: View {
     }
     private func connect() {
         guard !cloud.busy, model.phase == .idle else { return }
-        Task { await cloud.authenticateGoogle(existing: []); if cloud.owner != nil { await cloud.sync() } }
+        Task {
+            if cloud.needsCredentialRestore { await cloud.restoreSavedAccount() }
+            else { await cloud.authenticateGoogle(existing: []) }
+            if cloud.owner != nil { await cloud.sync() }
+        }
     }
     private func close() { cloud.cancelGoogleSignIn(); if let onClose { onClose() } else { dismiss() } }
     private func resolve(_ keep: Bool) { do { try cloud.resolve(keepLocal: keep); Task { await cloud.sync() } } catch { cloud.status = error.localizedDescription } }
@@ -72,23 +76,21 @@ struct JournalSyncButton: View {
     @ObservedObject var cloud: CloudAccount
     var onSignIn: () -> Void
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Button {
-                if cloud.owner == nil { onSignIn() }
-                else { Task { await cloud.sync() } }
-            } label: {
-                HStack(spacing: 6) {
-                    if cloud.busy { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "arrow.triangle.2.circlepath") }
-                    Text(cloud.busy ? "Syncing…" : "Sync")
-                }
-            }.buttonStyle(.bordered).disabled(cloud.busy)
-                .help(cloud.owner == nil ? "Sign in with Google to sync your devices" : "Upload saved sessions and refresh sessions from your other devices")
-            if cloud.owner != nil {
-                Text(cloud.status).font(.caption2).foregroundStyle(.secondary)
-                    .lineLimit(2).frame(maxWidth: 190, alignment: .trailing)
-                    .accessibilityLabel("Sync status: \(cloud.status)")
+        Button {
+            Task {
+                if cloud.needsCredentialRestore { await cloud.restoreSavedAccount() }
+                if cloud.owner != nil { await cloud.sync() }
+                else if !cloud.needsCredentialRestore { onSignIn() }
             }
-        }
+        } label: {
+            Group {
+                if cloud.busy { ProgressView().controlSize(.small) }
+                else { Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 18, weight: .medium)) }
+            }.frame(width: 38, height: 38)
+                .foregroundStyle(Color.cyber)
+                .background(Color.cyber.opacity(0.1), in: Circle())
+        }.buttonStyle(.plain).disabled(cloud.busy)
+            .accessibilityLabel(cloud.busy ? "Syncing sessions" : "Sync sessions")
+            .help(cloud.needsCredentialRestore ? "Restore saved sign-in and sync" : (cloud.owner == nil ? "Connect Google to sync devices" : cloud.status + " · Click to sync"))
     }
 }
