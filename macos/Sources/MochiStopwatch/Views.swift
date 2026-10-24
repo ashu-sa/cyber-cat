@@ -274,6 +274,7 @@ struct HistoryView: View {
                     Text("Your time, at a glance.").font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
+                JournalSyncButton(cloud: model.cloud, onSignIn: { accountOpen = true })
                 Button { accountOpen = true } label: {
                     Image(systemName: "person.crop.circle")
                         .font(.system(size: 23, weight: .medium))

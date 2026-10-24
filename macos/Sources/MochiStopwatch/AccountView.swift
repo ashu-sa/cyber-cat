@@ -67,3 +67,28 @@ struct AccountView: View {
     private func close() { cloud.cancelGoogleSignIn(); if let onClose { onClose() } else { dismiss() } }
     private func resolve(_ keep: Bool) { do { try cloud.resolve(keepLocal: keep); Task { await cloud.sync() } } catch { cloud.status = error.localizedDescription } }
 }
+
+struct JournalSyncButton: View {
+    @ObservedObject var cloud: CloudAccount
+    var onSignIn: () -> Void
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Button {
+                if cloud.owner == nil { onSignIn() }
+                else { Task { await cloud.sync() } }
+            } label: {
+                HStack(spacing: 6) {
+                    if cloud.busy { ProgressView().controlSize(.small) }
+                    else { Image(systemName: "arrow.triangle.2.circlepath") }
+                    Text(cloud.busy ? "Syncing…" : "Sync")
+                }
+            }.buttonStyle(.bordered).disabled(cloud.busy)
+                .help(cloud.owner == nil ? "Sign in with Google to sync your devices" : "Upload saved sessions and refresh sessions from your other devices")
+            if cloud.owner != nil {
+                Text(cloud.status).font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(2).frame(maxWidth: 190, alignment: .trailing)
+                    .accessibilityLabel("Sync status: \(cloud.status)")
+            }
+        }
+    }
+}

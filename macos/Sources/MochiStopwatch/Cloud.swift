@@ -49,6 +49,16 @@ private func credential(_ data: Data? = nil, clear: Bool = false, service:String
     guard status == errSecSuccess else { throw NSError(domain:NSOSStatusErrorDomain,code:Int(status)) }
     return result as? Data
 }
+// Keep Keychain writes off the UI thread during sign-in and manual sync.
+private func saveCredential(_ data: Data, service: String) async throws {
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        DispatchQueue.global(qos: .userInitiated).async {
+            do { _ = try credential(data, service: service); continuation.resume() }
+            catch { continuation.resume(throwing: error) }
+        }
+    }
+}
+
 struct GooglePKCE {
     let verifier: String
     let state: String
@@ -191,12 +201,12 @@ struct GooglePKCE {
         guard !busy else { return }; busy=true; authenticating=true; defer { busy=false; authenticating=false }
         do {
             let result:CloudLogin=try await request("/functions/v1/cybercat-account",["action":signup ? "signup":"login","username":username,"pin":pin])
-            try acceptLogin(result,existing:existing)
+            try await acceptLogin(result,existing:existing)
         } catch { status=error.localizedDescription }
     }
-    private func acceptLogin(_ result: CloudLogin,existing: [Session]) throws {
+    private func acceptLogin(_ result: CloudLogin,existing: [Session]) async throws {
         let loaded=try load(result.user.id)
-        if persistCredentials { _ = try credential(cloudEncoder().encode(result),service:vaultService) }; login=result; cache=loaded
+        if persistCredentials { try await saveCredential(cloudEncoder().encode(result), service: vaultService) }; login=result; cache=loaded
         if !existing.isEmpty { try replace(visible+existing.filter { s in !visible.contains { $0.id == s.id } }) }
         status="Signed in · waiting to sync"; onChange?()
     }
@@ -220,7 +230,7 @@ struct GooglePKCE {
             let code=try pkce.code(callback)
             let result:CloudLogin=try await request("/auth/v1/token?grant_type=pkce",["auth_code":code,"code_verifier":pkce.verifier])
             guard googleRequestID == requestID else { throw CancellationError() }
-            try acceptLogin(result,existing:existing)
+            try await acceptLogin(result,existing:existing)
         } catch is CancellationError { status="Google sign-in cancelled. Your local history is safe." }
         catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin { status="Google sign-in cancelled. Your local history is safe." }
         catch { status=error.localizedDescription }
@@ -247,7 +257,7 @@ struct GooglePKCE {
         do {
             let refreshed:CloudLogin=try await request("/functions/v1/cybercat-account",["action":"refresh","refresh_token":login.refreshToken])
             guard self.owner == owner else { return }
-            if persistCredentials { _ = try credential(cloudEncoder().encode(refreshed),service:vaultService) }; self.login=refreshed
+            if persistCredentials { try await saveCredential(cloudEncoder().encode(refreshed), service: vaultService) }; self.login=refreshed
             let payload=try JSONSerialization.jsonObject(with:cloudEncoder().encode(sent))
             let reply:CloudReply=try await request("/rest/v1/rpc/sync_focus_sessions",["changes":payload],token:refreshed.accessToken)
             guard self.owner == owner else { return }
