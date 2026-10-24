@@ -18,13 +18,13 @@ Use the standard APK if you do not need app blocking. Keep Play Protect enabled.
 2. Tap ▶ to start. Tap Ⅱ to pause and ▶ to resume.
 3. The ongoing notification shows a system-managed live chronometer, with Pause/Resume and Finish actions.
 4. Finish opens the naming popup. Choose Job Apply, Upskill, Interview Prep, or Work, or type any custom name.
-5. Save opens the calendar journal at the session’s date. Close dismisses naming without discarding the finished session.
+5. Save opens the calendar journal. Keep for later dismisses naming without discarding the finished session; Resume and Reset remain available.
 
 Notifications are the default background experience. You do **not** need floating-window permission for stopwatch functionality. On Android 13+, denying notification permission can hide the notification from the shade even while the foreground service is running; use Settings → Notification settings to allow it.
 
 ## Optional floating tree
 
-Open **Settings → Enable floating tree…**, grant Android’s **Display over other apps** permission, then return to Focanopy. A small transparent tree appears above ordinary apps:
+Open **Settings → Floating tree**, grant Android’s **Display over other apps** permission, then return to Focanopy. A small transparent tree appears above ordinary apps:
 
 - Drag the tree to move it; position is remembered.
 - ▶ / Ⅱ starts, resumes, or pauses.
@@ -35,9 +35,15 @@ Open **Settings → Enable floating tree…**, grant Android’s **Display over 
 
 If the OS does not allow an overlay, notification controls remain available. Sensitive system screens, banking apps, lock screens, some manufacturers, and managed devices may hide overlays. No Accessibility service is requested. If launching the naming screen from the overlay is blocked by Android, the finished session remains available from the notification.
 
+## Compose MVP interface
+
+The main focus screen, journal, settings, profile bottom sheet, and in-app session naming use Jetpack Compose and Material 3. Page transitions, changing focus messages, progress, play/pause icons, session-list changes and sync arrows animate through Compose. System animation scaling is respected. The existing native tree renderer is hosted through `AndroidView`; timer state remains in `Repository` / `TimerEngine` and the foreground service, independent of composition and screen refreshes.
+
+The profile icon starts Google OAuth with PKCE in a secure Custom Tab, styled to match Focanopy. It returns through the existing exact callback and retains encrypted credentials in Android Keystore. No Google password is entered in the app and there is no separate registration form. When logged in, the profile sheet shows the saved account; the icon-only sync button uploads pending sessions and downloads device history. Existing local-only sessions are not silently imported. Actual Google account consent and cross-device validation require a user-driven sign-in; the tests cover OAuth callback handling, not personal Google credentials.
+
 ## Journal
 
-A month calendar shows daily active totals (`2h`, `1h 15m`, `45m`). Select a date to inspect its sessions; Day/Week/Month buttons show totals for the selected period. Today/Yesterday and browsed-month totals are displayed. Rename via ✎; delete via × with confirmation and Undo for the most recent deletion. Weeks start Monday; totals use each session’s local start date, excluding pauses.
+A month calendar shows daily active totals (`2h`, `1h 15m`, `45m`). Select a date to inspect its sessions; Day/Week/Month buttons show totals for the selected period. The selected Day/Week/Month total, trees or garden reward, and per-device totals are displayed. Open a session’s ⋮ menu to rename or delete; deletion requires confirmation and offers Undo. Weeks start Monday; totals use each session’s local start date, excluding pauses.
 
 ## Timing and lifecycle
 
@@ -61,28 +67,9 @@ Output: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Verification
 
-- Debug APK assembled successfully.
-- JVM tests cover: pause exclusion, resume, repeated Start protection, simulated long elapsed intervals, formatting, reset.
-- Android lint: **0 errors**; warnings are reviewed in the generated report.
-- Installed and tested on an **Android 15 / Pixel 8 Pro emulator**.
-- On-device instrumentation passed: launch, Start, foreground notification with chronometer, accurate Pause, category-name persistence, saved session in calendar, floating overlay after permission grant, and notification fallback when overlay permission was denied.
-- A native-view journal image was inspected for layout. Notification controls and overlay behavior have not been tested on physical phones or manufacturer-modified Android versions. Physical deep-sleep/reboot recovery was not exercised.
+Both standard and app-blocking builds pass lint and 18 JVM tests each. Four Compose UI tests on the isolated Android 15 QA emulator cover timer controls, save/rename, calendar/profile/settings, Pomodoro automatic completion, background timing and the standard APK’s exclusion of the Accessibility blocker. See **Compose device tests** below for the current commands. Screenshots use sample sessions, never personal activity.
 
-The instrumentation runner is included under `app/src/androidTest/` and refuses to run outside the separate `.qa` package. Use a disposable emulator and replace `emulator-5556` with that emulator’s serial. The primary installed app and account are not used:
-
-```sh
-./gradlew -PmvpQa :app:assembleQa :app:assembleQaAndroidTest
-adb -s emulator-5556 install -r -g app/build/outputs/apk/qa/app-qa.apk
-adb -s emulator-5556 install -r app/build/outputs/apk/androidTest/qa/app-qa-androidTest.apk
-# Clears only the isolated QA app. Never use the primary package here.
-adb -s emulator-5556 shell pm clear com.cybercat.stopwatch.qa
-adb -s emulator-5556 shell pm grant com.cybercat.stopwatch.qa android.permission.POST_NOTIFICATIONS
-adb -s emulator-5556 shell am instrument -w com.cybercat.stopwatch.qa.test/com.cybercat.stopwatch.SmokeInstrumentation
-adb -s emulator-5556 shell am force-stop com.cybercat.stopwatch.qa
-adb -s emulator-5556 shell am instrument -w -e mode recovery com.cybercat.stopwatch.qa.test/com.cybercat.stopwatch.SmokeInstrumentation
-```
-
-The end-to-end runner verifies notification Pause/Resume/Finish, category and manual save, Close/reopen preserving the name, rename/delete/undo, calendar selection after activity recreation, export, granted overlays and denied-permission notification fallback. The second invocation checks the paused checkpoint and saved history after process termination. `-PforestQa` selects the separate native screenshot/milestone runner. No test account or cloud credentials are needed.
+Physical-phone notification/overlay behavior, manufacturer battery policies, deep-sleep/reboot recovery, and real Google consent across devices still require device testing. Earlier View-based instrumentation files are historical and do not validate the new Compose screens.
 
 ## Android references
 
@@ -90,9 +77,9 @@ The end-to-end runner verifies notification Pause/Resume/Finish, category and ma
 - [Draw-over-other-apps permission](https://developer.android.com/reference/android/provider/Settings#ACTION_MANAGE_OVERLAY_PERMISSION)
 - [Monotonic clock including deep sleep](https://developer.android.com/reference/android/os/SystemClock#elapsedRealtime())
 
-## Shared account (v1.1)
+## Shared Google account
 
-Settings → Account / Sync supports username + four-digit PIN. Credentials persist using Android Keystore encryption; the PIN is not stored. INTERNET permission is used for optional sync. Existing sessions upload only on opt-in. See [backend guide](../backend/README.md).
+Tap the profile icon to connect a Google account. Encrypted credentials are retained in Android Keystore and the profile sheet shows the remembered account. Tap the sync arrows to upload/download sessions across devices signed into the same account. There is no Android username/PIN form. Existing synthetic username/PIN identities remain separate from Google identities; local sessions are not silently imported. See the [backend guide](../backend/GOOGLE_SIGN_IN.md).
 
 ## Focus forest
 
@@ -102,7 +89,7 @@ The trunk, leaves and crown grow continuously across the full hour. Each complet
 
 Android is Focanopy’s flagship application. The home screen includes saved daily time, tree counts, the live companion and progress to the next tree. Persistent bottom navigation opens Timer, Journal and Settings. Notification permissions and optional floating controls are visible in Settings; neither overlay permission nor an account is required for core focus timing.
 
-Settings → **Export session history** opens Android’s document picker to save the visible history as JSON. This export contains task names, times, durations and device metadata; credentials and PINs are never exported. The save dialog retains the task name in private app preferences until saved or discarded. Package ID and Keystore aliases retain the original namespace for upgrade compatibility.
+Settings → **Export session history** opens Android’s document picker to save the visible history as JSON. This export contains task names, times, durations and device metadata; credentials and PINs are never exported. The Compose save dialog retains its draft through Activity recreation. Package ID and Keystore aliases retain the original namespace for upgrade compatibility.
 
 Floating controls support dragging from the tree, timer, button surfaces and empty space. Movement beyond the drag threshold suppresses the click action; a regular click/tap still controls the stopwatch. Pausing never removes earned trees or saved focus time.
 
@@ -117,4 +104,18 @@ Closing the save popup preserves the unsaved session. Use **Resume Timer** to co
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
-`-PstandardQa :app:assembleStandardQa :app:assembleStandardQaAndroidTest` creates the isolated permission-reduced QA app. Its instrumentation verifies that the Accessibility declaration and implementation are absent and checks core timing, saving, and Pomodoro completion.
+`-PstandardQa` creates the isolated permission-reduced QA app; the AndroidX instrumentation runner executes `ComposeMvpTest`.
+
+### Compose device tests
+
+Use a disposable emulator installation with the `.qa` application ID:
+
+```sh
+./gradlew -PstandardQa -PcomposeQa :app:assembleStandardQa :app:assembleStandardQaAndroidTest
+adb -s emulator-5556 install -r app/build/outputs/apk/standardQa/app-standardQa.apk
+adb -s emulator-5556 install -r app/build/outputs/apk/androidTest/standardQa/app-standardQa-androidTest.apk
+adb -s emulator-5556 shell pm grant com.cybercat.stopwatch.qa android.permission.POST_NOTIFICATIONS
+adb -s emulator-5556 shell am instrument -w -e class com.cybercat.stopwatch.ComposeMvpTest com.cybercat.stopwatch.qa.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+These tests use Compose semantics to exercise actual start/pause/resume/save/rename, calendar totals, profile/settings, automatic Pomodoro saving, background timing, and the standard package’s absence of the Accessibility blocker. The older custom View-based instrumentation is historical; use these Compose tests for the current UI.

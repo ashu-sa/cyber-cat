@@ -1,9 +1,9 @@
-plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose") }
 android {
     namespace = "com.cybercat.stopwatch"
     compileSdk = 35
-    defaultConfig { applicationId = "com.cybercat.stopwatch"; minSdk = 26; targetSdk = 35; versionCode = 16; versionName = "1.12.1"; testInstrumentationRunner = if(project.hasProperty("standardQa")) "com.cybercat.stopwatch.StandardInstrumentation" else if(project.hasProperty("pomodoroQa")) "com.cybercat.stopwatch.PomodoroInstrumentation" else if(project.hasProperty("googleQa")) "com.cybercat.stopwatch.GoogleInstrumentation" else if(project.hasProperty("interactionQa")) "com.cybercat.stopwatch.InteractionInstrumentation" else if(project.hasProperty("mvpQa")) "com.cybercat.stopwatch.SmokeInstrumentation" else if(project.hasProperty("forestQa")) "com.cybercat.stopwatch.ForestInstrumentation" else if(project.hasProperty("cloudQa")) "com.cybercat.stopwatch.CloudInstrumentation" else "com.cybercat.stopwatch.SmokeInstrumentation" }
-    buildFeatures { buildConfig = true }
+    defaultConfig { applicationId = "com.cybercat.stopwatch"; minSdk = 26; targetSdk = 35; versionCode = 17; versionName = "1.13.0"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    buildFeatures { buildConfig = true; compose = true }
     buildTypes {
         getByName("debug") { buildConfigField("boolean", "APP_BLOCKING_AVAILABLE", "true") }
         getByName("release") { buildConfigField("boolean", "APP_BLOCKING_AVAILABLE", "true") }
@@ -21,4 +21,18 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
-dependencies { testImplementation("junit:junit:4.13.2") }
+dependencies {
+    implementation(platform("androidx.compose:compose-bom:2025.01.00"))
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.browser:browser:1.8.0")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.01.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("junit:junit:4.13.2")
+}

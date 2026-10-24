@@ -34,18 +34,18 @@ The preview uses the app’s native desktop tree renderer. Growth is accelerated
 
 ### Android · the primary app
 
-A focused timer, a readable journal, and optional Pomodoro—all in a consistent forest-green interface.
+The primary Android experience is built with **Jetpack Compose + Material 3**: warm cream surfaces, sage-green cards, animated focus transitions, a calendar journal, and a Google profile sheet. Tap the profile icon to connect through a secure in-app browser tab; the icon-only sync control combines sessions from devices using the same account.
 
 <table>
   <tr>
     <th>Focus & grow</th>
     <th>Your focus journal</th>
-    <th>Flower Pomodoro</th>
+    <th>Google profile</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/android-timer.png" alt="Android focus screen with overlapping trees, elapsed time, and icon-only controls" width="250" /></td>
-    <td><img src="docs/screenshots/android-journal.png" alt="Android month calendar showing daily focus totals, trees, and a garden day" width="250" /></td>
-    <td><img src="docs/screenshots/android-pomodoro-focus.png" alt="Android Pomodoro countdown with flower growth and elapsed focus time" width="250" /></td>
+    <td><img src="docs/screenshots/android-compose-growing.png" alt="Android focus screen with overlapping trees, elapsed time, and icon-only controls" width="250" /></td>
+    <td><img src="docs/screenshots/android-compose-journal.png" alt="Android month calendar showing daily focus totals, trees, and a garden day" width="250" /></td>
+    <td><img src="docs/screenshots/android-compose-profile.png" alt="Android Google sign-in bottom sheet" width="250" /></td>
   </tr>
 </table>
 
@@ -53,15 +53,15 @@ A focused timer, a readable journal, and optional Pomodoro—all in a consistent
 <summary><strong>More Android screens · settings, app blocking, and session saving</strong></summary>
 
 <table>
-  <tr><th>Make it yours</th><th>Apps & permissions</th><th>Save your session</th></tr>
+  <tr><th>Make it yours</th><th>Apps & permissions</th><th>Ready to focus</th></tr>
   <tr>
-    <td><img src="docs/screenshots/android-settings.png" alt="Grouped Android settings for the account, floating tree, appearance, and permissions" width="250" /></td>
+    <td><img src="docs/screenshots/android-compose-settings.png" alt="Grouped Android settings for the account, floating tree, appearance, and permissions" width="250" /></td>
     <td><img src="docs/screenshots/android-app-blocking-all.png" alt="App-blocking switches with app icons, browser exceptions, and permission status" width="250" /></td>
-    <td><img src="docs/screenshots/android-save.png" alt="Save dialog with task categories, a custom name field, and Close and Save actions" width="250" /></td>
+    <td><img src="docs/screenshots/android-compose-focus.png" alt="Android Compose idle focus screen with square start and finish controls" width="250" /></td>
   </tr>
 </table>
 
-Android also adapts the focus layout for shorter screens and larger text, keeping the timer controls ahead of the tree. [View the compact layout](docs/screenshots/android-compact.png).
+The focus page scrolls on shorter screens; navigation, profile, and sync remain available. Calendar selection and page scroll positions are retained when switching tabs. [Google profile sheet](docs/screenshots/android-compose-profile.png).
 
 </details>
 
